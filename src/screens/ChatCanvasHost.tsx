@@ -3,12 +3,17 @@ import { StyleSheet, View } from 'react-native';
 import { Caption } from '../components/ui';
 import type { AskPipEntryKind } from '../lib/askPip/catalog';
 import { tripDetailHostKey, type AskPipFrame } from '../lib/askPip/session';
+import type { ScannedReceipt } from '../lib/parseReceipt';
+import type { ScannedHolding } from '../lib/prices';
+import type { ExtractedTxn } from '../lib/types';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
 import { spacing } from '../theme';
+import type { PickedImage } from './AttachScreen';
 import { AdvancedImportScreen } from './AdvancedImportScreen';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
 import { BackupScreen } from './BackupScreen';
+import { BalanceScanScreen } from './BalanceScanScreen';
 import { BreakdownScreen } from './BreakdownScreen';
 import { BudgetScreen } from './BudgetScreen';
 import { CalendarScreen } from './CalendarScreen';
@@ -17,6 +22,7 @@ import { CategoryDetailScreen } from './CategoryDetailScreen';
 import { CommitmentsScreen } from './CommitmentsScreen';
 import { CurrencySettingsScreen } from './CurrencySettingsScreen';
 import { ExportScreen } from './ExportScreen';
+import { ExtractScreen } from './ExtractScreen';
 import { ManualEntryScreen } from './ManualEntryScreen';
 import { NetWorthHistoryScreen } from './NetWorthHistoryScreen';
 import { NetWorthScreen } from './NetWorthScreen';
@@ -32,8 +38,15 @@ const noop = () => {};
 const noopId = (_id: string) => {};
 const noopExpense = (_tripId: string, _tripName: string) => {};
 
+export type ChatVisionHost =
+  | { kind: 'scan_receipt'; image: PickedImage; receipt: ScannedReceipt }
+  | { kind: 'scan_statement'; image: PickedImage; items: ExtractedTxn[] }
+  | { kind: 'scan_balance'; image: PickedImage; balance: number | null }
+  | { kind: 'scan_holdings'; image: PickedImage; holdings: ScannedHolding[] };
+
 export type ChatCanvasHostProps = {
   frame: AskPipFrame;
+  vision?: ChatVisionHost | null;
   onPop: () => void;
   onOpenHistory?: () => void;
   onOpenOwed?: () => void;
@@ -52,6 +65,7 @@ export type ChatCanvasHostProps = {
 
 export function ChatCanvasHost({
   frame,
+  vision = null,
   onPop,
   onOpenHistory = noop,
   onOpenOwed = noop,
@@ -73,6 +87,7 @@ export function ChatCanvasHost({
   return (
     <View style={styles.root}>
       {renderCanvas(frame, {
+        vision,
         onPop,
         onOpenHistory,
         onOpenOwed,
@@ -95,8 +110,9 @@ export function ChatCanvasHost({
 }
 
 type HostCallbacks = Required<
-  Omit<ChatCanvasHostProps, 'frame'>
+  Omit<ChatCanvasHostProps, 'frame' | 'vision'>
 > & {
+  vision: ChatVisionHost | null;
   entryCategories: ReturnType<typeof useAppData>['entryCategories'];
   placeholderColor: string;
 };
@@ -132,6 +148,8 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
     case 'scan_receipt':
       return (
         <ReceiptScanScreen
+          initialImage={ctx.vision?.kind === 'scan_receipt' ? ctx.vision.image : undefined}
+          cachedReceipt={ctx.vision?.kind === 'scan_receipt' ? ctx.vision.receipt : undefined}
           onBack={ctx.onPop}
           onDone={noop}
           onManualInstead={noop}
@@ -139,8 +157,39 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
         />
       );
     case 'scan_statement':
+      if (ctx.vision?.kind === 'scan_statement') {
+        return (
+          <ExtractScreen
+            image={ctx.vision.image}
+            cachedItems={ctx.vision.items}
+            onBack={ctx.onPop}
+            onDone={noop}
+            embedded
+          />
+        );
+      }
+      return <ScanPlaceholder kind={kind} color={ctx.placeholderColor} />;
     case 'scan_balance':
+      if (ctx.vision?.kind === 'scan_balance') {
+        return (
+          <BalanceScanScreen
+            onClose={ctx.onPop}
+            embedded
+            initialAmount={ctx.vision.balance}
+          />
+        );
+      }
+      return <ScanPlaceholder kind={kind} color={ctx.placeholderColor} />;
     case 'scan_holdings':
+      if (ctx.vision?.kind === 'scan_holdings') {
+        return (
+          <BalanceScanScreen
+            onClose={ctx.onPop}
+            embedded
+            initialHoldings={ctx.vision.holdings}
+          />
+        );
+      }
       return <ScanPlaceholder kind={kind} color={ctx.placeholderColor} />;
   }
 }

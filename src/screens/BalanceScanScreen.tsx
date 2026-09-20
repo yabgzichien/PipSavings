@@ -16,7 +16,7 @@ import { BASE_CURRENCY } from '../lib/currency';
 import { getEntryCurrency } from '../db/currencyRepo';
 import { notify } from '../lib/platformAlert';
 import { searchCrypto, resolveCryptoTickers } from '../prices';
-import type { TickerResult } from '../lib/prices';
+import type { TickerResult, ScannedHolding } from '../lib/prices';
 import type { Account, AccountKind } from '../lib/types';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
@@ -42,7 +42,17 @@ interface HoldingRow {
 
 const parseAmount = (s: string): number => Math.max(0, parseFloat(s.replace(/[^0-9.]/g, '')) || 0);
 
-export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
+export function BalanceScanScreen({
+  onClose,
+  embedded,
+  initialAmount,
+  initialHoldings,
+}: {
+  onClose: () => void;
+  embedded?: boolean;
+  initialAmount?: number | null;
+  initialHoldings?: ScannedHolding[] | null;
+}) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -59,7 +69,9 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
   } = useEntitlement();
   const { openPaywall } = usePaywall();
   const reducedMotion = useReducedMotion();
-  const [phase, setPhase] = useState<Phase>('pick');
+  const [phase, setPhase] = useState<Phase>(
+    initialHoldings ? 'scanning' : initialAmount !== undefined ? 'balance' : 'pick',
+  );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [doneMsg, setDoneMsg] = useState('');
@@ -80,7 +92,9 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
   const [institution, setInstitution] = useState<Institution | null>(null);
   const [rawProvider, setRawProvider] = useState<string | null>(null);
   const [detectedKind, setDetectedKind] = useState<AccountKind>('asset');
-  const [amountText, setAmountText] = useState('');
+  const [amountText, setAmountText] = useState(
+    initialAmount != null ? String(initialAmount) : '',
+  );
   const [matches, setMatches] = useState<Account[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [forceCreate, setForceCreate] = useState(false);
@@ -94,6 +108,26 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void getEntryCurrency().then(setEntryCurrency);
   }, []);
+
+  useEffect(() => {
+    if (!initialHoldings) return;
+    let alive = true;
+    (async () => {
+      try {
+        const resolved = await resolveCryptoTickers(initialHoldings);
+        if (!alive) return;
+        setRows(resolved.map((r, i) => ({ key: i, ticker: r.ticker, qty: String(r.quantity), coin: r.coin })));
+        setPhase('holdings');
+      } catch (e) {
+        if (!alive) return;
+        setError(llmErrorMessage(e));
+        setPhase('error');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [initialHoldings]);
 
   const handle = async (res: ImagePicker.ImagePickerResult) => {
     if (res.canceled || !res.assets?.length) return;
@@ -273,10 +307,12 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '扫描余额' : 'Scan Balance'} onBack={onClose} />
-      </View>
-      {!isPro && (
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '扫描余额' : 'Scan Balance'} onBack={onClose} />
+        </View>
+      )}
+      {!embedded && !isPro && (
         <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
           <ScanQuotaBadge
             quota={{

@@ -446,11 +446,16 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.85,
+      base64: true,
     });
     if (res.canceled || !res.assets?.[0]) return;
     const allowed = await disclosePhoto();
     if (!allowed) return;
-    chatHomeRef.current?.applyPhotoAttached();
+    const asset = res.assets[0];
+    chatHomeRef.current?.applyPhotoAttached(asset.uri, {
+      base64: asset.base64 ?? '',
+      mime: asset.mimeType ?? 'image/jpeg',
+    });
     const seen = await getMeta(ASK_PIP_ATTACH_HINT_KEY);
     if (seen !== 'true') {
       notify(t('askPipAttachHint'));

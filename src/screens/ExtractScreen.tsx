@@ -54,6 +54,7 @@ export function ExtractScreen({
   onBack,
   onDone,
   onItemsExtracted,
+  embedded,
 }: {
   image: PickedImage;
   /** OCR started on ScanKind — skip a second ML Kit pass. */
@@ -68,6 +69,7 @@ export function ExtractScreen({
   /** Notifies the parent as soon as transactions are extracted or loaded, so background
    *  category guessing can begin while the user is still reviewing the rows. */
   onItemsExtracted?: (items: ExtractedTxn[]) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -246,21 +248,23 @@ export function ExtractScreen({
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 4, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: embedded ? 4 : insets.top + 4, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <TopBar
-          title={
-            phase === 'scanning'
-              ? (isZh ? '正在识别…' : 'Reading…')
-              : phase === 'error'
-              ? 'Hmm'
-              : (isZh ? '已找到' : 'Found it')
-          }
-          onBack={onBack}
-        />
+        {!embedded && (
+          <TopBar
+            title={
+              phase === 'scanning'
+                ? (isZh ? '正在识别…' : 'Reading…')
+                : phase === 'error'
+                ? 'Hmm'
+                : (isZh ? '已找到' : 'Found it')
+            }
+            onBack={onBack}
+          />
+        )}
 
-        {!isPro && (
+        {!embedded && !isPro && (
           <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
             <ScanQuotaBadge
               quota={{

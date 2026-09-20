@@ -18,7 +18,8 @@ import { Body, Caption, Label } from '../components/ui';
 import { currentMonthKey } from '../lib/budget';
 import { fmtMoney } from '../lib/format';
 import * as haptics from '../lib/haptics';
-import type { AskPipFilters, AskPipViewId } from '../lib/askPip/catalog';
+import type { AskPipEntryKind, AskPipFilters, AskPipViewId } from '../lib/askPip/catalog';
+import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
 import { needsYouBannerKind, type NeedsYouSlot } from '../lib/askPip/needsYou';
 import {
   bannerVisible,
@@ -29,8 +30,16 @@ import {
 } from '../lib/askPip/session';
 import { restingSuggestions } from '../lib/askPip/suggestions';
 import { runAskPipTurn, type AskPipTurnInput } from '../lib/askPip/turn';
+import { kindFromUtterance, runChatVision } from '../lib/askPip/vision';
 import type { AskPipWorld } from '../lib/askPip/resolve';
-import { LLMError } from '../llm/types';
+import { uint8ArrayToBase64 } from '../lib/receiptImage';
+import type { ScannedReceipt } from '../lib/parseReceipt';
+import type { ScannedHolding } from '../lib/prices';
+import type { ExtractedTxn } from '../lib/types';
+import { LLMError, type DocPart } from '../llm/types';
+import { File } from 'expo-file-system';
+import type { PickedImage } from './AttachScreen';
+import type { ChatVisionHost } from './ChatCanvasHost';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -168,11 +177,47 @@ export type ChatModeHomeProps = {
   hasHoldings: boolean;
 };
 
+const KIND_CHIPS: { kind: AskPipEntryKind; labelKey: string }[] = [
+  { kind: 'scan_receipt', labelKey: 'askPipKindReceipt' },
+  { kind: 'scan_statement', labelKey: 'askPipKindStatement' },
+  { kind: 'scan_balance', labelKey: 'askPipKindBalance' },
+  { kind: 'scan_holdings', labelKey: 'askPipKindHoldings' },
+];
+
+function toDocParts(image: PickedImage): DocPart[] {
+  if (image.base64) {
+    return [{ kind: 'binary', base64: image.base64, mimeType: image.mime }];
+  }
+  try {
+    const bytes = new File(image.uri).bytesSync();
+    return [{ kind: 'binary', base64: uint8ArrayToBase64(bytes), mimeType: image.mime }];
+  } catch {
+    return [{ kind: 'binary', base64: '', mimeType: image.mime }];
+  }
+}
+
+function hostFromVision(kind: AskPipEntryKind, image: PickedImage, result: unknown): ChatVisionHost | null {
+  switch (kind) {
+    case 'scan_receipt':
+      return result && typeof result === 'object' && !Array.isArray(result)
+        ? { kind, image, receipt: result as ScannedReceipt }
+        : null;
+    case 'scan_statement':
+      return { kind, image, items: Array.isArray(result) ? (result as ExtractedTxn[]) : [] };
+    case 'scan_balance':
+      return { kind, image, balance: typeof result === 'number' ? result : null };
+    case 'scan_holdings':
+      return { kind, image, holdings: Array.isArray(result) ? (result as ScannedHolding[]) : [] };
+    default:
+      return null;
+  }
+}
+
 export type ChatModeHomeHandle = {
   pop: () => boolean;
   readonly stackEmpty: boolean;
   readonly sheetOpen: boolean;
-  applyPhotoAttached: () => void;
+  applyPhotoAttached: (uri: string, extra?: { base64?: string; mime?: string }) => void;
 };
 
 export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomeProps>(function ChatModeHome({
@@ -201,6 +246,10 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const [draft, setDraft] = useState('');
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const attachedRef = useRef<PickedImage | null>(null);
+  const [visionHost, setVisionHost] = useState<ChatVisionHost | null>(null);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -208,6 +257,48 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const onSheetOpenChange = useCallback((open: boolean) => {
     hostedSheetOpenRef.current = open;
   }, []);
+
+  async function chooseKind(kind: AskPipEntryKind) {
+    if (sending) return;
+    if (!hasKey) {
+      onNeedKey();
+      return;
+    }
+    const photo = attachedRef.current;
+    setSending(true);
+    setComposerError(null);
+    try {
+      if (photo) {
+        const store = defaultAskPipKeyStore();
+        const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
+        if (!providerId || !apiKey) {
+          onNeedKey();
+          return;
+        }
+        const result = await runChatVision({
+          kind,
+          apiKey,
+          providerId,
+          parts: toDocParts(photo),
+        });
+        const host = hostFromVision(kind, photo, result);
+        if (host) setVisionHost(host);
+      }
+      setSession((prev) => {
+        const withPhoto = prev.pendingPhoto ? prev : reduceSession(prev, { type: 'photoAttached' });
+        return reduceSession(withPhoto, { type: 'scanKindChosen', kind });
+      });
+      setDraft('');
+    } catch (err) {
+      if (err instanceof LLMError) {
+        if (err.code === 'auth') setComposerError(t('askPipBadKey'));
+        else if (err.code === 'network') setComposerError(t('askPipOffline'));
+        else setComposerError(err.message);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
 
   useImperativeHandle(ref, () => ({
     pop() {
@@ -221,8 +312,15 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     get sheetOpen() {
       return hostedSheetOpenRef.current;
     },
-    applyPhotoAttached() {
+    applyPhotoAttached(uri: string, extra?: { base64?: string; mime?: string }) {
+      attachedRef.current = {
+        uri,
+        base64: extra?.base64 ?? '',
+        mime: extra?.mime ?? 'image/jpeg',
+      };
       setSession((prev) => reduceSession(prev, { type: 'photoAttached' }));
+      const named = kindFromUtterance(draftRef.current);
+      if (named) void chooseKind(named);
     },
   }));
 
@@ -266,6 +364,13 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   async function sendUtterance(utterance: string) {
     const trimmed = utterance.trim();
     if (!trimmed || sending) return;
+    if (sessionRef.current.pendingPhoto) {
+      const named = kindFromUtterance(trimmed);
+      if (named) {
+        await chooseKind(named);
+        return;
+      }
+    }
     if (!hasKey) {
       onNeedKey();
       return;
@@ -461,6 +566,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
           ) : frame ? (
             <ChatCanvasHost
               frame={frame}
+              vision={visionHost}
               onPop={() => applyEvent({ type: 'pop' })}
               onSheetOpenChange={onSheetOpenChange}
               onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
@@ -476,6 +582,31 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
             />
           ) : null}
         </View>
+
+        {session.pendingPhoto && !sending && (
+          <View style={styles.clarifyRow}>
+            {KIND_CHIPS.map((chip) => (
+              <Pressable
+                key={chip.kind}
+                onPress={() => {
+                  haptics.tap();
+                  void chooseKind(chip.kind);
+                }}
+                style={({ pressed }) => [
+                  styles.suggestion,
+                  {
+                    backgroundColor: theme.accentTint,
+                    borderColor: theme.accentSoft,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+              >
+                <Label color={theme.accent}>{t(chip.labelKey)}</Label>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {session.pendingClarify && (
           <View style={styles.clarifyRow}>
