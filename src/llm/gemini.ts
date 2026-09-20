@@ -20,6 +20,7 @@ import {
 } from './extractPrompt';
 import {
   LLMError,
+  type AskPipLlmInput,
   type CategoryGuessInput,
   type CoachInput,
   type DocExtractInput,
@@ -196,6 +197,19 @@ export const GeminiProvider: LLMProvider = {
       noThinking: true,
     });
     return contentOf(json).trim();
+  },
+
+  async askPip({ apiKey, model, system, user }: AskPipLlmInput): Promise<unknown> {
+    const json = await callGemini(model, apiKey, [{ text: user }], {
+      system,
+      json: true,
+      noThinking: true,
+    });
+    try {
+      return JSON.parse(contentOf(json));
+    } catch {
+      throw new LLMError('bad_response', 'Model response was not JSON.');
+    }
   },
 
   async guessCategories({ apiKey, model, items, categories }: CategoryGuessInput): Promise<Record<number, string | null>> {

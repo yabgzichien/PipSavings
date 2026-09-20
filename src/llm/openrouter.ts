@@ -8,6 +8,7 @@ import type { ExtractedTxn } from '../lib/types';
 import type { QuickDraft } from '../lib/quickParse';
 import {
   LLMError,
+  type AskPipLlmInput,
   type CategoryGuessInput,
   type CoachInput,
   type DocExtractInput,
@@ -284,6 +285,24 @@ export const OpenRouterProvider: LLMProvider = {
     } catch (e) {
       if (e instanceof QuickAddParseError) throw new LLMError('bad_response', e.message);
       throw e;
+    }
+  },
+
+  async askPip({ apiKey, model, system, user }: AskPipLlmInput): Promise<unknown> {
+    const body = {
+      model: model || DEFAULT_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0,
+    };
+    const content = await contentOf(await postChat(body, apiKey));
+    try {
+      return JSON.parse(content);
+    } catch {
+      throw new LLMError('bad_response', 'Model response was not JSON.');
     }
   },
 
