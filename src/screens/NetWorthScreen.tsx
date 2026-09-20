@@ -34,6 +34,7 @@ import { matchInstitution } from '../lib/institutions';
 import { tap } from '../lib/haptics';
 import { useModalHandoff } from '../lib/modalHandoff';
 import { confirmAction } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { shareSplitMessage } from '../lib/shareText';
 import { buildBillReminder } from '../lib/splitMessage';
 import type { OpenShare } from '../lib/split';
@@ -121,11 +122,13 @@ export function NetWorthScreen({
   onOpenHistory,
   onOpenOwed,
   embedded,
+  onSheetOpenChange,
 }: {
   onBack: () => void;
   onOpenHistory: () => void;
   onOpenOwed?: () => void;
   embedded?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -139,6 +142,7 @@ export function NetWorthScreen({
   const [settlingDebt, setSettlingDebt] = useState<OpenShare | null>(null);
   const [presetCoin, setPresetCoin] = useState<TickerResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(settlingDebt, editingId), onSheetOpenChange);
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveFromId, setMoveFromId] = useState<string | null>(null);
   const [groupSymbol, setGroupSymbol] = useState<string | null>(null);

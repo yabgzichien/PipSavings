@@ -12,6 +12,7 @@ import { txnMonthKey } from '../lib/budget';
 import { isValidIsoDate, monthLabel, shortDate } from '../lib/dates';
 import { fmtMoney } from '../lib/format';
 import { confirmAction } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { outstanding } from '../lib/split';
 import { expenseIdsFromSelection, reassignedFromOtherTrips, type Trip } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
@@ -184,6 +185,7 @@ export function AllTransactionsScreen({
   onOpenTrips,
   onOpenTrip,
   embedded,
+  onSheetOpenChange,
 }: {
   onBack: () => void;
   filterCategoryId?: string | null;
@@ -195,6 +197,7 @@ export function AllTransactionsScreen({
   /** Opens the detail view for a specific trip directly. */
   onOpenTrip?: (tripId: string) => void;
   embedded?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -244,6 +247,7 @@ export function AllTransactionsScreen({
   const owedTotal = useMemo(() => openShares.reduce((s, x) => s + x.outstanding, 0), [openShares]);
 
   const [editing, setEditing] = useState<Transaction | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tripPickerOpen, setTripPickerOpen] = useState(false);

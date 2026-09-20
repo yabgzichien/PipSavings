@@ -14,6 +14,7 @@ import { currencyPrefix, fmtMoney } from '../lib/format';
 import { tap } from '../lib/haptics';
 import { RECEIVABLE_CLS } from '../lib/networth';
 import { confirmAction, notify } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { AGING_DAYS, groupOpenSharesByPerson, type OpenShare, type PersonDebt } from '../lib/split';
 import { generateDeterministicReceipt, generateReceiptCanvasHtml, formatWorkingsCalculation } from '../lib/receiptGenerator';
 import { base64ToUint8Array, saveReceiptPng } from '../lib/receiptImage';
@@ -49,10 +50,12 @@ export function OwedScreen({
   onBack,
   embedded,
   initialSettleShareId,
+  onSheetOpenChange,
 }: {
   onBack: () => void;
   embedded?: boolean;
   initialSettleShareId?: string;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -68,6 +71,7 @@ export function OwedScreen({
   const [collapsedInSearch, setCollapsedInSearch] = useState<Set<string>>(new Set());
   const [reminding, setReminding] = useState<PersonDebt | null>(null);
   const [settling, setSettling] = useState<OpenShare | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(settling), onSheetOpenChange);
   const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
   const [sendingShareId, setSendingShareId] = useState<string | null>(null);
   const [directCanvasHtml, setDirectCanvasHtml] = useState<string | null>(null);

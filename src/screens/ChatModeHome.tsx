@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -204,6 +204,10 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const hostedSheetOpenRef = useRef(false);
+  const onSheetOpenChange = useCallback((open: boolean) => {
+    hostedSheetOpenRef.current = open;
+  }, []);
 
   useImperativeHandle(ref, () => ({
     pop() {
@@ -215,7 +219,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
       return sessionRef.current.stack.length === 0;
     },
     get sheetOpen() {
-      return currentFrame(sessionRef.current)?.entryKind === 'settle';
+      return hostedSheetOpenRef.current;
     },
     applyPhotoAttached() {
       setSession((prev) => reduceSession(prev, { type: 'photoAttached' }));
@@ -458,6 +462,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
             <ChatCanvasHost
               frame={frame}
               onPop={() => applyEvent({ type: 'pop' })}
+              onSheetOpenChange={onSheetOpenChange}
               onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
               onOpenTrips={() => showView('trips')}
               onOpenOwed={() => showView('owed')}

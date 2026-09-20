@@ -47,6 +47,7 @@ export type ChatCanvasHostProps = {
   onAdd?: () => void;
   onClearFilter?: () => void;
   onReviewCommitments?: () => void;
+  onSheetOpenChange?: (open: boolean) => void;
 };
 
 export function ChatCanvasHost({
@@ -64,6 +65,7 @@ export function ChatCanvasHost({
   onAdd = noop,
   onClearFilter = noop,
   onReviewCommitments = noop,
+  onSheetOpenChange = noop,
 }: ChatCanvasHostProps) {
   const { entryCategories } = useAppData();
   const colorTheme = useThemeColors();
@@ -84,6 +86,7 @@ export function ChatCanvasHost({
         onAdd,
         onClearFilter,
         onReviewCommitments,
+        onSheetOpenChange,
         entryCategories,
         placeholderColor: colorTheme.ink2,
       })}
@@ -123,6 +126,7 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
           onBack={ctx.onPop}
           embedded
           initialSettleShareId={frame.settleShareId}
+          onSheetOpenChange={ctx.onSheetOpenChange}
         />
       );
     case 'scan_receipt':
@@ -144,7 +148,7 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
 function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
   switch (frame.view) {
     case 'owed':
-      return <OwedScreen onBack={ctx.onPop} embedded />;
+      return <OwedScreen onBack={ctx.onPop} embedded onSheetOpenChange={ctx.onSheetOpenChange} />;
     case 'trips':
       return <TripsScreen onBack={ctx.onPop} onOpenTrip={ctx.onOpenTrip} embedded />;
     case 'tripDetail':
@@ -156,6 +160,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           onAddExpense={ctx.onAddExpense}
           embedded
           initialCategoryId={frame.filters.categoryId}
+          onSheetOpenChange={ctx.onSheetOpenChange}
         />
       );
     case 'networth':
@@ -165,6 +170,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           onOpenHistory={ctx.onOpenHistory}
           onOpenOwed={ctx.onOpenOwed}
           embedded
+          onSheetOpenChange={ctx.onSheetOpenChange}
         />
       );
     case 'netWorthHistory':
@@ -190,6 +196,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           onOpenTrips={ctx.onOpenTrips}
           onOpenTrip={ctx.onOpenTrip}
           embedded
+          onSheetOpenChange={ctx.onSheetOpenChange}
         />
       );
     case 'categoryDetail':
@@ -198,6 +205,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           categoryId={frame.filters.categoryId ?? 'other'}
           onBack={ctx.onPop}
           embedded
+          onSheetOpenChange={ctx.onSheetOpenChange}
         />
       );
     case 'commitments':

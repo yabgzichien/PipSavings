@@ -13,6 +13,7 @@ import { catColorsForHue } from '../lib/catColors';
 import { resolveCategoryPresentation } from '../lib/categoryPresentation';
 import { monthLabel, shortDate } from '../lib/dates';
 import { fmtMoney } from '../lib/format';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import type { Category, Transaction } from '../lib/types';
 import { EXPENSE_ICONS, INCOME_ICONS, isCustomIcon } from './CategoriesScreen';
 import { useAccent } from '../state/accent';
@@ -69,10 +70,12 @@ export function CategoryDetailScreen({
   categoryId,
   onBack,
   embedded,
+  onSheetOpenChange,
 }: {
   categoryId: string;
   onBack: () => void;
   embedded?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { width: winWidth } = useWindowDimensions();
@@ -84,6 +87,7 @@ export function CategoryDetailScreen({
   const { transactions, categories, catById, updateCategoryIcon, updateCategoryLabel } = useAppData();
   const dc = useDisplayCurrency();
   const [editing, setEditing] = useState<Transaction | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [activeId, setActiveId] = useState(categoryId);
   const [monthKey, setMonthKey] = useState(todayMonthKey());
 

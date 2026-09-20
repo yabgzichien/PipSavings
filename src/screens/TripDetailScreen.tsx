@@ -10,6 +10,7 @@ import { TripIconPickerSheet } from '../components/TripIconPickerSheet';
 import { TxnRow } from './AllTransactionsScreen';
 import { Amount, Body, Card, Caption, CatBadge, Eyebrow, Label, PrimaryButton, Title, TopBar } from '../components/ui';
 import { fmtMoney } from '../lib/format';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { confirmAction } from '../lib/platformAlert';
 import { outstanding } from '../lib/split';
 import { computeTripTotals, expensesForTrip, reassignedFromOtherTrips } from '../lib/trips';
@@ -216,6 +217,7 @@ export function TripDetailScreen({
   onAddExpense,
   embedded,
   initialCategoryId,
+  onSheetOpenChange,
 }: {
   tripId: string;
   onBack: () => void;
@@ -223,6 +225,7 @@ export function TripDetailScreen({
   onAddExpense: (tripId: string, tripName: string) => void;
   embedded?: boolean;
   initialCategoryId?: string;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -232,6 +235,7 @@ export function TripDetailScreen({
   const dc = useDisplayCurrency();
 
   const [editing, setEditing] = useState<Transaction | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
