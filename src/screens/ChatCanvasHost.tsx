@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Caption } from '../components/ui';
 import type { AskPipEntryKind } from '../lib/askPip/catalog';
-import type { AskPipFrame } from '../lib/askPip/session';
+import { tripDetailHostKey, type AskPipFrame } from '../lib/askPip/session';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
 import { spacing } from '../theme';
@@ -150,6 +150,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
     case 'tripDetail':
       return (
         <TripDetailScreen
+          key={tripDetailHostKey(frame.filters)}
           tripId={frame.filters.tripId ?? ''}
           onBack={ctx.onPop}
           onAddExpense={ctx.onAddExpense}

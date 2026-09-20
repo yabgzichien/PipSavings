@@ -1,4 +1,4 @@
-import { bannerVisible, emptySession, reduceSession, currentFrame } from '../src/lib/askPip/session';
+import { bannerVisible, emptySession, reduceSession, currentFrame, tripDetailHostKey } from '../src/lib/askPip/session';
 
 describe('reduceSession', () => {
   it('pushes owed, then a trip, and pops back to owed', () => {
@@ -30,6 +30,17 @@ describe('reduceSession', () => {
     s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { categoryId: 'food' } } });
     expect(s.stack).toHaveLength(1);
     expect(currentFrame(s)?.filters).toEqual({ tripId: 't1', categoryId: 'food' });
+  });
+
+  it('tripDetailHostKey changes when a same-view follow-up adds categoryId', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { tripId: 't1' } } });
+    const before = tripDetailHostKey(currentFrame(s)!.filters);
+    s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { categoryId: 'food' } } });
+    const after = tripDetailHostKey(currentFrame(s)!.filters);
+    expect(before).toBe('t1:');
+    expect(after).toBe('t1:food');
+    expect(after).not.toBe(before);
   });
 
   it('jump drops newer frames', () => {

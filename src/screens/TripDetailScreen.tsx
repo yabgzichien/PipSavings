@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EditTransactionModal } from '../components/EditTransactionModal';
@@ -242,6 +242,10 @@ export function TripDetailScreen({
 
   /** Set by tapping a category in the breakdown: the list below narrows to that category. */
   const [categoryFilter, setCategoryFilter] = useState<string | null>(initialCategoryId ?? null);
+
+  useEffect(() => {
+    setCategoryFilter(initialCategoryId ?? null);
+  }, [initialCategoryId]);
 
   const tripTxns = useMemo(() => expensesForTrip(transactions, tripId), [transactions, tripId]);
   const totals = useMemo(() => computeTripTotals(transactions, tripId, dc.convertTxn), [transactions, tripId, dc]);

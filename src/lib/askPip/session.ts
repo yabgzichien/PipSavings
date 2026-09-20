@@ -219,6 +219,11 @@ export function currentFrame(state: AskPipSession): AskPipFrame | null {
   return state.stack[state.stack.length - 1];
 }
 
+/** React key so in-place same-view filter merges remount TripDetail instead of keeping stale state. */
+export function tripDetailHostKey(filters: AskPipFilters): string {
+  return `${filters.tripId ?? ''}:${filters.categoryId ?? ''}`;
+}
+
 export function bannerVisible(
   needsYouKind: 'commitments' | 'owed' | null,
   view: AskPipViewId | null,
