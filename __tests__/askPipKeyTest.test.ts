@@ -38,4 +38,12 @@ describe('testAskPipKey', () => {
     expect(src).not.toMatch(/FallbackProvider/);
     expect(src).not.toMatch(/loadSettings/);
   });
+
+  it('gives up if the provider never replies', async () => {
+    jest.spyOn(GeminiProvider, 'test').mockImplementation(() => new Promise(() => {}));
+    await expect(testAskPipKey('gemini', 'user_key', 1)).rejects.toMatchObject({
+      name: 'LLMError',
+      code: 'network',
+    });
+  });
 });

@@ -37,11 +37,36 @@ export function createAskPipKeyStore(io: AskPipKeyIo) {
   };
 }
 
-export function defaultAskPipKeyStore() {
-  const io: AskPipKeyIo = {
+function webStorageIo(): AskPipKeyIo {
+  return {
+    async get(k) {
+      try {
+        return localStorage.getItem(k);
+      } catch {
+        return null;
+      }
+    },
+    async set(k, v) {
+      localStorage.setItem(k, v);
+    },
+    async del(k) {
+      localStorage.removeItem(k);
+    },
+  };
+}
+
+function secureStoreIo(): AskPipKeyIo {
+  return {
     get: (k) => SecureStore.getItemAsync(k),
     set: (k, v) => SecureStore.setItemAsync(k, v),
     del: (k) => SecureStore.deleteItemAsync(k),
   };
+}
+
+export function defaultAskPipKeyStore() {
+  // expo-secure-store has no web implementation; awaiting it from the browser
+  // never settles, which is why Save looked frozen on web.
+  const io: AskPipKeyIo =
+    typeof localStorage !== 'undefined' ? webStorageIo() : secureStoreIo();
   return createAskPipKeyStore(io);
 }

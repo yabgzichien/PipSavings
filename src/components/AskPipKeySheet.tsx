@@ -15,6 +15,7 @@ import {
   defaultAskPipKeyStore,
   type AskPipProviderId,
 } from '../lib/askPip/keyStore';
+import { LLMError } from '../llm/types';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -38,14 +39,14 @@ export function AskPipKeySheet({
   const [providerId, setProviderId] = useState<AskPipProviderId>('gemini');
   const [keyText, setKeyText] = useState('');
   const [hasStoredKey, setHasStoredKey] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'test' | 'save' | null>(null);
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setKeyText('');
-      setBusy(false);
-      setError(null);
+      setBusy(null);
+      setStatus(null);
       return;
     }
     const store = defaultAskPipKeyStore();
@@ -60,42 +61,54 @@ export function AskPipKeySheet({
     const typed = keyText.trim();
     const apiKey = typed || (await store.getApiKey());
     if (!apiKey || busy) return;
-    setBusy(true);
-    setError(null);
+    setBusy('test');
+    setStatus(null);
     try {
       await testAskPipKey(providerId, apiKey);
-    } catch {
-      setError(t('askPipBadKey'));
+      setStatus({ kind: 'ok', text: t('askPipKeyOk') });
+    } catch (err) {
+      const network = err instanceof LLMError && err.code === 'network';
+      setStatus({ kind: 'err', text: network ? t('askPipOffline') : t('askPipBadKey') });
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
   const onSave = async () => {
     const typed = keyText.trim();
     if (busy || (!typed && !hasStoredKey)) return;
-    setBusy(true);
-    setError(null);
-    const store = defaultAskPipKeyStore();
-    await store.setProvider(providerId);
-    if (typed) {
-      await store.setApiKey(typed);
-      setHasStoredKey(true);
-      setKeyText('');
+    setBusy('save');
+    setStatus(null);
+    try {
+      const store = defaultAskPipKeyStore();
+      await store.setProvider(providerId);
+      if (typed) {
+        await store.setApiKey(typed);
+        setHasStoredKey(true);
+        setKeyText('');
+      }
+      onSaved?.();
+    } catch {
+      setStatus({ kind: 'err', text: t('error') });
+    } finally {
+      setBusy(null);
     }
-    setBusy(false);
-    onSaved?.();
   };
 
   const onClear = async () => {
     if (busy) return;
-    setBusy(true);
-    setError(null);
-    await defaultAskPipKeyStore().clear();
-    setHasStoredKey(false);
-    setKeyText('');
-    setBusy(false);
-    onSaved?.();
+    setBusy('save');
+    setStatus(null);
+    try {
+      await defaultAskPipKeyStore().clear();
+      setHasStoredKey(false);
+      setKeyText('');
+      onSaved?.();
+    } catch {
+      setStatus({ kind: 'err', text: t('error') });
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -143,45 +156,58 @@ export function AskPipKeySheet({
               styles.input,
               {
                 color: colors.ink,
-                borderColor: error ? colors.red : colors.line,
+                borderColor: status?.kind === 'err' ? colors.red : colors.line,
                 backgroundColor: colors.bg,
               },
             ]}
             returnKeyType="done"
             onSubmitEditing={() => void onSave()}
           />
-          {error ? <Text style={[styles.error, { color: colors.red }]}>{error}</Text> : null}
+          {busy === 'test' ? (
+            <Label color={colors.ink2}>{t('askPipTestingKey')}</Label>
+          ) : status ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[styles.status, { color: status.kind === 'err' ? colors.red : accent.accent }]}
+            >
+              {status.text}
+            </Text>
+          ) : null}
           <View style={styles.actions}>
-            <Pressable accessibilityRole="button" disabled={busy} onPress={onClose} style={styles.secondary}>
+            <Pressable accessibilityRole="button" disabled={!!busy} onPress={onClose} style={styles.secondary}>
               <Label color={colors.ink2}>{t('cancel')}</Label>
             </Pressable>
             {hasStoredKey ? (
-              <Pressable accessibilityRole="button" disabled={busy} onPress={() => void onClear()} style={styles.secondary}>
+              <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => void onClear()} style={styles.secondary}>
                 <Label color={colors.red}>{t('clear')}</Label>
               </Pressable>
             ) : null}
             <Pressable
               accessibilityRole="button"
-              disabled={busy}
+              disabled={!!busy}
               onPress={() => void onTest()}
               style={styles.secondary}
             >
-              <Label color={colors.ink2}>{t('askPipTestKey')}</Label>
+              {busy === 'test' ? (
+                <ActivityIndicator color={colors.ink2} />
+              ) : (
+                <Label color={colors.ink2}>{t('askPipTestKey')}</Label>
+              )}
             </Pressable>
             <Pressable
               testID="ask-pip-save-key"
               accessibilityRole="button"
-              disabled={busy || (!keyText.trim() && !hasStoredKey)}
+              disabled={!!busy || (!keyText.trim() && !hasStoredKey)}
               onPress={() => void onSave()}
               style={[
                 styles.primary,
                 {
                   backgroundColor: accent.accent,
-                  opacity: busy || (!keyText.trim() && !hasStoredKey) ? 0.5 : 1,
+                  opacity: !!busy || (!keyText.trim() && !hasStoredKey) ? 0.5 : 1,
                 },
               ]}
             >
-              {busy ? (
+              {busy === 'save' ? (
                 <ActivityIndicator color={accent.accentInk} />
               ) : (
                 <Label color={accent.accentInk}>{t('askPipSaveKey')}</Label>
@@ -220,7 +246,7 @@ const styles = StyleSheet.create({
     fontFamily: uiFont(500),
     fontSize: type.body,
   },
-  error: { fontFamily: uiFont(500), fontSize: type.label },
+  status: { fontFamily: uiFont(500), fontSize: type.label },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
