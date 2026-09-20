@@ -24,6 +24,7 @@ export type SettingItemKey =
   | 'reminder_commitments'
   | 'learning'
   | 'budget'
+  | 'ask_pip'
   | 'data_commitments'
   | 'data_tax'
   | 'data_categories'
@@ -397,6 +398,26 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
       '清空预算',
       '重置预算',
       '额度',
+    ],
+  },
+  {
+    key: 'ask_pip',
+    section: 'data',
+    sectionTitleEn: 'Data',
+    sectionTitleZh: '数据与管理',
+    titleEn: 'Ask Pip',
+    titleZh: '询问 Pip',
+    keywords: [
+      'Ask Pip',
+      'api key',
+      'ai',
+      'assistant',
+      'provider',
+      'chat',
+      '询问 Pip',
+      '密钥',
+      '智能助手',
+      '聊天',
     ],
   },
   {

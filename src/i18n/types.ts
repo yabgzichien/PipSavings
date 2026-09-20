@@ -36,6 +36,36 @@ export interface Translations {
   manage: string;
   filter: string;
 
+  // Ask Pip
+  askPipToggleChat: string;
+  askPipToggleDashboard: string;
+  askPipComposerPlaceholder: string;
+  askPipRefuse: string;
+  askPipNeedKeyTitle: string;
+  askPipNeedKeyBody: string;
+  askPipSaveKey: string;
+  askPipTestKey: string;
+  askPipProvider: string;
+  askPipDiscloseSendTitle: string;
+  askPipDiscloseSendBody: string;
+  askPipDisclosePhotoTitle: string;
+  askPipDisclosePhotoBody: string;
+  askPipDiscloseContinue: string;
+  askPipHistory: string;
+  askPipAttachHint: string;
+  askPipKindReceipt: string;
+  askPipKindStatement: string;
+  askPipKindBalance: string;
+  askPipKindHoldings: string;
+  askPipSuggestionOwed: string;
+  askPipSuggestionTrip: string;
+  askPipSuggestionHoldings: string;
+  askPipSuggestionMonth: string;
+  askPipSettingsTitle: string;
+  askPipSettingsDesc: string;
+  askPipOffline: string;
+  askPipBadKey: string;
+
   // Greetings
   greetingMorning: string;
   greetingAfternoon: string;

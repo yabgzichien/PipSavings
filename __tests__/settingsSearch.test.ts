@@ -20,6 +20,12 @@ describe('Settings Search', () => {
   });
 
   describe('English search queries and synonyms', () => {
+    it('includes Ask Pip and finds its API key settings', () => {
+      expect(SETTING_DEFINITIONS.some((d) => d.key === 'ask_pip')).toBe(true);
+      expect(filterSettings('api key').matchingKeys.has('ask_pip')).toBe(true);
+      expect(filterSettings('Ask Pip').matchingKeys.has('ask_pip')).toBe(true);
+    });
+
     it('finds theme settings by name and mode keywords', () => {
       expect(filterSettings('theme').matchingKeys.has('theme')).toBe(true);
       expect(filterSettings('dark').matchingKeys.has('theme')).toBe(true);
@@ -64,8 +70,9 @@ describe('Settings Search', () => {
     });
 
     it('does not expose a streak pause setting', () => {
-      expect(SETTING_DEFINITIONS.some((d) => d.key === 'streak')).toBe(false);
-      expect(filterSettings('streak').matchingKeys.has('streak')).toBe(false);
+      const streakKey = 'streak' as SettingItemKey;
+      expect(SETTING_DEFINITIONS.some((d) => d.key === streakKey)).toBe(false);
+      expect(filterSettings('streak').matchingKeys.has(streakKey)).toBe(false);
     });
 
     it('finds reminder settings', () => {
