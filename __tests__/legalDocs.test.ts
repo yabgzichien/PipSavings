@@ -72,6 +72,20 @@ describe('privacy policy', () => {
     expect(html).not.toMatch(/ML Kit/);
   });
 
+  it('names Ask Pip as a BYOK exception in markdown and hosted HTML', () => {
+    for (const doc of [policy, html]) {
+      expect(doc).toContain('Last updated: 20 September 2026');
+      expect(doc).toMatch(/Ask Pip \(optional, your API key\)/);
+      expect(doc).toMatch(/Gemini \/ Groq \/ OpenRouter/);
+      expect(doc).toMatch(/does not proxy them and does not keep them/);
+      expect(doc).toMatch(/local ledger stay on device/);
+      const parties = doc.slice(doc.indexOf('Parties that may receive data'));
+      expect(parties).toMatch(/Gemini/);
+      expect(parties).toMatch(/Groq/);
+      expect(parties).toMatch(/OpenRouter/);
+    }
+  });
+
   it('does not claim external models never train on scans', () => {
     expect(policy).toMatch(/External AI models may use scan images and extracted rows/);
     expect(html).toMatch(/External AI models may use scan images and extracted rows/);
