@@ -10,6 +10,7 @@ export interface AskPipFrame {
   view: AskPipViewId;
   filters: AskPipFilters;
   entryKind?: AskPipEntryKind;
+  text?: string;
   settleShareId?: string;
   caption?: string;
 }
@@ -68,6 +69,9 @@ function frameFromStartEntry(action: Extract<AskPipAction, { type: 'start_entry'
   };
   if (action.shareId !== undefined) {
     frame.settleShareId = action.shareId;
+  }
+  if (action.text !== undefined) {
+    frame.text = action.text;
   }
   return frame;
 }
