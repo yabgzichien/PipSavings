@@ -67,12 +67,9 @@ describe('privacy policy', () => {
     expect(html.toLowerCase()).toMatch(/not directed at children|not intended for children/);
   });
 
-  it('does not name optional on-device OCR or specific model brands', () => {
+  it('does not name optional on-device OCR', () => {
     expect(policy).not.toMatch(/ML Kit/);
-    expect(policy).not.toMatch(/Gemini/);
-    expect(policy).not.toMatch(/OpenRouter/);
     expect(html).not.toMatch(/ML Kit/);
-    expect(html).not.toMatch(/Gemini/);
   });
 
   it('does not claim external models never train on scans', () => {

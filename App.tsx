@@ -47,6 +47,8 @@ import { TripsScreen } from './src/screens/TripsScreen';
 import { TripDetailScreen } from './src/screens/TripDetailScreen';
 import { GlossaryModal } from './src/components/InfoButton';
 import { AppAlertModal } from './src/components/AppAlertModal';
+import { AskPipDiscloseSheet, type AskPipDiscloseKind } from './src/components/AskPipDiscloseSheet';
+import { AskPipKeySheet } from './src/components/AskPipKeySheet';
 import { TourSpotlight, type TourStepInfo } from './src/components/TourSpotlight';
 import { AccentProvider, useAccent } from './src/state/accent';
 import { AlertHostProvider } from './src/state/alertHost';
@@ -71,6 +73,12 @@ import { isHolding } from './src/lib/prices';
 import { pickNeedsYou } from './src/lib/askPip/needsYou';
 import { HOME_MODE_KEY, parseHomeMode, type HomeMode } from './src/lib/askPip/homeMode';
 import { defaultAskPipKeyStore } from './src/lib/askPip/keyStore';
+import {
+  ASK_PIP_DISCLOSED_PHOTO,
+  ASK_PIP_DISCLOSED_SEND,
+  isAskPipDisclosed,
+  markAskPipDisclosed,
+} from './src/lib/askPip/disclose';
 import { ASK_PIP_VIEWS, type AskPipViewId } from './src/lib/askPip/catalog';
 import type { AskPipWorld } from './src/lib/askPip/resolve';
 import type { AskPipFrame } from './src/lib/askPip/session';
@@ -319,6 +327,10 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [homeMode, setHomeMode] = useState<HomeMode>('dashboard');
   const [hasAskPipKey, setHasAskPipKey] = useState(false);
+  const [askPipKeyOpen, setAskPipKeyOpen] = useState(false);
+  const [disclose, setDisclose] = useState<{ kind: AskPipDiscloseKind; resolve: (ok: boolean) => void } | null>(null);
+  const discloseRef = useRef(disclose);
+  discloseRef.current = disclose;
   const chatHomeRef = useRef<ChatModeHomeHandle>(null);
   const now = useNow();
   // Owed is reachable from both Home and Activity, so back has to return where it came from.
@@ -377,12 +389,16 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     void getMeta(HOME_MODE_KEY).then((raw) => setHomeMode(parseHomeMode(raw)));
   }, []);
 
-  useEffect(() => {
+  const refreshAskPipKey = useCallback(() => {
     const store = defaultAskPipKeyStore();
     void Promise.all([store.getProvider(), store.getApiKey()]).then(([providerId, apiKey]) => {
       setHasAskPipKey(Boolean(providerId && apiKey));
     });
-  }, [homeMode, screen]);
+  }, []);
+
+  useEffect(() => {
+    refreshAskPipKey();
+  }, [homeMode, screen, refreshAskPipKey]);
 
   const persistHomeMode = useCallback((next: HomeMode) => {
     setHomeMode(next);
@@ -431,8 +447,26 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     [askPipWorld],
   );
 
-  const disclosePhoto = useCallback(async () => true, []);
-  const discloseSend = useCallback(async () => true, []);
+  const finishDisclose = useCallback((ok: boolean) => {
+    const pending = discloseRef.current;
+    setDisclose(null);
+    if (!pending) return;
+    if (!ok) {
+      pending.resolve(false);
+      return;
+    }
+    const key = pending.kind === 'photo' ? ASK_PIP_DISCLOSED_PHOTO : ASK_PIP_DISCLOSED_SEND;
+    void markAskPipDisclosed(setMeta, key).then(() => pending.resolve(true));
+  }, []);
+
+  const disclosePhoto = useCallback(async () => {
+    if (await isAskPipDisclosed(getMeta, ASK_PIP_DISCLOSED_PHOTO)) return true;
+    return new Promise<boolean>((resolve) => setDisclose({ kind: 'photo', resolve }));
+  }, []);
+  const discloseSend = useCallback(async () => {
+    if (await isAskPipDisclosed(getMeta, ASK_PIP_DISCLOSED_SEND)) return true;
+    return new Promise<boolean>((resolve) => setDisclose({ kind: 'send', resolve }));
+  }, []);
 
   const attachChatPhoto = useCallback(async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -900,7 +934,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
               void attachChatPhoto();
             }}
             onNeedKey={() => {
-              // Task 14: AskPipKeySheet
+              setAskPipKeyOpen(true);
             }}
             onDiscloseSend={discloseSend}
             onDisclosePhoto={disclosePhoto}
@@ -1014,6 +1048,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
           }}
           taxRequestableCount={taxRequestableCount}
           onResetToOnboarding={() => setScreen('home')}
+          onAskPipKeyChanged={refreshAskPipKey}
         />
       )}
       {screen === 'advancedImport' && <AdvancedImportScreen onClose={goBack} />}
@@ -1157,6 +1192,20 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         onDimPress={() => {
           if (guidedExploreTaskId) setGuidedExploreTaskId(null);
         }}
+      />
+      <AskPipKeySheet
+        visible={askPipKeyOpen}
+        onClose={() => setAskPipKeyOpen(false)}
+        onSaved={() => {
+          refreshAskPipKey();
+          setAskPipKeyOpen(false);
+        }}
+      />
+      <AskPipDiscloseSheet
+        visible={disclose !== null}
+        kind={disclose?.kind ?? 'send'}
+        onContinue={() => finishDisclose(true)}
+        onCancel={() => finishDisclose(false)}
       />
       <GlossaryModal />
       <AppAlertModal />

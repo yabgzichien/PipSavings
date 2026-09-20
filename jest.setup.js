@@ -97,4 +97,10 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   isErrorWithCode: (error) => Boolean(error && typeof error === 'object' && 'code' in error),
 }));
 
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(async () => null),
+  setItemAsync: jest.fn(async () => {}),
+  deleteItemAsync: jest.fn(async () => {}),
+}));
+
 

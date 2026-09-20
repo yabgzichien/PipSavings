@@ -8,6 +8,7 @@ import { Pip } from '../components/Pip';
 import { Card, Eyebrow, TopBar } from '../components/ui';
 import { WidgetCustomizerBadge } from '../components/WidgetCustomizerBadge';
 import { ProMembershipCard } from '../components/ProMembershipCard';
+import { AskPipKeySheet } from '../components/AskPipKeySheet';
 import { RedeemCodeModal } from '../components/RedeemCodeModal';
 import { ReportBugModal } from '../components/ReportBugModal';
 import { ProWelcome } from '../components/ProWelcome';
@@ -34,7 +35,7 @@ import { useLanguage } from '../i18n';
 import { radius, uiFont } from '../theme';
 import { motionSettingLabel, MOTION_SETTINGS } from '../theme/motion';
 
-export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenCategories, onOpenCommitments, onOpenTax, onOpenCurrencySettings, onOpenBackup, onOpenWidgetCustomizer, onResetToOnboarding, taxRequestableCount = 0 }: { onBack: () => void; onAdvancedImport?: () => void; onOpenExport?: () => void; onOpenCategories?: () => void; onOpenCommitments?: () => void; onOpenTax?: () => void; onOpenCurrencySettings?: () => void; onOpenBackup?: () => void; onOpenWidgetCustomizer?: () => void; onResetToOnboarding?: () => void; taxRequestableCount?: number }) {
+export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenCategories, onOpenCommitments, onOpenTax, onOpenCurrencySettings, onOpenBackup, onOpenWidgetCustomizer, onResetToOnboarding, onAskPipKeyChanged, taxRequestableCount = 0 }: { onBack: () => void; onAdvancedImport?: () => void; onOpenExport?: () => void; onOpenCategories?: () => void; onOpenCommitments?: () => void; onOpenTax?: () => void; onOpenCurrencySettings?: () => void; onOpenBackup?: () => void; onOpenWidgetCustomizer?: () => void; onResetToOnboarding?: () => void; onAskPipKeyChanged?: () => void; taxRequestableCount?: number }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -44,6 +45,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
   const [activeCurrencies, setActiveCurrencies] = useState<string[]>(['MYR']);
   const [search, setSearch] = useState('');
   const [redeemOpen, setRedeemOpen] = useState(false);
+  const [askPipKeyOpen, setAskPipKeyOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [bugOpen, setBugOpen] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
@@ -164,6 +166,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
     (Boolean(onAdvancedImport) && matchingKeys.has('data_import')) ||
     (Boolean(onOpenExport) && matchingKeys.has('data_export')) ||
     (Boolean(onOpenBackup) && matchingKeys.has('data_backup')) ||
+    matchingKeys.has('ask_pip') ||
     matchingKeys.has('data_diagnostics');
 
   const hasVisibleSubscriptionCard = matchingKeys.has('subscription');
@@ -557,6 +560,22 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                 </Pressable>
               )}
 
+              {matchingKeys.has('ask_pip') && (
+                <Pressable
+                  onPress={() => setAskPipKeyOpen(true)}
+                  style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="sparkles" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('askPipSettingsTitle')}</Text>
+                    <Text style={[styles.providerSub, { color: colorTheme.ink2 }]}>{t('askPipSettingsDesc')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
               {matchingKeys.has('data_diagnostics') && (
                 <Card style={{ padding: 16 }}>
                   <Text style={[styles.providerName, { color: colorTheme.ink }]}>
@@ -805,6 +824,11 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+      <AskPipKeySheet
+        visible={askPipKeyOpen}
+        onClose={() => setAskPipKeyOpen(false)}
+        onSaved={onAskPipKeyChanged}
+      />
       <RedeemCodeModal
         visible={redeemOpen && !isPro}
         onClose={() => setRedeemOpen(false)}

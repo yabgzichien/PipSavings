@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Caption } from '../components/ui';
+import { getActiveCurrencies } from '../db/currencyRepo';
 import type { AskPipEntryKind } from '../lib/askPip/catalog';
+import { ASK_PIP_LLM_PROVIDERS } from '../lib/askPip/keyTest';
+import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
+import { resolveAskPipQuickAddPrefill } from '../lib/askPip/quickAddPrefill';
 import { tripDetailHostKey, type AskPipFrame } from '../lib/askPip/session';
+import { todayISO } from '../lib/duplicates';
+import type { QuickDraft } from '../lib/quickParse';
+import type { ExtractedTxn, SplitDraft } from '../lib/types';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
 import { spacing } from '../theme';
@@ -69,8 +76,22 @@ export function ChatCanvasHost({
   onReviewCommitments = noop,
   onSheetOpenChange = noop,
 }: ChatCanvasHostProps) {
-  const { entryCategories } = useAppData();
+  const { entryCategories, commitCategorized, setTransactionsTrip } = useAppData();
   const colorTheme = useThemeColors();
+
+  const onQuickAddComplete = useCallback(
+    async (item: ExtractedTxn, categoryId: string, split: SplitDraft | null, tripId: string | null) => {
+      const { created } = await commitCategorized([item], [categoryId], 'manual', [split], [null]);
+      if (tripId && created.length > 0) {
+        await setTransactionsTrip(
+          created.map((c) => c.id),
+          tripId,
+        );
+      }
+      onPop();
+    },
+    [commitCategorized, setTransactionsTrip, onPop],
+  );
 
   return (
     <View style={styles.root}>
@@ -89,6 +110,7 @@ export function ChatCanvasHost({
         onClearFilter,
         onReviewCommitments,
         onSheetOpenChange,
+        onQuickAddComplete,
         entryCategories,
         placeholderColor: colorTheme.ink2,
       })}
@@ -101,7 +123,72 @@ type HostCallbacks = Required<
 > & {
   entryCategories: ReturnType<typeof useAppData>['entryCategories'];
   placeholderColor: string;
+  onQuickAddComplete: (
+    item: ExtractedTxn,
+    categoryId: string,
+    split: SplitDraft | null,
+    tripId: string | null,
+  ) => void;
 };
+
+function QuickAddCanvas({
+  text,
+  categories,
+  onBack,
+  onComplete,
+}: {
+  text?: string;
+  categories: ReturnType<typeof useAppData>['entryCategories'];
+  onBack: () => void;
+  onComplete: HostCallbacks['onQuickAddComplete'];
+}) {
+  const [draft, setDraft] = useState<QuickDraft | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const active = await getActiveCurrencies();
+      const store = defaultAskPipKeyStore();
+      const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
+      const provider = providerId ? ASK_PIP_LLM_PROVIDERS[providerId] : null;
+      const result = await resolveAskPipQuickAddPrefill({
+        text: text ?? '',
+        activeCurrencies: active,
+        today: todayISO(),
+        apiKey,
+        provider,
+        categories: categories
+          .filter((c) => c.kind === 'expense' || c.kind === 'income')
+          .map((c) => ({ id: c.id, label: c.label, kind: c.kind })),
+      });
+      if (!cancelled) setDraft(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [text, categories]);
+
+  if (draft === undefined) {
+    return <View style={styles.root} />;
+  }
+
+  return (
+    <ManualEntryScreen
+      key={`${draft?.label ?? ''}:${draft?.amount ?? ''}`}
+      categories={categories}
+      onBack={onBack}
+      onComplete={onComplete}
+      embedded
+      initialMerchant={draft?.label ?? null}
+      initialAmount={draft?.amount && draft.amount > 0 ? draft.amount : null}
+      initialCurrency={draft?.currency ?? null}
+      initialType={draft?.type ?? null}
+      initialDate={draft?.date ?? null}
+      initialCategoryId={draft?.categoryId ?? null}
+      initialCategorySource={draft?.categorySource ?? null}
+    />
+  );
+}
 
 function renderCanvas(frame: AskPipFrame, ctx: HostCallbacks) {
   if (frame.entryKind) {
@@ -115,11 +202,11 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
   switch (kind) {
     case 'quick_add':
       return (
-        <ManualEntryScreen
+        <QuickAddCanvas
+          text={frame.text}
           categories={ctx.entryCategories}
           onBack={ctx.onPop}
-          onComplete={noop}
-          embedded
+          onComplete={ctx.onQuickAddComplete}
         />
       );
     case 'settle':
