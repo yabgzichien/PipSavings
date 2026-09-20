@@ -13,7 +13,7 @@ describe('reduceSession', () => {
   it('merges follow-up filters onto the same view', () => {
     let s = emptySession();
     s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { tripId: 't1' } } });
-    s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { tripId: 't1', categoryId: 'food' } } });
+    s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { categoryId: 'food' } } });
     expect(s.stack).toHaveLength(1);
     expect(currentFrame(s)?.filters).toEqual({ tripId: 't1', categoryId: 'food' });
   });
@@ -34,6 +34,16 @@ describe('reduceSession', () => {
     s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt' });
     expect(s.pendingPhoto).toBe(false);
     expect(currentFrame(s)?.entryKind).toBe('scan_receipt');
+  });
+
+  it('scanKindChosen after refuse clears refuse like start_entry', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'apply', action: { type: 'refuse' } });
+    expect(s.refuse).toBe(true);
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt' });
+    expect(s.refuse).toBe(false);
+    expect(s.pendingClarify).toBeNull();
   });
 });
 

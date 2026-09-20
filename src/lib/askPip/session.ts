@@ -74,16 +74,24 @@ function frameFromStartEntry(action: Extract<AskPipAction, { type: 'start_entry'
 
 function applyShowView(state: AskPipSession, action: Extract<AskPipAction, { type: 'show_view' }>): AskPipSession {
   const current = currentFrame(state);
-  const nextFrame: AskPipFrame = {
-    view: action.view,
-    filters: action.filters,
-  };
+  const sameView = current !== null && current.view === action.view;
+
+  const nextFrame: AskPipFrame = sameView
+    ? {
+        ...current,
+        view: action.view,
+        filters: { ...current.filters, ...action.filters },
+      }
+    : {
+        view: action.view,
+        filters: action.filters,
+      };
   if (action.caption !== undefined) {
     nextFrame.caption = action.caption;
   }
 
   let stack: AskPipFrame[];
-  if (current !== null && current.view === action.view) {
+  if (sameView) {
     stack = [...state.stack.slice(0, -1), nextFrame];
   } else {
     stack = pushFrame(state.stack, nextFrame);
@@ -187,7 +195,13 @@ export function reduceSession(state: AskPipSession, event: AskPipEvent): AskPipS
         filters: {},
         entryKind: event.kind,
       });
-      return { ...state, stack, pendingPhoto: false };
+      return {
+        ...state,
+        stack,
+        pendingPhoto: false,
+        pendingClarify: null,
+        refuse: false,
+      };
     }
     case 'clearRefuse':
       return { ...state, refuse: false };
