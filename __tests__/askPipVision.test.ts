@@ -1,4 +1,17 @@
-import { kindFromUtterance, runChatVision } from '../src/lib/askPip/vision';
+import { hostFromVision, kindFromUtterance, runChatVision } from '../src/lib/askPip/vision';
+
+const image = { uri: 'file://shot.jpg', base64: 'abc', mime: 'image/jpeg' };
+
+const emptyReceipt = {
+  merchant: null,
+  currency: 'MYR',
+  items: [],
+  subtotal: null,
+  serviceCharge: null,
+  tax: null,
+  total: null,
+  discount: null,
+};
 
 describe('kindFromUtterance', () => {
   it('detects named jobs and otherwise returns null', () => {
@@ -62,5 +75,20 @@ describe('runChatVision', () => {
       parts: [{ kind: 'text', text: 'x' }],
     });
     expect(extractHoldings).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'user_key' }));
+  });
+});
+
+describe('hostFromVision', () => {
+  it('rejects a non-object receipt so chat cannot open capture', () => {
+    expect(hostFromVision('scan_receipt', image, [])).toBeNull();
+    expect(hostFromVision('scan_receipt', image, undefined)).toBeNull();
+  });
+
+  it('keeps a receipt object as the matching host record', () => {
+    expect(hostFromVision('scan_receipt', image, emptyReceipt)).toEqual({
+      kind: 'scan_receipt',
+      image,
+      receipt: emptyReceipt,
+    });
   });
 });

@@ -5,6 +5,7 @@ import type {
   AskPipFilters,
   AskPipViewId,
 } from './catalog';
+import type { ChatVisionHost } from './vision';
 
 export interface AskPipFrame {
   view: AskPipViewId;
@@ -13,6 +14,7 @@ export interface AskPipFrame {
   text?: string;
   settleShareId?: string;
   caption?: string;
+  vision?: ChatVisionHost;
 }
 
 export interface AskPipSession {
@@ -34,7 +36,7 @@ export type AskPipEvent =
   | { type: 'jump'; index: number }
   | { type: 'dropChip'; key: keyof AskPipFilters | 'view' }
   | { type: 'photoAttached' }
-  | { type: 'scanKindChosen'; kind: AskPipEntryKind }
+  | { type: 'scanKindChosen'; kind: AskPipEntryKind; vision?: ChatVisionHost }
   | { type: 'clearRefuse' };
 
 const ENTRY_PLACEHOLDER_VIEW: AskPipViewId = 'transactions';
@@ -192,11 +194,15 @@ export function reduceSession(state: AskPipSession, event: AskPipEvent): AskPipS
       if (!state.pendingPhoto) {
         return state;
       }
-      const stack = pushFrame(state.stack, {
+      const frame: AskPipFrame = {
         view: ENTRY_PLACEHOLDER_VIEW,
         filters: {},
         entryKind: event.kind,
-      });
+      };
+      if (event.vision) {
+        frame.vision = event.vision;
+      }
+      const stack = pushFrame(state.stack, frame);
       return {
         ...state,
         stack,

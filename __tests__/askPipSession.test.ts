@@ -78,6 +78,60 @@ describe('reduceSession', () => {
     expect(s.pendingClarify).toBeNull();
   });
 
+  it('stores vision on the scan frame and drops it on pop', () => {
+    const vision = {
+      kind: 'scan_receipt' as const,
+      image: { uri: 'file://a.jpg', base64: 'aa', mime: 'image/jpeg' },
+      receipt: {
+        merchant: null,
+        currency: 'MYR',
+        items: [],
+        subtotal: null,
+        serviceCharge: null,
+        tax: null,
+        total: null,
+        discount: null,
+      },
+    };
+    let s = emptySession();
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt', vision });
+    expect(currentFrame(s)?.vision).toEqual(vision);
+    s = reduceSession(s, { type: 'pop' });
+    expect(currentFrame(s)).toBeNull();
+  });
+
+  it('jump keeps the older frame vision instead of the later one', () => {
+    const receiptVision = {
+      kind: 'scan_receipt' as const,
+      image: { uri: 'file://r.jpg', base64: 'rr', mime: 'image/jpeg' },
+      receipt: {
+        merchant: null,
+        currency: 'MYR',
+        items: [],
+        subtotal: null,
+        serviceCharge: null,
+        tax: null,
+        total: null,
+        discount: null,
+      },
+    };
+    const statementVision = {
+      kind: 'scan_statement' as const,
+      image: { uri: 'file://s.jpg', base64: 'ss', mime: 'image/jpeg' },
+      items: [],
+    };
+    let s = emptySession();
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt', vision: receiptVision });
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_statement', vision: statementVision });
+    expect(currentFrame(s)?.vision?.kind).toBe('scan_statement');
+    s = reduceSession(s, { type: 'jump', index: 0 });
+    expect(currentFrame(s)?.vision?.kind).toBe('scan_receipt');
+    expect(s.stack).toHaveLength(1);
+  });
+
   it('scanKindChosen after refuse clears refuse like start_entry', () => {
     let s = emptySession();
     s = reduceSession(s, { type: 'apply', action: { type: 'refuse' } });

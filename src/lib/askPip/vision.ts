@@ -1,5 +1,8 @@
 import type { AskPipEntryKind } from './catalog';
 import type { AskPipProviderId } from './keyStore';
+import type { ScannedReceipt } from '../parseReceipt';
+import type { ScannedHolding } from '../prices';
+import type { ExtractedTxn } from '../types';
 import { GeminiProvider } from '../../llm/gemini';
 import { GroqProvider } from '../../llm/groq';
 import { OpenRouterProvider } from '../../llm/openrouter';
@@ -10,6 +13,14 @@ const PROVIDERS: Record<AskPipProviderId, LLMProvider> = {
   groq: GroqProvider,
   openrouter: OpenRouterProvider,
 };
+
+export type ChatVisionImage = { uri: string; base64: string; mime: string };
+
+export type ChatVisionHost =
+  | { kind: 'scan_receipt'; image: ChatVisionImage; receipt: ScannedReceipt }
+  | { kind: 'scan_statement'; image: ChatVisionImage; items: ExtractedTxn[] }
+  | { kind: 'scan_balance'; image: ChatVisionImage; balance: number | null }
+  | { kind: 'scan_holdings'; image: ChatVisionImage; holdings: ScannedHolding[] };
 
 export type ChatVisionProvider = Pick<
   LLMProvider,
@@ -64,5 +75,26 @@ export async function runChatVision(input: RunChatVisionInput) {
       return provider.extractHoldings?.({ apiKey, model, parts });
     default:
       return undefined;
+  }
+}
+
+export function hostFromVision(
+  kind: AskPipEntryKind,
+  image: ChatVisionImage,
+  result: unknown,
+): ChatVisionHost | null {
+  switch (kind) {
+    case 'scan_receipt':
+      return result && typeof result === 'object' && !Array.isArray(result)
+        ? { kind, image, receipt: result as ScannedReceipt }
+        : null;
+    case 'scan_statement':
+      return { kind, image, items: Array.isArray(result) ? (result as ExtractedTxn[]) : [] };
+    case 'scan_balance':
+      return { kind, image, balance: typeof result === 'number' ? result : null };
+    case 'scan_holdings':
+      return { kind, image, holdings: Array.isArray(result) ? (result as ScannedHolding[]) : [] };
+    default:
+      return null;
   }
 }

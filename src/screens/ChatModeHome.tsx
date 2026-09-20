@@ -30,16 +30,12 @@ import {
 } from '../lib/askPip/session';
 import { restingSuggestions } from '../lib/askPip/suggestions';
 import { runAskPipTurn, type AskPipTurnInput } from '../lib/askPip/turn';
-import { kindFromUtterance, runChatVision } from '../lib/askPip/vision';
+import { hostFromVision, kindFromUtterance, runChatVision } from '../lib/askPip/vision';
 import type { AskPipWorld } from '../lib/askPip/resolve';
 import { uint8ArrayToBase64 } from '../lib/receiptImage';
-import type { ScannedReceipt } from '../lib/parseReceipt';
-import type { ScannedHolding } from '../lib/prices';
-import type { ExtractedTxn } from '../lib/types';
-import { LLMError, type DocPart } from '../llm/types';
+import { LLMError, llmErrorMessage, type DocPart } from '../llm/types';
 import { File } from 'expo-file-system';
 import type { PickedImage } from './AttachScreen';
-import type { ChatVisionHost } from './ChatCanvasHost';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -196,23 +192,6 @@ function toDocParts(image: PickedImage): DocPart[] {
   }
 }
 
-function hostFromVision(kind: AskPipEntryKind, image: PickedImage, result: unknown): ChatVisionHost | null {
-  switch (kind) {
-    case 'scan_receipt':
-      return result && typeof result === 'object' && !Array.isArray(result)
-        ? { kind, image, receipt: result as ScannedReceipt }
-        : null;
-    case 'scan_statement':
-      return { kind, image, items: Array.isArray(result) ? (result as ExtractedTxn[]) : [] };
-    case 'scan_balance':
-      return { kind, image, balance: typeof result === 'number' ? result : null };
-    case 'scan_holdings':
-      return { kind, image, holdings: Array.isArray(result) ? (result as ScannedHolding[]) : [] };
-    default:
-      return null;
-  }
-}
-
 export type ChatModeHomeHandle = {
   pop: () => boolean;
   readonly stackEmpty: boolean;
@@ -249,7 +228,6 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const attachedRef = useRef<PickedImage | null>(null);
-  const [visionHost, setVisionHost] = useState<ChatVisionHost | null>(null);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -268,25 +246,30 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     setSending(true);
     setComposerError(null);
     try {
-      if (photo) {
-        const store = defaultAskPipKeyStore();
-        const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
-        if (!providerId || !apiKey) {
-          onNeedKey();
-          return;
-        }
-        const result = await runChatVision({
-          kind,
-          apiKey,
-          providerId,
-          parts: toDocParts(photo),
-        });
-        const host = hostFromVision(kind, photo, result);
-        if (host) setVisionHost(host);
+      if (!photo) {
+        setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
+        return;
+      }
+      const store = defaultAskPipKeyStore();
+      const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
+      if (!providerId || !apiKey) {
+        onNeedKey();
+        return;
+      }
+      const result = await runChatVision({
+        kind,
+        apiKey,
+        providerId,
+        parts: toDocParts(photo),
+      });
+      const host = hostFromVision(kind, photo, result);
+      if (!host) {
+        setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
+        return;
       }
       setSession((prev) => {
         const withPhoto = prev.pendingPhoto ? prev : reduceSession(prev, { type: 'photoAttached' });
-        return reduceSession(withPhoto, { type: 'scanKindChosen', kind });
+        return reduceSession(withPhoto, { type: 'scanKindChosen', kind, vision: host });
       });
       setDraft('');
     } catch (err) {
@@ -566,7 +549,6 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
           ) : frame ? (
             <ChatCanvasHost
               frame={frame}
-              vision={visionHost}
               onPop={() => applyEvent({ type: 'pop' })}
               onSheetOpenChange={onSheetOpenChange}
               onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
