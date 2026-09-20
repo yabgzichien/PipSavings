@@ -65,6 +65,12 @@ export const en: Translations = {
   askPipSettingsDesc: 'Choose a provider and manage your API key.',
   askPipOffline: 'Ask Pip needs an internet connection.',
   askPipBadKey: 'That API key could not be verified.',
+  askPipNeedsYouBillsTitle: '{count} bill{plural} · {money}',
+  askPipNeedsYouCommitmentsOverdueSub: 'Something is overdue. Tap to catch up.',
+  askPipNeedsYouOwedTitle: '{money} owed to you',
+  askPipNeedsYouOwedOverdueSub: '{name} has owed you for {days} days. Worth a nudge.',
+  askPipNeedsYouCommitmentsDueSub: 'Due this month. Tap to tick off.',
+  askPipNeedsYouOwedOpenSub: 'From {count} shared bill{plural}. Tap to settle up.',
 
   // Greetings
   greetingMorning: 'Good morning',

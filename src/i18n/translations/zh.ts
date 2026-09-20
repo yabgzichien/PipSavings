@@ -65,6 +65,12 @@ export const zh: Translations = {
   askPipSettingsDesc: '选择服务商并管理 API 密钥。',
   askPipOffline: 'Ask Pip 需要连接网络。',
   askPipBadKey: '无法验证该 API 密钥。',
+  askPipNeedsYouBillsTitle: '{count} 笔账单 · {money}',
+  askPipNeedsYouCommitmentsOverdueSub: '有账单已逾期。点击前往处理。',
+  askPipNeedsYouOwedTitle: '待收回 {money}',
+  askPipNeedsYouOwedOverdueSub: '{name} 已欠款 {days} 天。建议提醒一下。',
+  askPipNeedsYouCommitmentsDueSub: '本月待付。点击前往打勾。',
+  askPipNeedsYouOwedOpenSub: '来自 {count} 笔分摊账单。点击前往结清。',
 
   // Greetings
   greetingMorning: '早上好',

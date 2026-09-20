@@ -50,6 +50,23 @@ describe('reduceSession', () => {
     expect(currentFrame(s)?.entryKind).toBe('scan_receipt');
   });
 
+  it('stores clarify choice actions so a later apply uses the resolved action', () => {
+    let s = emptySession();
+    const action = { type: 'show_view' as const, view: 'tripDetail' as const, filters: { tripId: 't1' } };
+    s = reduceSession(s, {
+      type: 'apply',
+      action: {
+        type: 'clarify',
+        choices: [{ id: 't1', label: 'Singapore', action }],
+      },
+    });
+    expect(s.pendingClarify?.choices[0].action).toEqual(action);
+    s = reduceSession(s, { type: 'apply', action: s.pendingClarify!.choices[0].action });
+    expect(currentFrame(s)?.view).toBe('tripDetail');
+    expect(currentFrame(s)?.filters).toEqual({ tripId: 't1' });
+    expect(s.pendingClarify).toBeNull();
+  });
+
   it('scanKindChosen after refuse clears refuse like start_entry', () => {
     let s = emptySession();
     s = reduceSession(s, { type: 'apply', action: { type: 'refuse' } });

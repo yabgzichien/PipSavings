@@ -46,6 +46,11 @@ describe('runAskPipTurn', () => {
       model,
     });
     expect(session.pendingClarify?.choices).toHaveLength(2);
+    expect(session.pendingClarify?.choices[0].action).toEqual({
+      type: 'show_view',
+      view: 'tripDetail',
+      filters: { tripId: 't1' },
+    });
     expect(session.stack).toHaveLength(0);
   });
 });

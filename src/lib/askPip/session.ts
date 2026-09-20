@@ -18,7 +18,7 @@ export interface AskPipFrame {
 export interface AskPipSession {
   stack: AskPipFrame[];
   pendingPhoto: boolean;
-  pendingClarify: { field: string; choices: { id: string; label: string }[] } | null;
+  pendingClarify: { field: string; choices: { id: string; label: string; action: AskPipAction }[] } | null;
   refuse: boolean;
 }
 
@@ -125,7 +125,7 @@ function applyAction(state: AskPipSession, action: AskPipAction): AskPipSession 
         ...state,
         pendingClarify: {
           field: inferClarifyField(action.choices),
-          choices: action.choices.map((c) => ({ id: c.id, label: c.label })),
+          choices: action.choices.map((c) => ({ id: c.id, label: c.label, action: c.action })),
         },
       };
     case 'refuse':

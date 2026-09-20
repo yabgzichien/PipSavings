@@ -18,7 +18,7 @@ import { currentMonthKey } from '../lib/budget';
 import { fmtMoney } from '../lib/format';
 import * as haptics from '../lib/haptics';
 import type { AskPipFilters, AskPipViewId } from '../lib/askPip/catalog';
-import { pickNeedsYou, needsYouBannerKind, type NeedsYouSlot } from '../lib/askPip/needsYou';
+import { needsYouBannerKind, type NeedsYouSlot } from '../lib/askPip/needsYou';
 import {
   bannerVisible,
   currentFrame,
@@ -29,14 +29,11 @@ import {
 import { restingSuggestions } from '../lib/askPip/suggestions';
 import { runAskPipTurn, type AskPipTurnInput } from '../lib/askPip/turn';
 import type { AskPipWorld } from '../lib/askPip/resolve';
-import { featuredTripForDate } from '../lib/trips';
 import { LLMError } from '../llm/types';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
-import { useAppData } from '../state/store';
-import { useNow } from '../state/useNow';
 import { shadowCard, spacing, uiFont } from '../theme';
 
 const FILTER_KEYS: (keyof AskPipFilters)[] = [
@@ -49,13 +46,6 @@ const FILTER_KEYS: (keyof AskPipFilters)[] = [
   'dateFrom',
   'dateTo',
 ];
-
-function dayKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 function viewLabel(view: AskPipViewId, t: (key: string) => string): string {
   switch (view) {
@@ -114,44 +104,41 @@ function suggestionLabel(id: string, t: (key: string) => string): string {
   }
 }
 
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
 function needsYouCopy(
   slot: NeedsYouSlot,
-  isZh: boolean,
+  t: Translate,
   money: string,
 ): { icon: IconName; title: string; sub: string } {
   if (slot.kind === 'commitments_overdue') {
     return {
       icon: 'clock',
-      title: isZh
-        ? `${slot.count} 笔账单 · ${money}`
-        : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${money}`,
-      sub: isZh ? '有账单已逾期。点击前往处理。' : 'Something is overdue. Tap to catch up.',
+      title: t('askPipNeedsYouBillsTitle', { count: slot.count, money }),
+      sub: t('askPipNeedsYouCommitmentsOverdueSub'),
     };
   }
   if (slot.kind === 'owed_overdue') {
     return {
       icon: 'gift',
-      title: isZh ? `待收回 ${money}` : `${money} owed to you`,
-      sub: isZh
-        ? `${slot.oldestName} 已欠款 ${slot.oldestDays} 天。建议提醒一下。`
-        : `${slot.oldestName} has owed you for ${slot.oldestDays} days. Worth a nudge.`,
+      title: t('askPipNeedsYouOwedTitle', { money }),
+      sub: t('askPipNeedsYouOwedOverdueSub', {
+        name: slot.oldestName ?? '',
+        days: slot.oldestDays ?? 0,
+      }),
     };
   }
   if (slot.kind === 'commitments_due') {
     return {
       icon: 'clock',
-      title: isZh
-        ? `${slot.count} 笔账单 · ${money}`
-        : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${money}`,
-      sub: isZh ? '本月待付。点击前往打勾。' : 'Due this month. Tap to tick off.',
+      title: t('askPipNeedsYouBillsTitle', { count: slot.count, money }),
+      sub: t('askPipNeedsYouCommitmentsDueSub'),
     };
   }
   return {
     icon: 'gift',
-    title: isZh ? `待收回 ${money}` : `${money} owed to you`,
-    sub: isZh
-      ? `来自 ${slot.count} 笔分摊账单。点击前往结清。`
-      : `From ${slot.count} shared ${slot.count === 1 ? 'bill' : 'bills'}. Tap to settle up.`,
+    title: t('askPipNeedsYouOwedTitle', { money }),
+    sub: t('askPipNeedsYouOwedOpenSub', { count: slot.count }),
   };
 }
 
@@ -164,6 +151,20 @@ export type ChatModeHomeProps = {
   hasKey: boolean;
   runModel: AskPipTurnInput['model'];
   world: AskPipWorld;
+  streak: number;
+  week: boolean[];
+  weekKinds?: ('spend' | 'checkin' | 'none')[];
+  todayIndex: number;
+  freezeAvailable: boolean;
+  graduated: boolean;
+  startLabel: string | null;
+  paused: boolean;
+  onPress?: () => void;
+  onNoSpendCheckIn?: () => void;
+  needsYou: NeedsYouSlot | null;
+  hasOwed: boolean;
+  tripName: string | null;
+  hasHoldings: boolean;
 };
 
 export function ChatModeHome({
@@ -173,22 +174,20 @@ export function ChatModeHome({
   hasKey,
   runModel,
   world,
+  streak,
+  week,
+  todayIndex,
+  onPress,
+  needsYou,
+  hasOwed,
+  tripName,
+  hasHoldings,
 }: ChatModeHomeProps) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { t, isZh } = useLanguage();
-  const now = useNow();
+  const { t } = useLanguage();
   const dc = useDisplayCurrency();
-  const {
-    streak,
-    streakWeek,
-    streakTodayIndex,
-    openShares,
-    commitmentOccurrences,
-    trips,
-    accounts,
-  } = useAppData();
 
   const [session, setSession] = useState<AskPipSession>(emptySession);
   const sessionRef = useRef(session);
@@ -198,36 +197,24 @@ export function ChatModeHome({
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const today = dayKey(now);
-  const needsYou = useMemo(
-    () =>
-      pickNeedsYou({
-        shares: openShares,
-        occurrences: commitmentOccurrences,
-        today,
-        currentMonth: today.slice(0, 7),
-      }),
-    [openShares, commitmentOccurrences, today],
-  );
   const needsKind = needsYouBannerKind(needsYou);
   const frame = currentFrame(session);
   const showBanner = bannerVisible(needsKind, frame?.view ?? null);
   const showBell = needsKind !== null && !showBanner;
 
-  const featured = useMemo(() => featuredTripForDate(trips, today), [trips, today]);
   const chips = useMemo(
     () =>
       restingSuggestions({
-        hasOwed: openShares.length > 0,
-        tripName: featured?.trip.name ?? trips.find((trip) => !trip.archived)?.name ?? null,
-        hasHoldings: accounts.some((account) => !account.archived && account.symbol != null),
-        currentMonth: currentMonthKey(now),
+        hasOwed,
+        tripName,
+        hasHoldings,
+        currentMonth: currentMonthKey(),
       }),
-    [openShares, featured, trips, accounts, now],
+    [hasOwed, tripName, hasHoldings],
   );
 
   const bannerCopy = needsYou
-    ? needsYouCopy(needsYou, isZh, fmtMoney(dc.convert(needsYou.total), dc.code))
+    ? needsYouCopy(needsYou, t, fmtMoney(dc.convert(needsYou.total), dc.code))
     : null;
 
   function applyEvent(event: Parameters<typeof reduceSession>[1]) {
@@ -286,9 +273,13 @@ export function ChatModeHome({
           <View style={styles.stripRow}>
             <ChatStreakStrip
               streak={streak}
-              week={streakWeek}
-              todayIndex={streakTodayIndex}
+              week={week}
+              todayIndex={todayIndex}
               onPress={() => {
+                if (onPress) {
+                  onPress();
+                  return;
+                }
                 applyEvent({
                   type: 'apply',
                   action: { type: 'show_view', view: 'calendar', filters: {} },
@@ -450,7 +441,7 @@ export function ChatModeHome({
                 key={choice.id}
                 onPress={() => {
                   haptics.tap();
-                  void sendUtterance(choice.label);
+                  applyEvent({ type: 'apply', action: choice.action });
                 }}
                 style={({ pressed }) => [
                   styles.suggestion,

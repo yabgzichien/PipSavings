@@ -65,6 +65,12 @@ export interface Translations {
   askPipSettingsDesc: string;
   askPipOffline: string;
   askPipBadKey: string;
+  askPipNeedsYouBillsTitle: string;
+  askPipNeedsYouCommitmentsOverdueSub: string;
+  askPipNeedsYouOwedTitle: string;
+  askPipNeedsYouOwedOverdueSub: string;
+  askPipNeedsYouCommitmentsDueSub: string;
+  askPipNeedsYouOwedOpenSub: string;
 
   // Greetings
   greetingMorning: string;
