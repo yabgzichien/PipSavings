@@ -23,7 +23,7 @@ import { netWorth, netWorthSeries } from '../lib/networth';
 import type { Screen } from '../lib/screenNav';
 import { lastActiveDay, localDayNumber } from '../lib/streak';
 import { computeExploreTaskStatus, type ExploreTask } from '../lib/tasks';
-import { AGING_DAYS, daysBetween } from '../lib/split';
+import { pickNeedsYou } from '../lib/askPip/needsYou';
 import * as haptics from '../lib/haptics';
 import { payoff as playChime } from '../lib/sound';
 import { computeTripTotals, featuredTripForDate } from '../lib/trips';
@@ -286,88 +286,56 @@ export function DashboardScreen({
       .sort((a, b) => b.amt - a.amt);
   }, [monthExpenses]);
 
-  // A debt this old has stopped being a favour and started being a thing you have to chase, so
-  // the "needs you" row switches from a neutral total to naming who is sitting on it.
-  const owed = useMemo(() => {
-    const today = dayKey(new Date());
-    let oldestDays = 0;
-    let oldestName = '';
-    for (const share of openShares) {
-      const age = daysBetween(share.billDate, today) ?? 0;
-      if (age > oldestDays) {
-        oldestDays = age;
-        oldestName = share.personName;
-      }
-    }
-    return {
-      total: openShares.reduce((s, x) => s + x.outstanding, 0),
-      count: openShares.length,
-      oldestDays,
-      oldestName,
-      overdue: oldestDays >= AGING_DAYS,
-    };
-  }, [openShares]);
-
-  // Anything still unpaid: overdue rows regardless of month, plus this month's scheduled ones.
-  const commitmentsDue = useMemo(() => {
-    const cur = currentMonthKey();
-    const today = dayKey(new Date());
-    const unpaid = commitmentOccurrences.filter(
-      (o) => o.status === 'scheduled' && (o.dueDate < today || o.month === cur)
-    );
-    return {
-      count: unpaid.length,
-      total: unpaid.reduce((s, o) => s + o.amount, 0),
-      overdue: unpaid.some((o) => o.dueDate < today),
-    };
-  }, [commitmentOccurrences]);
-
   // One slot, priority-ordered, so at most one thing is ever asking for attention at a time:
   // an overdue commitment outranks an aged debt outranks a due-but-not-overdue commitment
-  // outranks an open (not yet aged) debt.
+  // outranks an open (not yet aged) debt. Dashboard keeps formatting and onPress wiring.
   const needsYou = useMemo(() => {
-    if (commitmentsDue.overdue) {
+    const slot = pickNeedsYou({
+      shares: openShares,
+      occurrences: commitmentOccurrences,
+      today,
+      currentMonth: today.slice(0, 7),
+    });
+    if (!slot) return null;
+    if (slot.kind === 'commitments_overdue') {
       return {
         icon: 'clock' as IconName,
         title: isZh
-          ? `${commitmentsDue.count} 笔账单 · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`
-          : `${commitmentsDue.count} ${commitmentsDue.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`,
+          ? `${slot.count} 笔账单 · ${fmtMoney(dc.convert(slot.total), dc.code)}`
+          : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(slot.total), dc.code)}`,
         sub: isZh ? '有账单已逾期。点击前往处理。' : 'Something is overdue. Tap to catch up.',
         onPress: onOpenCommitments,
       };
     }
-    if (owed.overdue) {
+    if (slot.kind === 'owed_overdue') {
       return {
         icon: 'gift' as IconName,
-        title: isZh ? `待收回 ${fmtMoney(dc.convert(owed.total), dc.code)}` : `${fmtMoney(dc.convert(owed.total), dc.code)} owed to you`,
+        title: isZh ? `待收回 ${fmtMoney(dc.convert(slot.total), dc.code)}` : `${fmtMoney(dc.convert(slot.total), dc.code)} owed to you`,
         sub: isZh
-          ? `${owed.oldestName} 已欠款 ${owed.oldestDays} 天。建议提醒一下。`
-          : `${owed.oldestName} has owed you for ${owed.oldestDays} days. Worth a nudge.`,
+          ? `${slot.oldestName} 已欠款 ${slot.oldestDays} 天。建议提醒一下。`
+          : `${slot.oldestName} has owed you for ${slot.oldestDays} days. Worth a nudge.`,
         onPress: onOpenOwed,
       };
     }
-    if (commitmentsDue.count > 0) {
+    if (slot.kind === 'commitments_due') {
       return {
         icon: 'clock' as IconName,
         title: isZh
-          ? `${commitmentsDue.count} 笔账单 · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`
-          : `${commitmentsDue.count} ${commitmentsDue.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`,
+          ? `${slot.count} 笔账单 · ${fmtMoney(dc.convert(slot.total), dc.code)}`
+          : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(slot.total), dc.code)}`,
         sub: isZh ? '本月待付。点击前往打勾。' : 'Due this month. Tap to tick off.',
         onPress: onOpenCommitments,
       };
     }
-    if (owed.total > 0) {
-      return {
-        icon: 'gift' as IconName,
-        title: isZh ? `待收回 ${fmtMoney(dc.convert(owed.total), dc.code)}` : `${fmtMoney(dc.convert(owed.total), dc.code)} owed to you`,
-        sub: isZh
-          ? `来自 ${owed.count} 笔分摊账单。点击前往结清。`
-          : `From ${owed.count} shared ${owed.count === 1 ? 'bill' : 'bills'}. Tap to settle up.`,
-        onPress: onOpenOwed,
-      };
-    }
-    return null;
-  }, [commitmentsDue, owed, onOpenCommitments, onOpenOwed, dc.code, dc.rates, isZh]);
+    return {
+      icon: 'gift' as IconName,
+      title: isZh ? `待收回 ${fmtMoney(dc.convert(slot.total), dc.code)}` : `${fmtMoney(dc.convert(slot.total), dc.code)} owed to you`,
+      sub: isZh
+        ? `来自 ${slot.count} 笔分摊账单。点击前往结清。`
+        : `From ${slot.count} shared ${slot.count === 1 ? 'bill' : 'bills'}. Tap to settle up.`,
+      onPress: onOpenOwed,
+    };
+  }, [openShares, commitmentOccurrences, today, onOpenCommitments, onOpenOwed, dc.code, dc.rates, isZh]);
 
   const empty = transactions.length === 0 && !featuredTrip;
 
