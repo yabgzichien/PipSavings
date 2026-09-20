@@ -79,6 +79,7 @@ export function DashboardScreen({
   onOpenBudget = () => {},
   onOpenCategory = () => {},
   onOpenRecap = () => {},
+  onToggleChat = () => {},
   onOpenNetWorth = () => {},
   onOpenTrip = () => {},
   onOpenOwed = () => {},
@@ -96,6 +97,7 @@ export function DashboardScreen({
   /** Tapping a category row on the budget card (not "Manage"). */
   onOpenCategory?: (id: string) => void;
   onOpenRecap?: (month?: string, openStory?: boolean) => void;
+  onToggleChat?: () => void;
   onOpenNetWorth?: () => void;
   onOpenTrip?: (tripId: string) => void;
   onOpenOwed?: () => void;
@@ -390,6 +392,7 @@ export function DashboardScreen({
             <TourAnchor id="tour_recap_btn" activeId={activeTourAnchor}>
               <HeaderIcon name="chart" onPress={() => onOpenRecap()} accessibilityLabel={t('monthlyRecap')} />
             </TourAnchor>
+            <HeaderIcon name="sparkles" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
             <View ref={mascotRef} style={styles.mascotWrap}>
               <Pressable
                 onPress={() => {
