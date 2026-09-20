@@ -81,9 +81,11 @@ function TripRow({
 export function TripsScreen({
   onBack,
   onOpenTrip,
+  embedded,
 }: {
   onBack: () => void;
   onOpenTrip: (tripId: string) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -158,9 +160,11 @@ export function TripsScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('tripsTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('tripsTitle')} onBack={onBack} />
+        </View>
+      )}
 
       {/* A trip list grows without bound, and the create form pushes it further down with the
           keyboard open, so this has to scroll — a plain View simply clipped everything past the

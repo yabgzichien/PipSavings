@@ -619,10 +619,12 @@ export function AdvancedImportScreen({
   onClose,
   onSuccess,
   isWizard = false,
+  embedded,
 }: {
   onClose: () => void;
   onSuccess?: () => void;
   isWizard?: boolean;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -1184,9 +1186,11 @@ export function AdvancedImportScreen({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('importAdvancedTitle')} onBack={handleBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('importAdvancedTitle')} onBack={handleBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView

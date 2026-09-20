@@ -26,10 +26,12 @@ export function BreakdownScreen({
   onBack,
   onOpenCategory,
   onOpenTrip,
+  embedded,
 }: {
   onBack: () => void;
   onOpenCategory: (categoryId: string) => void;
   onOpenTrip: (tripId: string) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -84,13 +86,15 @@ export function BreakdownScreen({
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <ReviewCheckInToast />
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={screenTitle}
-          onBack={onBack}
-          right={<ValueToggle mode={mode} onChange={setMode} currency={dc.code} />}
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar
+            title={screenTitle}
+            onBack={onBack}
+            right={<ValueToggle mode={mode} onChange={setMode} currency={dc.code} />}
+          />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 30 }} showsVerticalScrollIndicator={false}>
         {/* kind toggle */}

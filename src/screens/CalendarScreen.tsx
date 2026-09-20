@@ -562,10 +562,12 @@ export function CalendarScreen({
   onBack,
   initialMonth,
   onAdd,
+  embedded,
 }: {
   onBack: () => void;
   initialMonth?: string;
   onAdd: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -617,8 +619,9 @@ export function CalendarScreen({
   const weekdayLabels = isZh ? WEEKDAY_LABELS_ZH : WEEKDAY_LABELS_EN;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colorTheme.bg }]}>
+    <View style={[styles.root, { paddingTop: embedded ? 0 : insets.top, backgroundColor: colorTheme.bg }]}>
       {/* ── Nav bar ── */}
+      {!embedded && (
       <View style={styles.nav}>
         <Pressable onPress={onBack} style={[styles.navBtn, { backgroundColor: colorTheme.surface }]} accessibilityRole="button" accessibilityLabel="Back">
           <Svg width={10} height={17} viewBox="0 0 10 17" fill="none">
@@ -647,6 +650,7 @@ export function CalendarScreen({
           )}
         </Pressable>
       </View>
+      )}
 
       {viewMode === 'month' ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}>

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatStreakStrip } from '../components/ChatStreakStrip';
+import { ChatCanvasHost } from './ChatCanvasHost';
 import { Icon, type IconName } from '../components/Icon';
 import { FadeIn } from '../components/Motion';
 import { Pip } from '../components/Pip';
@@ -425,13 +426,12 @@ export function ChatModeHome({
                 ))}
               </View>
             </View>
-          ) : (
-            <View style={styles.placeholder}>
-              <Caption color={colorTheme.ink2}>
-                {frame ? viewLabel(frame.view, t) : ''}
-              </Caption>
-            </View>
-          )}
+          ) : frame ? (
+            <ChatCanvasHost
+              frame={frame}
+              onPop={() => applyEvent({ type: 'pop' })}
+            />
+          ) : null}
         </View>
 
         {session.pendingClarify && (
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  canvas: { flex: 1, marginTop: spacing.sm, marginHorizontal: spacing.base, borderRadius: 16 },
+  canvas: { flex: 1, marginTop: spacing.sm, marginHorizontal: spacing.base, borderRadius: 16, overflow: 'hidden' },
   history: {
     margin: spacing.sm,
     borderRadius: 16,
@@ -599,7 +599,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   clarifyRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

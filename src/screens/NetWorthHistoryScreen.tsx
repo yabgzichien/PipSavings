@@ -49,7 +49,7 @@ function formatClassLabel(cls: string, isZh: boolean, fallbackLabel: string): st
   }
 }
 
-export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
+export function NetWorthHistoryScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -192,9 +192,11 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + spacing.xs }}>
-        <TopBar title={t('historyTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + spacing.xs }}>
+          <TopBar title={t('historyTitle')} onBack={onBack} />
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}

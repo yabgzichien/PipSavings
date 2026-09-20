@@ -94,6 +94,7 @@ export function ReceiptScanScreen({
   onBack,
   onDone,
   onManualInstead,
+  embedded,
 }: {
   /** The image the add hub already captured, handed over once the user confirmed on
    *  ScanKindScreen that it was a receipt. When set, this screen skips straight to reading it;
@@ -115,6 +116,7 @@ export function ReceiptScanScreen({
   onDone: (result: ReceiptSplitResult) => void;
   /** Escape hatch: split a typed total instead of a photographed receipt. */
   onManualInstead: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -440,12 +442,14 @@ export function ReceiptScanScreen({
     const translateY = scan.interpolate({ inputRange: [0, 1], outputRange: [0, PREVIEW_H - 28] });
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar
-            title={isZh ? '正在识别小票…' : 'Reading receipt…'}
-            onBack={() => (initialImage ? onBack() : setPhase('capture'))}
-          />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar
+              title={isZh ? '正在识别小票…' : 'Reading receipt…'}
+              onBack={() => (initialImage ? onBack() : setPhase('capture'))}
+            />
+          </View>
+        )}
         <ScrollView
           contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 30 }}
           showsVerticalScrollIndicator={false}
@@ -500,9 +504,11 @@ export function ReceiptScanScreen({
   if (phase === 'capture') {
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar title={isZh ? '扫描消费小票' : 'Scan a receipt'} onBack={onBack} />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar title={isZh ? '扫描消费小票' : 'Scan a receipt'} onBack={onBack} />
+          </View>
+        )}
         {!isPro && (
           <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
             <ScanQuotaBadge
@@ -555,14 +561,16 @@ export function ReceiptScanScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        {/* Back means "this wasn't a receipt after all" when the hub supplied the image, so it
-            returns to the kind question rather than to a capture screen the user never used. */}
-        <TopBar
-          title={receipt?.merchant ?? (isZh ? '分配明细' : 'Assign the items')}
-          onBack={() => (initialImage ? onBack() : setPhase('capture'))}
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          {/* Back means "this wasn't a receipt after all" when the hub supplied the image, so it
+              returns to the kind question rather than to a capture screen the user never used. */}
+          <TopBar
+            title={receipt?.merchant ?? (isZh ? '分配明细' : 'Assign the items')}
+            onBack={() => (initialImage ? onBack() : setPhase('capture'))}
+          />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView

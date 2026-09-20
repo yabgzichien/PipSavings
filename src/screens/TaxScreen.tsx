@@ -41,7 +41,7 @@ function daysUntilMonthEnd(txnDate: string): number {
   return Math.max(0, lastDay - today.getDate());
 }
 
-export function TaxScreen({ onBack }: { onBack: () => void }) {
+export function TaxScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -115,8 +115,8 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
   }, [schedule]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colorTheme.bg, paddingTop: insets.top }]}>
-      <TopBar title={isZh ? '个人所得税减免' : 'Tax relief'} onBack={onBack} />
+    <View style={[styles.root, { backgroundColor: colorTheme.bg, paddingTop: embedded ? 0 : insets.top }]}>
+      {!embedded && <TopBar title={isZh ? '个人所得税减免' : 'Tax relief'} onBack={onBack} />}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.yaRow}>

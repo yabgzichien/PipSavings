@@ -120,10 +120,12 @@ function lastMonths(n: number): string[] {
 export function NetWorthScreen({
   onOpenHistory,
   onOpenOwed,
+  embedded,
 }: {
   onBack: () => void;
   onOpenHistory: () => void;
   onOpenOwed?: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -304,9 +306,11 @@ export function NetWorthScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
-        <Title>{t('netWorthTitle')}</Title>
-      </View>
+      {!embedded && (
+        <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
+          <Title>{t('netWorthTitle')}</Title>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}

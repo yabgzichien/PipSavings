@@ -65,6 +65,7 @@ export function ManualEntryScreen({
   activeTourAnchor = null,
   onAmountValidChange,
   onCategoryChosen,
+  embedded,
 }: {
   categories: Category[];
   onBack: () => void;
@@ -100,6 +101,7 @@ export function ManualEntryScreen({
   /** Fires once a category is picked, so the guided tour's category step can auto-advance to
    *  the actual "Add expense" button rather than exposing its own separate Next. */
   onCategoryChosen?: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -395,9 +397,11 @@ export function ManualEntryScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={title ?? (startSplitting ? (isZh ? '分摊账单' : 'Split a bill') : (isZh ? '手动记账' : 'Add manually'))} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={title ?? (startSplitting ? (isZh ? '分摊账单' : 'Split a bill') : (isZh ? '手动记账' : 'Add manually'))} onBack={onBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">

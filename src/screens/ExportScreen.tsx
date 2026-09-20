@@ -61,9 +61,11 @@ const WORKBOOK_SHEETS = [
 export function ExportScreen({
   onBack,
   initialMonth,
+  embedded,
 }: {
   onBack: () => void;
   initialMonth?: string;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -202,9 +204,11 @@ export function ExportScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '导出' : 'Export'} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '导出' : 'Export'} onBack={onBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView

@@ -58,7 +58,7 @@ export function recurringCategoryHideActions(
   };
 }
 
-export function CategoriesScreen({ onBack, onReviewCommitments }: { onBack: () => void; onReviewCommitments: () => void }) {
+export function CategoriesScreen({ onBack, onReviewCommitments, embedded }: { onBack: () => void; onReviewCommitments: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -225,9 +225,11 @@ export function CategoriesScreen({ onBack, onReviewCommitments }: { onBack: () =
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('categoriesTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('categoriesTitle')} onBack={onBack} />
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         {/* kind toggle */}

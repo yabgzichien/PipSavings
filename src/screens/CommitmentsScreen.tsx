@@ -63,7 +63,7 @@ function addMonthsKey(mk: string, delta: number): string {
  * The recurring commitments screen with a sleek timeline view, month-to-month navigation,
  * accurate due-date grouping, brand logos, daily subtotals, and comprehensive recurring management.
  */
-export function CommitmentsScreen({ onBack }: { onBack: () => void }) {
+export function CommitmentsScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -237,22 +237,24 @@ export function CommitmentsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={isZh ? '定期支出与定投' : 'Recurring commitments'}
-          onBack={onBack}
-          right={
-            <Pressable
-              onPress={() => setEditing('new')}
-              hitSlop={8}
-              accessibilityLabel="Add a recurring commitment"
-              style={[styles.addCircleBtn, { backgroundColor: theme.accent }]}
-            >
-              <Icon name="plus" size={15} color="#ffffff" stroke={2.8} />
-            </Pressable>
-          }
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar
+            title={isZh ? '定期支出与定投' : 'Recurring commitments'}
+            onBack={onBack}
+            right={
+              <Pressable
+                onPress={() => setEditing('new')}
+                hitSlop={8}
+                accessibilityLabel="Add a recurring commitment"
+                style={[styles.addCircleBtn, { backgroundColor: theme.accent }]}
+              >
+                <Icon name="plus" size={15} color="#ffffff" stroke={2.8} />
+              </Pressable>
+            }
+          />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 36 }} showsVerticalScrollIndicator={false}>
         {commitments.length === 0 ? (

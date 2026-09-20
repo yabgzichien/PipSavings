@@ -214,11 +214,15 @@ export function TripDetailScreen({
   tripId,
   onBack,
   onAddExpense,
+  embedded,
+  initialCategoryId,
 }: {
   tripId: string;
   onBack: () => void;
   /** Opens the normal add flow with this trip prefilled and visible. */
   onAddExpense: (tripId: string, tripName: string) => void;
+  embedded?: boolean;
+  initialCategoryId?: string;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -237,7 +241,7 @@ export function TripDetailScreen({
   const trip = trips.find((tr) => tr.id === tripId);
 
   /** Set by tapping a category in the breakdown: the list below narrows to that category. */
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(initialCategoryId ?? null);
 
   const tripTxns = useMemo(() => expensesForTrip(transactions, tripId), [transactions, tripId]);
   const totals = useMemo(() => computeTripTotals(transactions, tripId, dc.convertTxn), [transactions, tripId, dc]);
@@ -265,9 +269,11 @@ export function TripDetailScreen({
   if (!trip) {
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar title={t('tripsTitle')} onBack={onBack} />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar title={t('tripsTitle')} onBack={onBack} />
+          </View>
+        )}
         <View style={styles.center}>
           <Pip size={64} expr="curious" />
           <Body color={colorTheme.ink2} style={{ marginTop: spacing.md }}>
@@ -303,32 +309,34 @@ export function TripDetailScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={trip.name}
-          onBack={onBack}
-          // Rename, archive and delete are all occasional. Behind one trigger they stop competing
-          // with the two things this screen is for: what the trip cost, and adding to it.
-          right={
-            <OverflowMenu
-              title={trip.name}
-              accessibilityLabel={`${isZh ? '更多操作' : 'More actions'}: ${trip.name}`}
-              size={17}
-              actions={[
-                { label: isZh ? '重命名行程' : 'Rename trip', icon: 'pencil', onPress: openRename },
-                {
-                  label: trip.archived ? t('unarchiveTrip') : t('archiveTrip'),
-                  icon: 'folder',
-                  onPress: () => { void setTripArchived(trip.id, !trip.archived); },
-                },
-                // Stated, not asked: `deleteTripTitle` is the confirmation's question and reads
-                // wrong as a menu item the user has not chosen yet.
-                { label: isZh ? '移除行程' : 'Remove trip', icon: 'trash', destructive: true, onPress: confirmDelete },
-              ]}
-            />
-          }
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar
+            title={trip.name}
+            onBack={onBack}
+            // Rename, archive and delete are all occasional. Behind one trigger they stop competing
+            // with the two things this screen is for: what the trip cost, and adding to it.
+            right={
+              <OverflowMenu
+                title={trip.name}
+                accessibilityLabel={`${isZh ? '更多操作' : 'More actions'}: ${trip.name}`}
+                size={17}
+                actions={[
+                  { label: isZh ? '重命名行程' : 'Rename trip', icon: 'pencil', onPress: openRename },
+                  {
+                    label: trip.archived ? t('unarchiveTrip') : t('archiveTrip'),
+                    icon: 'folder',
+                    onPress: () => { void setTripArchived(trip.id, !trip.archived); },
+                  },
+                  // Stated, not asked: `deleteTripTitle` is the confirmation's question and reads
+                  // wrong as a menu item the user has not chosen yet.
+                  { label: isZh ? '移除行程' : 'Remove trip', icon: 'trash', destructive: true, onPress: confirmDelete },
+                ]}
+              />
+            }
+          />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.xl }} showsVerticalScrollIndicator={false}>
         {renaming && (

@@ -71,10 +71,11 @@ function slotContentSvg(content: SlotContent, config: WidgetMascotConfig): strin
   return `<svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="9" fill="none" stroke="#9E9686" stroke-width="2" stroke-dasharray="3 3" /></svg>`;
 }
 
-export function WidgetCustomizerScreen({ onBack, initialDraft, onDraftChange }: {
+export function WidgetCustomizerScreen({ onBack, initialDraft, onDraftChange, embedded }: {
   onBack: () => void;
   initialDraft?: WidgetMascotConfig | null;
   onDraftChange?: (draft: WidgetMascotConfig | null) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -213,9 +214,11 @@ export function WidgetCustomizerScreen({ onBack, initialDraft, onDraftChange }: 
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('widgetCustomizer')} onBack={handleBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('widgetCustomizer')} onBack={handleBack} />
+        </View>
+      )}
 
       {/* Pinned: the preview must stay visible while options change, which is the whole reason
           this screen moved from one long scroll to tabs. */}

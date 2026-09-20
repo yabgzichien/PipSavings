@@ -19,7 +19,7 @@ import { uiFont } from '../theme';
 
 const LOCAL_BACKUP_AT_KEY = 'local_backup_last_at';
 
-export function BackupScreen({ onBack }: { onBack: () => void }) {
+export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -144,9 +144,11 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '备份与恢复' : 'Back Up & Restore'} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '备份与恢复' : 'Back Up & Restore'} onBack={onBack} />
+        </View>
+      )}
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}>
         <Eyebrow style={{ marginBottom: 10 }}>{isZh ? '本地备份' : 'Local backup'}</Eyebrow>
         <Card style={{ padding: 16, gap: 12 }}>

@@ -183,6 +183,7 @@ export function AllTransactionsScreen({
   onOpenOwed,
   onOpenTrips,
   onOpenTrip,
+  embedded,
 }: {
   onBack: () => void;
   filterCategoryId?: string | null;
@@ -193,6 +194,7 @@ export function AllTransactionsScreen({
   onOpenTrips: () => void;
   /** Opens the detail view for a specific trip directly. */
   onOpenTrip?: (tripId: string) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -550,7 +552,7 @@ export function AllTransactionsScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
+      <View style={{ paddingTop: embedded ? 0 : insets.top + 4 }}>
         {selectMode ? (
           <View style={styles.selectBar}>
             <IconButton name="x" onPress={cancelSelect} size={19} />
@@ -565,6 +567,7 @@ export function AllTransactionsScreen({
             </Pressable>
           </View>
         ) : (
+          !embedded && (
           <TopBar
             title={filtered ? (filterCat ? tCat(filterCat) : (isZh ? '已筛选' : 'Filtered')) : t('allTransactionsTitle')}
             onBack={onBack}
@@ -586,6 +589,7 @@ export function AllTransactionsScreen({
               </View>
             }
           />
+          )
         )}
       </View>
 
