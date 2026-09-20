@@ -10,6 +10,20 @@ describe('reduceSession', () => {
     expect(currentFrame(s)?.view).toBe('owed');
   });
 
+  it('same-view show_view drops entry fields from the previous frame', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'apply', action: { type: 'start_entry', kind: 'quick_add', text: 'lunch' } });
+    expect(currentFrame(s)?.entryKind).toBe('quick_add');
+    s = reduceSession(s, {
+      type: 'apply',
+      action: { type: 'show_view', view: 'transactions', filters: { categoryId: 'food' } },
+    });
+    const top = currentFrame(s);
+    expect(top?.filters).toEqual({ categoryId: 'food' });
+    expect(top?.entryKind).toBeUndefined();
+    expect(top?.settleShareId).toBeUndefined();
+  });
+
   it('merges follow-up filters onto the same view', () => {
     let s = emptySession();
     s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { tripId: 't1' } } });

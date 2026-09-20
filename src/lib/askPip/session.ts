@@ -76,16 +76,14 @@ function applyShowView(state: AskPipSession, action: Extract<AskPipAction, { typ
   const current = currentFrame(state);
   const sameView = current !== null && current.view === action.view;
 
-  const nextFrame: AskPipFrame = sameView
-    ? {
-        ...current,
-        view: action.view,
-        filters: { ...current.filters, ...action.filters },
-      }
-    : {
-        view: action.view,
-        filters: action.filters,
-      };
+  const mergedFilters = sameView
+    ? { ...current!.filters, ...action.filters }
+    : action.filters;
+
+  const nextFrame: AskPipFrame = {
+    view: action.view,
+    filters: mergedFilters,
+  };
   if (action.caption !== undefined) {
     nextFrame.caption = action.caption;
   }
