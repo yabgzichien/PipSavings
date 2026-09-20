@@ -47,4 +47,24 @@ describe('buildBackupZip', () => {
       })
     );
   });
+
+  it('does not put BYOK or legacy provider keys in the backup payload', async () => {
+    const data = {
+      transactions: [], categories: [], accounts: [], balanceEntries: [], trips: [],
+      commitments: [], commitmentOccurrences: [], people: [], splits: [], shares: [], splitPayments: [],
+      expectedIncome: 0, allocations: {}, snapshots: {}, memory: {}, tasksDone: [],
+      onboardingComplete: false, tutorialScanDone: false, tutorialManualDone: false, tutorialDismissed: false,
+      reminderCadence: 'off', reminderHourOverride: null, owedReminderEnabled: false,
+      commitmentReminderEnabled: false, motionSetting: 'full', soundEnabled: false,
+      widgetMascotConfig: DEFAULT_WIDGET_MASCOT_CONFIG,
+    } as BackupSourceData;
+
+    await buildBackupZip(data);
+
+    const reportBundle = mockGenerateFullBackupZip.mock.calls[0][0];
+    const extra = mockGenerateFullBackupZip.mock.calls[0][2];
+    const sensitive = /apiKey|geminiKey|groqKey|openrouterKey|ask_pip/i;
+    expect(JSON.stringify(reportBundle)).not.toMatch(sensitive);
+    expect(JSON.stringify(extra)).not.toMatch(sensitive);
+  });
 });
