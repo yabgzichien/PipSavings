@@ -47,7 +47,7 @@ export const en: Translations = {
   askPipTestKey: 'Test key',
   askPipProvider: 'Provider',
   askPipDiscloseSendTitle: 'Send this to your AI provider?',
-  askPipDiscloseSendBody: 'Your message and relevant recorded money will be sent to the provider you chose.',
+  askPipDiscloseSendBody: 'Your message plus the trip, person, and category names used to find the right screen will be sent to the provider you chose — not balances or the ledger.',
   askPipDisclosePhotoTitle: 'Send this photo to your AI provider?',
   askPipDisclosePhotoBody: 'The attached photo will be sent to the provider you chose for reading.',
   askPipDiscloseContinue: 'Continue',

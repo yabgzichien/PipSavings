@@ -5,6 +5,8 @@ describe('askPipPrompt', () => {
     expect(ASK_PIP_SYSTEM_PROMPT).toContain('show_view');
     expect(ASK_PIP_SYSTEM_PROMPT).toContain('owed');
     expect(ASK_PIP_SYSTEM_PROMPT.toLowerCase()).toContain('never');
+    expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/who owes or settle/i);
+    expect(ASK_PIP_SYSTEM_PROMPT).not.toMatch(/start_entry[^.]*settle/);
   });
 
   it('puts names but not balances in the user prompt', () => {

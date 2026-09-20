@@ -6,6 +6,7 @@ describe('Ask Pip resting suggestions', () => {
       restingSuggestions({
         hasOwed: true,
         tripName: 'Singapore',
+        tripId: 't1',
         hasHoldings: true,
         currentMonth: '2026-09',
       })
@@ -19,7 +20,7 @@ describe('Ask Pip resting suggestions', () => {
         action: {
           type: 'show_view',
           view: 'tripDetail',
-          filters: { tripQuery: 'Singapore' },
+          filters: { tripId: 't1' },
         },
       },
       {
@@ -42,6 +43,7 @@ describe('Ask Pip resting suggestions', () => {
       restingSuggestions({
         hasOwed: false,
         tripName: null,
+        tripId: null,
         hasHoldings: false,
         currentMonth: '2026-09',
       })

@@ -53,4 +53,31 @@ describe('runAskPipTurn', () => {
     });
     expect(session.stack).toHaveLength(0);
   });
+
+  it('maps start_entry.settle without shareId to the owed view', async () => {
+    const model = jest.fn(async () => ({ type: 'start_entry', kind: 'settle' }));
+    const { session } = await runAskPipTurn({
+      utterance: 'who owes me',
+      world,
+      session: emptySession(),
+      model,
+    });
+    const top = session.stack[0];
+    expect(top.view).toBe('owed');
+    expect(top.entryKind).toBeUndefined();
+    expect(top.settleShareId).toBeUndefined();
+  });
+
+  it('keeps start_entry.settle when shareId is present', async () => {
+    const model = jest.fn(async () => ({ type: 'start_entry', kind: 'settle', shareId: 's1' }));
+    const { session } = await runAskPipTurn({
+      utterance: 'settle this bill',
+      world,
+      session: emptySession(),
+      model,
+    });
+    const top = session.stack[0];
+    expect(top.entryKind).toBe('settle');
+    expect(top.settleShareId).toBe('s1');
+  });
 });

@@ -47,7 +47,7 @@ export const zh: Translations = {
   askPipTestKey: '测试密钥',
   askPipProvider: '服务商',
   askPipDiscloseSendTitle: '将这些内容发送给 AI 服务商？',
-  askPipDiscloseSendBody: '你的消息和相关财务记录将发送给你选择的服务商。',
+  askPipDiscloseSendBody: '你的消息以及用于打开对应页面的行程、联系人和分类名称将发送给你选择的服务商，不包含余额或账本。',
   askPipDisclosePhotoTitle: '将这张图片发送给 AI 服务商？',
   askPipDisclosePhotoBody: '附加的图片将发送给你选择的服务商进行识别。',
   askPipDiscloseContinue: '继续',

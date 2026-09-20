@@ -955,6 +955,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             needsYou={needsYou}
             hasOwed={openShares.length > 0}
             tripName={featuredTrip?.trip.name ?? null}
+            tripId={featuredTrip?.trip.id ?? null}
             hasHoldings={accounts.some(isHolding)}
           />
         )}

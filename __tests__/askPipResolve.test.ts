@@ -40,4 +40,23 @@ describe('resolveFilters', () => {
     const r = resolveFilters({ tripId: 't1' }, world);
     expect(r).toEqual({ status: 'ok', filters: { tripId: 't1' } });
   });
+
+  it('keeps YYYY-MM month and YYYY-MM-DD date range filters', () => {
+    const r = resolveFilters(
+      { month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30' },
+      world,
+    );
+    expect(r).toEqual({
+      status: 'ok',
+      filters: { month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30' },
+    });
+  });
+
+  it('drops month and date filters that are not ISO shapes', () => {
+    const r = resolveFilters(
+      { month: 'September', dateFrom: 'last month', dateTo: '2026/09/30', tripId: 't1' },
+      world,
+    );
+    expect(r).toEqual({ status: 'ok', filters: { tripId: 't1' } });
+  });
 });

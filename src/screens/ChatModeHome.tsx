@@ -170,6 +170,7 @@ export type ChatModeHomeProps = {
   needsYou: NeedsYouSlot | null;
   hasOwed: boolean;
   tripName: string | null;
+  tripId: string | null;
   hasHoldings: boolean;
 };
 
@@ -213,6 +214,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   needsYou,
   hasOwed,
   tripName,
+  tripId,
   hasHoldings,
 }, ref) {
   const insets = useSafeAreaInsets();
@@ -317,10 +319,11 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
       restingSuggestions({
         hasOwed,
         tripName,
+        tripId,
         hasHoldings,
         currentMonth: currentMonthKey(),
       }),
-    [hasOwed, tripName, hasHoldings],
+    [hasOwed, tripName, tripId, hasHoldings],
   );
 
   const bannerCopy = needsYou

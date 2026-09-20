@@ -18,7 +18,8 @@ export const ASK_PIP_SYSTEM_PROMPT =
   'dateFrom, dateTo — omit keys you do not need). Optional "caption" must be a short phrase with no ' +
   'digits or currency amounts. ' +
   'For start_entry, set "kind" to quick_add when the user is typing an expense or income line; use ' +
-  'settle, scan_receipt, scan_statement, scan_balance, or scan_holdings when that matches the intent. ' +
+  'scan_receipt, scan_statement, scan_balance, or scan_holdings when that matches the intent. ' +
+  'For who owes or settle requests, use show_view with view owed — not start_entry. ' +
   'For clarify, return "choices" with id, label, and nested action objects. For refuse, return ' +
   '{"type":"refuse"} when the request is out of scope. ' +
   'Never invent ledger amounts, balances, or ringgit figures. Never give financial advice. ' +

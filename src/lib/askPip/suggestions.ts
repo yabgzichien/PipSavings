@@ -8,6 +8,7 @@ export interface RestingSuggestion {
 export function restingSuggestions(input: {
   hasOwed: boolean;
   tripName: string | null;
+  tripId: string | null;
   hasHoldings: boolean;
   currentMonth: string;
 }): RestingSuggestion[] {
@@ -20,13 +21,13 @@ export function restingSuggestions(input: {
     });
   }
 
-  if (input.tripName) {
+  if (input.tripName && input.tripId) {
     suggestions.push({
       id: 'trip',
       action: {
         type: 'show_view',
         view: 'tripDetail',
-        filters: { tripQuery: input.tripName },
+        filters: { tripId: input.tripId },
       },
     });
   }

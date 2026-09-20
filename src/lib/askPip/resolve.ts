@@ -81,5 +81,15 @@ export function resolveFilters(filters: AskPipFilters, world: AskPipWorld): Reso
     }
   }
 
+  if (resolved.month !== undefined && !/^\d{4}-\d{2}$/.test(resolved.month)) {
+    delete resolved.month;
+  }
+  if (resolved.dateFrom !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(resolved.dateFrom)) {
+    delete resolved.dateFrom;
+  }
+  if (resolved.dateTo !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(resolved.dateTo)) {
+    delete resolved.dateTo;
+  }
+
   return { status: 'ok', filters: resolved };
 }

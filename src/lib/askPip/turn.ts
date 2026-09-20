@@ -88,6 +88,10 @@ export async function runAskPipTurn(
     action = { type: 'refuse' };
   }
 
+  if (action.type === 'start_entry' && action.kind === 'settle' && !action.shareId) {
+    action = { type: 'show_view', view: 'owed', filters: {} };
+  }
+
   if (action.type === 'show_view') {
     const resolved = resolveFilters(action.filters, input.world);
     action = resolved.status === 'clarify'
