@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -168,7 +168,14 @@ export type ChatModeHomeProps = {
   hasHoldings: boolean;
 };
 
-export function ChatModeHome({
+export type ChatModeHomeHandle = {
+  pop: () => boolean;
+  readonly stackEmpty: boolean;
+  readonly sheetOpen: boolean;
+  applyPhotoAttached: () => void;
+};
+
+export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomeProps>(function ChatModeHome({
   onToggleDashboard,
   onNeedKey,
   onDiscloseSend,
@@ -183,7 +190,7 @@ export function ChatModeHome({
   hasOwed,
   tripName,
   hasHoldings,
-}: ChatModeHomeProps) {
+}, ref) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -197,6 +204,23 @@ export function ChatModeHome({
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    pop() {
+      if (sessionRef.current.stack.length === 0) return false;
+      setSession((prev) => reduceSession(prev, { type: 'pop' }));
+      return true;
+    },
+    get stackEmpty() {
+      return sessionRef.current.stack.length === 0;
+    },
+    get sheetOpen() {
+      return currentFrame(sessionRef.current)?.entryKind === 'settle';
+    },
+    applyPhotoAttached() {
+      setSession((prev) => reduceSession(prev, { type: 'photoAttached' }));
+    },
+  }));
 
   const needsKind = needsYouBannerKind(needsYou);
   const frame = currentFrame(session);
@@ -220,6 +244,10 @@ export function ChatModeHome({
 
   function applyEvent(event: Parameters<typeof reduceSession>[1]) {
     setSession((prev) => reduceSession(prev, event));
+  }
+
+  function showView(view: AskPipViewId, filters: AskPipFilters = {}) {
+    applyEvent({ type: 'apply', action: { type: 'show_view', view, filters } });
   }
 
   function openNeedsYouView() {
@@ -430,6 +458,16 @@ export function ChatModeHome({
             <ChatCanvasHost
               frame={frame}
               onPop={() => applyEvent({ type: 'pop' })}
+              onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
+              onOpenTrips={() => showView('trips')}
+              onOpenOwed={() => showView('owed')}
+              onOpenHistory={() => showView('netWorthHistory')}
+              onOpenCategory={(categoryId) => showView('categoryDetail', { categoryId })}
+              onOpenRecap={() => showView('recap')}
+              onOpenCalendar={(month) => showView('calendar', { month })}
+              onOpenExport={(month) => showView('export', { month })}
+              onReviewCommitments={() => showView('commitments')}
+              onClearFilter={() => applyEvent({ type: 'dropChip', key: 'categoryId' })}
             />
           ) : null}
         </View>
@@ -499,7 +537,7 @@ export function ChatModeHome({
       </KeyboardAvoidingView>
     </FadeIn>
   );
-}
+});
 
 function filterChipLabel(
   key: keyof AskPipFilters,

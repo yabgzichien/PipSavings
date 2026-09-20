@@ -12,7 +12,8 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -27,6 +28,7 @@ import { BreakdownScreen } from './src/screens/BreakdownScreen';
 import { CategoriesScreen } from './src/screens/CategoriesScreen';
 import { BudgetScreen } from './src/screens/BudgetScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { ChatModeHome, type ChatModeHomeHandle } from './src/screens/ChatModeHome';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { NetWorthScreen } from './src/screens/NetWorthScreen';
 import { NetWorthHistoryScreen } from './src/screens/NetWorthHistoryScreen';
@@ -64,6 +66,18 @@ import { syncAllWidgets } from './src/widget/syncWidgets';
 import type { TxnType } from './src/lib/types';
 import { backTargetFor, type Screen } from './src/lib/screenNav';
 import { EXPLORE_TASKS, type ExploreTaskId } from './src/lib/tasks';
+import { featuredTripForDate } from './src/lib/trips';
+import { isHolding } from './src/lib/prices';
+import { pickNeedsYou } from './src/lib/askPip/needsYou';
+import { HOME_MODE_KEY, parseHomeMode, type HomeMode } from './src/lib/askPip/homeMode';
+import { defaultAskPipKeyStore } from './src/lib/askPip/keyStore';
+import { ASK_PIP_VIEWS, type AskPipViewId } from './src/lib/askPip/catalog';
+import type { AskPipWorld } from './src/lib/askPip/resolve';
+import type { AskPipFrame } from './src/lib/askPip/session';
+import { runAskPipModel } from './src/llm/askPipClient';
+import { LLMError } from './src/llm/types';
+import { getMeta, setMeta } from './src/db/metaRepo';
+import { notify } from './src/lib/platformAlert';
 import { platformShadow, uiFont } from './src/theme';
 import type { WidgetMascotConfig } from './src/widget/mascot/config';
 import { seedNetWorthDemo } from './src/lib/seedNetWorthDemo';
@@ -229,6 +243,23 @@ function StatusClock({ color }: { color: string }) {
   return <Text style={[webStyles.clock, { color }]}>{`${hh}:${mm}`}</Text>;
 }
 
+const ASK_PIP_ATTACH_HINT_KEY = 'ask_pip_attach_hint_seen';
+
+const dayKey = (d: Date) => {
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+function currentFromPrompt(user: string): AskPipFrame | null {
+  const match = user.match(/^Current view: (.+)$/m);
+  const view = match?.[1];
+  if (!view || view === 'none') return null;
+  if (!(ASK_PIP_VIEWS as readonly string[]).includes(view)) return null;
+  return { view: view as AskPipViewId, filters: {} };
+}
+
 export type TourStepKey =
   | 'plus'
   | 'scan_explain'
@@ -253,7 +284,28 @@ const MANUAL_TOUR_SUB_STEPS: TourStepKey[] = [
 ];
 
 function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
-  const { ready, onboardingComplete, taxRequestableCount, tutorialComplete, dismissTutorial } = useAppData();
+  const {
+    ready,
+    onboardingComplete,
+    taxRequestableCount,
+    tutorialComplete,
+    dismissTutorial,
+    trips,
+    people,
+    categories,
+    accounts,
+    openShares,
+    commitmentOccurrences,
+    streak,
+    streakWeek,
+    streakWeekKinds,
+    streakTodayIndex,
+    checkInToday,
+    streakFreezeAvailable,
+    streakGraduated,
+    streakStartLabel,
+    streakPaused,
+  } = useAppData();
   const { isPro } = useEntitlement();
   const accentTheme = useAccent();
   const theme = useThemeColors();
@@ -265,6 +317,10 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   // Silent Google Drive auto-backup (Android only), re-checked whenever the app foregrounds.
   useCloudBackupSync();
   const [screen, setScreen] = useState<Screen>('home');
+  const [homeMode, setHomeMode] = useState<HomeMode>('dashboard');
+  const [hasAskPipKey, setHasAskPipKey] = useState(false);
+  const chatHomeRef = useRef<ChatModeHomeHandle>(null);
+  const now = useNow();
   // Owed is reachable from both Home and Activity, so back has to return where it came from.
   const [owedOrigin, setOwedOrigin] = useState<Screen>('transactions');
   const [paywallOrigin, setPaywallOrigin] = useState<Screen>('home');
@@ -316,6 +372,91 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { openEntry: openGlossaryEntry } = useGlossary();
   const [sawSplitGlossary, setSawSplitGlossary] = useState(false);
   const [guidedExploreTaskId, setGuidedExploreTaskId] = useState<ExploreTaskId | null>(null);
+
+  useEffect(() => {
+    void getMeta(HOME_MODE_KEY).then((raw) => setHomeMode(parseHomeMode(raw)));
+  }, []);
+
+  useEffect(() => {
+    const store = defaultAskPipKeyStore();
+    void Promise.all([store.getProvider(), store.getApiKey()]).then(([providerId, apiKey]) => {
+      setHasAskPipKey(Boolean(providerId && apiKey));
+    });
+  }, [homeMode, screen]);
+
+  const persistHomeMode = useCallback((next: HomeMode) => {
+    setHomeMode(next);
+    void setMeta(HOME_MODE_KEY, next);
+  }, []);
+
+  const today = dayKey(now);
+  const featuredTrip = useMemo(() => featuredTripForDate(trips, today), [trips, today]);
+  const askPipWorld = useMemo<AskPipWorld>(
+    () => ({
+      trips: trips.map((trip) => ({ id: trip.id, name: trip.name, archived: trip.archived })),
+      people: people.map((person) => ({ id: person.id, name: person.name })),
+      categories: categories.map((category) => ({ id: category.id, label: category.label })),
+    }),
+    [trips, people, categories],
+  );
+  const needsYou = useMemo(
+    () =>
+      pickNeedsYou({
+        shares: openShares,
+        occurrences: commitmentOccurrences,
+        today,
+        currentMonth: today.slice(0, 7),
+      }),
+    [openShares, commitmentOccurrences, today],
+  );
+
+  const runChatModel = useCallback(
+    async (prompt: { system: string; user: string }) => {
+      const store = defaultAskPipKeyStore();
+      const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
+      if (!providerId || !apiKey) {
+        throw new LLMError('auth', 'Missing Ask Pip key');
+      }
+      const utterance = prompt.user.match(/^Utterance: (.*)$/m)?.[1] ?? '';
+      return runAskPipModel({
+        providerId,
+        apiKey,
+        utterance,
+        tripNames: askPipWorld.trips.map((trip) => trip.name),
+        personNames: askPipWorld.people.map((person) => person.name),
+        categoryLabels: askPipWorld.categories.map((category) => category.label),
+        current: currentFromPrompt(prompt.user),
+      });
+    },
+    [askPipWorld],
+  );
+
+  const disclosePhoto = useCallback(async () => true, []);
+  const discloseSend = useCallback(async () => true, []);
+
+  const attachChatPhoto = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      notify(
+        language === 'zh' ? '需要权限' : 'Permission needed',
+        language === 'zh' ? '请允许访问相册以添加截图。' : 'Allow photo access to attach a screenshot.',
+      );
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const allowed = await disclosePhoto();
+    if (!allowed) return;
+    chatHomeRef.current?.applyPhotoAttached();
+    const seen = await getMeta(ASK_PIP_ATTACH_HINT_KEY);
+    if (seen !== 'true') {
+      notify(t('askPipAttachHint'));
+      await setMeta(ASK_PIP_ATTACH_HINT_KEY, 'true');
+    }
+  }, [disclosePhoto, language, t]);
 
   useEffect(() => {
     if (screen !== 'home' && guidedExploreTaskId) {
@@ -592,6 +733,14 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     setScreen('add');
   };
 
+  const handleAddOrAttach = () => {
+    if (homeMode === 'chat' && screen === 'home') {
+      void attachChatPhoto();
+      return;
+    }
+    handleOpenAdd();
+  };
+
   // From a trip's own "Add expense" action: skip straight to manual entry (there's no reason to
   // scan a receipt hub first when the user already committed to logging one trip expense) with
   // the trip prefilled and shown in the title.
@@ -615,9 +764,19 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   // The single "go back" action for every screen — used by each screen's own back button below
   // and by the hardware/gesture back handler, so the two can never disagree about where back
-  // goes. Returns whether it actually navigated (false only on Home, which has nowhere back to
-  // go and falls through to the exit-confirm gate instead).
+  // goes. Returns whether it actually navigated (false only on dashboard Home, which has
+  // nowhere back to go and falls through to the exit-confirm gate instead). In chat-mode Home
+  // it pops the canvas, or leaves chat for the dashboard when already at resting suggestions.
   const goBack = (): boolean => {
+    if (screen === 'home' && homeMode === 'chat') {
+      if (chatHomeRef.current?.sheetOpen) return true;
+      if (chatHomeRef.current && !chatHomeRef.current.stackEmpty) {
+        chatHomeRef.current.pop();
+        return true;
+      }
+      persistHomeMode(parseHomeMode('dashboard'));
+      return true;
+    }
     const target = backTargetFor(screen, {
       owedOrigin,
       calendarOrigin,
@@ -725,9 +884,45 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     <PaywallProvider value={paywallContextValue}>
       <View style={[styles.fill, { backgroundColor: theme.bg }]}>
         <View style={styles.fill}>
-        {screen === 'home' && (
+        {screen === 'home' && homeMode === 'chat' && (
+          <ChatModeHome
+            ref={chatHomeRef}
+            onToggleDashboard={() => {
+              if (chatHomeRef.current?.sheetOpen) return;
+              persistHomeMode(parseHomeMode('dashboard'));
+            }}
+            onAttach={() => {
+              void attachChatPhoto();
+            }}
+            onNeedKey={() => {
+              // Task 14: AskPipKeySheet
+            }}
+            onDiscloseSend={discloseSend}
+            onDisclosePhoto={disclosePhoto}
+            hasKey={hasAskPipKey}
+            runModel={runChatModel}
+            world={askPipWorld}
+            streak={streak}
+            week={streakWeek}
+            weekKinds={streakWeekKinds}
+            todayIndex={streakTodayIndex}
+            freezeAvailable={streakFreezeAvailable}
+            graduated={streakGraduated}
+            startLabel={streakStartLabel}
+            paused={streakPaused}
+            onNoSpendCheckIn={() => {
+              void checkInToday('no_spend');
+            }}
+            needsYou={needsYou}
+            hasOwed={openShares.length > 0}
+            tripName={featuredTrip?.trip.name ?? null}
+            hasHoldings={accounts.some(isHolding)}
+          />
+        )}
+        {screen === 'home' && homeMode !== 'chat' && (
           <DashboardScreen
             onScan={handleOpenAdd}
+            onToggleChat={() => persistHomeMode('chat')}
             activeTourAnchor={activeAnchorId}
             onGuideExploreTask={(task) => setGuidedExploreTaskId(task.id)}
             onOpenAll={() => {
@@ -948,7 +1143,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         <BottomNav
           active={navTab}
           onNavigate={goTab}
-          onAdd={handleOpenAdd}
+          onAdd={handleAddOrAttach}
           activeTourAnchor={activeAnchorId}
         />
       )}
