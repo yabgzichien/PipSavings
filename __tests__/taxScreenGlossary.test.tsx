@@ -15,6 +15,7 @@ jest.mock('../src/state/store', () => ({
     transactions: [],
     commitments: [],
     updateCommitmentEntry: jest.fn(),
+    glossaryEnabled: true,
   }),
 }));
 
