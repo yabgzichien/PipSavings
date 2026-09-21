@@ -9,11 +9,10 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { radius, uiFont } from '../theme';
-import { Icon, type IconName } from './Icon';
+import { Icon } from './Icon';
 import { BtnLabel, CatBadge, PrimaryButton } from './ui';
+import { EXPENSE_ICONS, INCOME_ICONS, isCustomIcon } from '../lib/categoryIcons';
 
-const EXPENSE_ICONS: IconName[] = ['home', 'cart', 'burger', 'utensils', 'car', 'phone', 'cash', 'signal', 'heart', 'book', 'bag', 'play', 'shield', 'receipt', 'dots'];
-const INCOME_ICONS: IconName[] = ['wallet', 'cash', 'store', 'car', 'gift', 'trending', 'percent', 'sparkles', 'return', 'dots'];
 const HUE_CHOICES = [12, 42, 70, 120, 162, 200, 248, 286, 330];
 
 /** The shared name, icon, colour, and submit controls for a custom category. */
@@ -97,11 +96,11 @@ export function CreateCategoryForm({
           style={[
             styles.iconChoice,
             { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line },
-            (icon.startsWith('data:') || icon.startsWith('file:') || icon.startsWith('content:') || icon.startsWith('http') || icon.startsWith('/')) && { borderColor: theme.accent, backgroundColor: theme.accentTint },
+            isCustomIcon(icon) && { borderColor: theme.accent, backgroundColor: theme.accentTint },
             { minWidth: 68, flexDirection: 'row', gap: 4, paddingHorizontal: 6 }
           ]}
         >
-          {(icon.startsWith('data:') || icon.startsWith('file:') || icon.startsWith('content:') || icon.startsWith('http') || icon.startsWith('/')) ? (
+          {isCustomIcon(icon) ? (
             <Image source={{ uri: icon }} style={{ width: 22, height: 22, borderRadius: 4 }} resizeMode="cover" />
           ) : (
             <Icon name="image" size={17} color={theme.accent} stroke={2.0} />

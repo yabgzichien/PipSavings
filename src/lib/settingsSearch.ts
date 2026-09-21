@@ -1,26 +1,30 @@
 // src/lib/settingsSearch.ts
 
 export type SettingSectionKey =
+  | 'subscription'
   | 'appearance'
   | 'reminders'
   | 'learning'
   | 'budget'
   | 'data'
+  | 'about'
   | 'danger';
 
 export type SettingItemKey =
+  | 'subscription'
   | 'theme'
   | 'language'
   | 'accent'
   | 'motion'
   | 'sounds'
+  | 'glossary'
   | 'widgetMascot'
-  | 'streak'
   | 'reminder_spending'
   | 'reminder_owed'
   | 'reminder_commitments'
   | 'learning'
   | 'budget'
+  | 'ask_pip'
   | 'data_commitments'
   | 'data_tax'
   | 'data_categories'
@@ -28,8 +32,14 @@ export type SettingItemKey =
   | 'data_import'
   | 'data_export'
   | 'data_backup'
-  | 'data_tutorial'
   | 'data_diagnostics'
+  | 'about_version'
+  | 'about_privacy'
+  | 'about_terms'
+  | 'about_manage'
+  | 'about_tutorial'
+  | 'about_connect'
+  | 'about_bug'
   | 'danger_reset_all'
   | 'danger_reset_setup';
 
@@ -44,6 +54,31 @@ export interface SettingDefinition {
 }
 
 export const SETTING_DEFINITIONS: SettingDefinition[] = [
+  {
+    key: 'subscription',
+    section: 'subscription',
+    sectionTitleEn: 'Pip Pro',
+    sectionTitleZh: 'Pip Pro',
+    titleEn: 'Pip Pro',
+    titleZh: 'Pip Pro',
+    keywords: [
+      'pro',
+      'subscription',
+      'upgrade',
+      'pip pro',
+      'restore',
+      'manage',
+      'cancel',
+      'membership',
+      'vip',
+      'premium',
+      '会员',
+      '订阅',
+      '恢复购买',
+      '取消订阅',
+      '高级版',
+    ],
+  },
   {
     key: 'theme',
     section: 'appearance',
@@ -211,26 +246,25 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     ],
   },
   {
-    key: 'streak',
+    key: 'glossary',
     section: 'appearance',
     sectionTitleEn: 'Appearance',
     sectionTitleZh: '外观与偏好',
-    titleEn: 'Streak',
-    titleZh: '连续记账追踪',
+    titleEn: 'Glossary',
+    titleZh: '词汇解释',
     keywords: [
-      'streak',
-      'pause',
-      'freeze',
-      'daily streak',
-      'tracking',
-      'habit',
-      'resume',
-      '连续记账',
-      '打卡',
-      '暂停',
-      '恢复',
-      '天数',
-      '习惯',
+      'glossary',
+      'info',
+      'info button',
+      'help',
+      'definitions',
+      'explain',
+      'tooltip',
+      '词汇',
+      '词汇解释',
+      '说明',
+      '帮助',
+      '名词解释',
     ],
   },
   {
@@ -364,6 +398,26 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
       '清空预算',
       '重置预算',
       '额度',
+    ],
+  },
+  {
+    key: 'ask_pip',
+    section: 'data',
+    sectionTitleEn: 'Data',
+    sectionTitleZh: '数据与管理',
+    titleEn: 'Ask Pip',
+    titleZh: '询问 Pip',
+    keywords: [
+      'Ask Pip',
+      'api key',
+      'ai',
+      'assistant',
+      'provider',
+      'chat',
+      '询问 Pip',
+      '密钥',
+      '智能助手',
+      '聊天',
     ],
   },
   {
@@ -580,13 +634,88 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     ],
   },
   {
-    key: 'data_tutorial',
-    section: 'data',
-    sectionTitleEn: 'Data',
-    sectionTitleZh: '数据与管理',
+    key: 'about_version',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Version',
+    titleZh: '版本',
+    keywords: [
+      'about',
+      'version',
+      'build',
+      'app version',
+      '关于',
+      '版本',
+      '版本号',
+    ],
+  },
+  {
+    key: 'about_privacy',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Privacy policy',
+    titleZh: '隐私政策',
+    keywords: [
+      'about',
+      'privacy',
+      'privacy policy',
+      'data',
+      'gdpr',
+      'pdpa',
+      '关于',
+      '隐私',
+      '隐私政策',
+    ],
+  },
+  {
+    key: 'about_terms',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Terms of use',
+    titleZh: '使用条款',
+    keywords: [
+      'about',
+      'terms',
+      'terms of use',
+      'legal',
+      'eula',
+      '关于',
+      '条款',
+      '使用条款',
+    ],
+  },
+  {
+    key: 'about_manage',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Manage subscription',
+    titleZh: '管理订阅',
+    keywords: [
+      'about',
+      'manage',
+      'subscription',
+      'cancel',
+      'billing',
+      'renew',
+      '关于',
+      '管理订阅',
+      '取消订阅',
+      '订阅',
+    ],
+  },
+  {
+    key: 'about_tutorial',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
     titleEn: 'Replay Onboarding Tutorial',
     titleZh: '重播新手入门教程',
     keywords: [
+      'about',
       'tutorial',
       'onboarding',
       'guide',
@@ -598,6 +727,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
       'welcome',
       'replay tutorial',
       'help',
+      '关于',
       '教程',
       '新手引导',
       '重播',
@@ -605,6 +735,50 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
       '帮助',
       '新手入门',
       '向导',
+    ],
+  },
+  {
+    key: 'about_connect',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Connect with us',
+    titleZh: '关注我们',
+    keywords: [
+      'about',
+      'connect',
+      'instagram',
+      'social',
+      'follow',
+      'pipsavings',
+      'contact',
+      '关于',
+      '关注我们',
+      'instagram',
+      '社交',
+    ],
+  },
+  {
+    key: 'about_bug',
+    section: 'about',
+    sectionTitleEn: 'About',
+    sectionTitleZh: '关于',
+    titleEn: 'Report a bug',
+    titleZh: '报告问题',
+    keywords: [
+      'about',
+      'bug',
+      'report',
+      'problem',
+      'issue',
+      'crash',
+      'broken',
+      'sentry',
+      '关于',
+      '报告问题',
+      '反馈',
+      '故障',
+      '问题',
     ],
   },
   {

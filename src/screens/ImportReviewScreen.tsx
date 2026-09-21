@@ -5,6 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { Icon } from '../components/Icon';
 import { B, BtnLabel, BubbleText, Card, CatBadge, CategoryChip, Eyebrow, PipSays, PrimaryButton, TopBar } from '../components/ui';
+import { canActivateCurrency } from '../billing/currencyEntitlements';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { activateCurrency, getActiveCurrencies } from '../db/currencyRepo';
 import { BASE_CURRENCY } from '../lib/currency';
 import { shortDate } from '../lib/dates';
@@ -53,6 +56,8 @@ export function ImportReviewScreen({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { categories, catById, memory, transactions, addCategory } = useAppData();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
   const today = useMemo(() => todayISO(), []);
 
   // Does this file carry its own category taxonomy (a tracker export) rather
@@ -97,6 +102,10 @@ export function ImportReviewScreen({
 
   const onActivateCurrency = async (code: string) => {
     if (activatingCode) return;
+    if (!canActivateCurrency(activeCurrencies, code, isPro)) {
+      openPaywall('multi_currency');
+      return;
+    }
     setActivatingCode(code);
     try {
       const ok = await activateCurrency(code);

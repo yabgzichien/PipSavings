@@ -1,6 +1,6 @@
 {
   "name": "pip-expenses-tracker",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -18,8 +18,14 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "setupFiles": [
+      "react-native-gesture-handler/jestSetup.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base))"
+      "node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|react-native-purchases|@revenuecat|react-native-reanimated|react-native-gesture-handler|react-native-worklets))"
     ]
   },
   "overrides": {
@@ -28,6 +34,7 @@
   "dependencies": {
     "@expo-google-fonts/hanken-grotesk": "^0.4.3",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
+    "@react-native-google-signin/google-signin": "^16.1.5",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@sentry/react-native": "~7.2.0",
     "babel-preset-expo": "~54.0.10",
@@ -42,6 +49,7 @@
     "expo-file-system": "~19.0.23",
     "expo-font": "~14.0.12",
     "expo-haptics": "~15.0.8",
+    "expo-image-manipulator": "~14.0.8",
     "expo-image-picker": "~17.0.11",
     "expo-media-library": "~18.2.1",
     "expo-notifications": "~0.32.17",
@@ -59,6 +67,10 @@
     "react-native": "0.81.5",
     "react-native-android-widget": "^0.22.1",
     "react-native-document-scanner-plugin": "^2.0.4",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-purchases": "^10.9.1",
+    "react-native-purchases-ui": "^10.9.1",
+    "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-svg": "15.12.1",
     "react-native-view-shot": "4.0.3",

@@ -169,6 +169,66 @@ export function groupByClass(
 
 export interface NetWorthPoint extends NetWorth {
   monthKey: string;
+  /**
+   * True when at least one `manual` (or legacy) balance reading fell in this month for an
+   * account that still contributes to the total. Linked/price-only months are carried.
+   */
+  measured: boolean;
+}
+
+/** YYYY-MM-DD cutoff for an archived account, or null while it is still active. */
+export function resolveArchivedAt(account: Account, entries: BalanceEntry[]): string | null {
+  if (!account.archived) return null;
+  if (account.archivedAt) return account.archivedAt.slice(0, 10);
+  let latest: string | null = null;
+  for (const e of entries) {
+    if (e.accountId !== account.id) continue;
+    if (!latest || e.asOf > latest) latest = e.asOf;
+  }
+  return latest;
+}
+
+/** Accounts that should contribute to net worth on `date` (YYYY-MM-DD).
+ *  Archived accounts remain through the calendar month of their archive date. */
+export function accountsActiveAsOf(
+  accounts: Account[],
+  entries: BalanceEntry[],
+  date: string
+): Account[] {
+  const month = date.slice(0, 7);
+  return accounts.filter((a) => {
+    if (!a.archived) return true;
+    const until = resolveArchivedAt(a, entries);
+    return until != null && month <= until.slice(0, 7);
+  });
+}
+
+function entrySource(e: BalanceEntry): NonNullable<BalanceEntry['source']> {
+  return e.source ?? 'manual';
+}
+
+/**
+ * MYR account values as of the end of `monthKey`, including archived accounts that were
+ * still active then. Used by the history drill-down to compute class movers between months.
+ */
+export function classValuesAsOf(
+  accounts: Account[],
+  entries: BalanceEntry[],
+  monthKey: string,
+  rates: Record<string, number> = {}
+): Record<string, number> {
+  const upper = `${monthKey}-31`;
+  const active = accountsActiveAsOf(accounts, entries, upper);
+  // toMyrValues / netWorth skip archived — temporarily treat contributors as active.
+  const asActive = active.map((a) => (a.archived ? { ...a, archived: false } : a));
+  const native: Record<string, number> = {};
+  for (const a of asActive) {
+    native[a.id] = accountValueAsOf(
+      entries.filter((e) => e.accountId === a.id),
+      upper
+    );
+  }
+  return toMyrValues(asActive, native, rates).valueById;
 }
 
 /** Month-end net worth for each 'YYYY-MM' key (latest reading on or before month end). The
@@ -187,6 +247,11 @@ export function netWorthSeries(
   // slower the longer someone had used the app — the users it should be fastest for.
   for (const id of Object.keys(byAccount)) byAccount[id] = chronological(byAccount[id]);
 
+  const archivedUntil: Record<string, string | null> = {};
+  for (const a of accounts) {
+    archivedUntil[a.id] = resolveArchivedAt(a, byAccount[a.id] ?? []);
+  }
+
   // Walk the months oldest → newest with a cursor per account, carrying the last reading
   // forward. Each entry is visited once across the whole series instead of once per month.
   // The output keeps the caller's original `monthKeys` order, which is why this indexes
@@ -199,21 +264,34 @@ export function netWorthSeries(
   for (const i of order) {
     const mk = monthKeys[i];
     const upper = `${mk}-31`; // string upper bound for the month (safe for YYYY-MM-DD compare)
+    const monthStart = `${mk}-01`;
+    // Include through the archive month: account contributes while monthStart <= archivedAt.
+    const forTotals = accounts.filter((a) => {
+      if (!a.archived) return true;
+      const until = archivedUntil[a.id];
+      return until != null && monthStart <= until;
+    });
+    const asActive = forTotals.map((a) => (a.archived ? { ...a, archived: false } : a));
+
     const native: Record<string, number> = {};
-    for (const a of accounts) {
+    let measured = false;
+    for (const a of forTotals) {
       const list = byAccount[a.id];
       if (list) {
         let c = cursor[a.id] ?? 0;
         while (c < list.length && list[c].asOf <= upper) {
           latest[a.id] = list[c].value;
+          if (list[c].asOf >= monthStart && entrySource(list[c]) === 'manual') {
+            measured = true;
+          }
           c++;
         }
         cursor[a.id] = c;
       }
       native[a.id] = latest[a.id] ?? 0;
     }
-    const { valueById } = toMyrValues(accounts, native, rates);
-    out[i] = { monthKey: mk, ...netWorth(accounts, valueById) };
+    const { valueById } = toMyrValues(asActive, native, rates);
+    out[i] = { monthKey: mk, measured, ...netWorth(asActive, valueById) };
   }
   return out;
 }

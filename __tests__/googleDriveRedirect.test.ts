@@ -31,4 +31,11 @@ describe('Google Drive OAuth redirect', () => {
     expect(GOOGLE_DRIVE_SCOPES).toContain('https://www.googleapis.com/auth/drive.appdata');
     expect(GOOGLE_DRIVE_SCOPES.some((s) => s === 'https://www.googleapis.com/auth/drive')).toBe(false);
   });
+
+  it('tells the builder to register a Web OAuth client and the Play App Signing SHA-1', () => {
+    const example = fs.readFileSync(path.join(__dirname, '..', '.env.example'), 'utf8');
+    expect(example).toMatch(/Web application/i);
+    expect(example).toMatch(/App signing key/i);
+    expect(example).toMatch(/webClientId/);
+  });
 });

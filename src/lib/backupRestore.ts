@@ -55,7 +55,10 @@ export function peekBackupZip(zipBytes: Uint8Array): { payload: BackupPayload; e
  * `backup.json`. Callers are responsible for confirming with the user first — this has no
  * confirmation step of its own.
  */
-export async function restoreFromBackupZip(zipBytes: Uint8Array): Promise<void> {
+export async function restoreFromBackupZip(
+  zipBytes: Uint8Array,
+  isPro: boolean = false
+): Promise<void> {
   const entries = unzipSync(zipBytes);
   const jsonBytes = entries['backup.json'];
   if (!jsonBytes) throw new InvalidBackupError('That archive has no backup.json inside it.');
@@ -73,5 +76,5 @@ export async function restoreFromBackupZip(zipBytes: Uint8Array): Promise<void> 
     receiptUriByFileName.set(fileName, uri);
   }
 
-  await restoreFromBackupPayload(payload, receiptUriByFileName);
+  await restoreFromBackupPayload(payload, receiptUriByFileName, isPro);
 }

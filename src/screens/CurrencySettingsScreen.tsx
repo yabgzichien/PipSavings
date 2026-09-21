@@ -15,14 +15,19 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
+import { canActivateCurrency } from '../billing/currencyEntitlements';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { colors, radius, uiFont } from '../theme';
 
-export function CurrencySettingsScreen({ onBack }: { onBack: () => void }) {
+export function CurrencySettingsScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { markTaskDone } = useAppData();
   const { isZh } = useLanguage();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
   const [active, setActive] = useState<string[] | null>(null);
   const [display, setDisplay] = useState<string>(BASE_CURRENCY);
   const [search, setSearch] = useState<string>('');
@@ -53,6 +58,10 @@ export function CurrencySettingsScreen({ onBack }: { onBack: () => void }) {
 
   const toggle = async (code: string, on: boolean) => {
     if (code === BASE_CURRENCY || pendingCode) return;
+    if (on && !canActivateCurrency(active ?? [], code, isPro)) {
+      openPaywall('multi_currency');
+      return;
+    }
     setPendingCode(code);
     try {
       if (on) {
@@ -90,9 +99,11 @@ export function CurrencySettingsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '货币设置' : 'Currencies'} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '货币设置' : 'Currencies'} onBack={onBack} />
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}

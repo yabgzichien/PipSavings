@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { PipWearsHat } from '../components/Pip';
 import { BubbleText, PipSays } from '../components/ui';
-import { getLLM } from '../llm';
 import { getActiveCurrencies } from '../db/currencyRepo';
 import { getAutoFillForMonth, recordAutoFill } from '../db/memoryRepo';
 import { listFxRates } from '../db/fxRepo';
@@ -17,6 +16,7 @@ import { rateFor, ratesFromCache } from '../lib/fx';
 import { defaultLinkEffect } from '../lib/networth';
 import { notify } from '../lib/platformAlert';
 import { type ScannedReceipt } from '../lib/parseReceipt';
+import { recognizeReceiptText, type OcrOutcome } from '../lib/receiptOcr';
 import { resolveQuickAdd, resolveQuickAddWithoutAmount } from '../lib/quickAdd';
 import { type QuickDraft } from '../lib/quickParse';
 import { prevMonthKey } from '../lib/recap';
@@ -145,6 +145,36 @@ function AddFlowPhases({
     learned: Map<string, CategorySuggestion | null>;
   } | null>(null);
 
+  /** ScanKind OCR prefetch — invalidate on Back/new pick; do not abort native ML Kit. */
+  const ocrGenerationRef = useRef(0);
+  const ocrPrefetchRef = useRef<{
+    uri: string;
+    generation: number;
+    promise: Promise<OcrOutcome>;
+  } | null>(null);
+
+  const clearOcrPrefetch = () => {
+    ocrGenerationRef.current += 1;
+    ocrPrefetchRef.current = null;
+  };
+
+  const startOcrPrefetch = (uri: string) => {
+    ocrGenerationRef.current += 1;
+    const generation = ocrGenerationRef.current;
+    const promise = recognizeReceiptText(uri).catch(
+      (): OcrOutcome => ({ status: 'unavailable' })
+    );
+    ocrPrefetchRef.current = { uri, generation, promise };
+  };
+
+  const getActiveOcrPrefetch = (): Promise<OcrOutcome> | undefined => {
+    const slot = ocrPrefetchRef.current;
+    if (!slot || !image || slot.uri !== image.uri || slot.generation !== ocrGenerationRef.current) {
+      return undefined;
+    }
+    return slot.promise;
+  };
+
   const tripName = initialTripId ? trips.find((tr) => tr.id === initialTripId)?.name ?? null : null;
 
   const [quickBusy, setQuickBusy] = useState(false);
@@ -155,12 +185,15 @@ function AddFlowPhases({
   const [batchSource, setBatchSource] = useState<TxnSource>('extracted');
 
   useEffect(() => {
-    getLLM().then((llm) => setHasKey(llm.can('extract')));
+    setHasKey(true);
   }, []);
 
   // Named so hardware/gesture back can call the exact same transition as each phase's own back
   // button below — the two must never disagree about where back goes.
-  const backToAttach = () => setPhase('attach');
+  const backToAttach = () => {
+    clearOcrPrefetch();
+    setPhase('attach');
+  };
   // Both readers were reached by answering the kind question, so back re-asks it. Getting the
   // answer wrong costs one tap, not another trip to the camera.
   const backToKind = () => setPhase(image ? 'kind' : 'attach');
@@ -228,6 +261,7 @@ function AddFlowPhases({
     setBatchSource('extracted');
     prefetchPromiseRef.current = null;
     prefetchedRef.current = null;
+    startOcrPrefetch(img.uri);
     setPhase('kind');
   };
 
@@ -525,6 +559,7 @@ function AddFlowPhases({
     return (
       <ReceiptScanScreen
         initialImage={image ?? undefined}
+        prefetchedOcr={getActiveOcrPrefetch()}
         cachedReceipt={cachedReceipt}
         initialDraft={receiptResult?.resumeState ?? null}
         onScanned={setCachedReceipt}
@@ -590,6 +625,7 @@ function AddFlowPhases({
       <ExtractScreen
         key={`${image.uri}:${cached ? 'c' : 'f'}`}
         image={image}
+        prefetchedOcr={getActiveOcrPrefetch()}
         cachedItems={cached}
         linkId={linkId}
         onBack={backToKind}

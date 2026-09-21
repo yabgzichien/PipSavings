@@ -26,6 +26,7 @@ interface LanguageCtx {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
   isZh: boolean;
+  translations: Translations;
   t: (key: keyof Translations | string, params?: Record<string, string | number>) => string;
   tCat: (cat: Category | { id: string; label: string; isDefault?: boolean } | null | undefined) => string;
   formatGreeting: (d?: Date) => string;
@@ -64,6 +65,7 @@ const defaultCtx: LanguageCtx = {
   language: 'en',
   setLanguage: () => {},
   isZh: false,
+  translations: en,
   t: (key, params) => translate('en', key, params),
   tCat: (cat) => getCategoryLabel(cat, 'en'),
   formatGreeting: () => 'Good day',
@@ -177,6 +179,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       language,
       setLanguage,
       isZh,
+      translations: DICTIONARIES[language] || en,
       t,
       tCat,
       formatGreeting,

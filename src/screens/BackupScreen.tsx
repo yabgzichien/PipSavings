@@ -19,7 +19,7 @@ import { uiFont } from '../theme';
 
 const LOCAL_BACKUP_AT_KEY = 'local_backup_last_at';
 
-export function BackupScreen({ onBack }: { onBack: () => void }) {
+export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -116,7 +116,8 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
     setBackingUpCloud(true);
     try {
       const zip = await buildBackupZip(appData);
-      await cloud.backupNow(zip);
+      const result = await cloud.backupToDrive(zip);
+      if (result === 'cancelled') return;
     } catch (e: any) {
       notify(isZh ? '云备份失败' : 'Cloud backup failed', e?.message);
     } finally {
@@ -127,12 +128,13 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
   const handleCloudRestore = async () => {
     setRestoringCloud(true);
     try {
-      const bytes = await cloud.restoreLatest();
-      if (!bytes) {
+      const result = await cloud.restoreLatest();
+      if (result.status === 'cancelled') return;
+      if (result.status === 'empty') {
         notify(isZh ? '未找到备份' : 'No backup found', isZh ? 'Google Drive 中还没有备份。' : "There's no backup in Google Drive yet.");
         return;
       }
-      await runRestore(bytes);
+      await runRestore(result.bytes);
     } catch (e: any) {
       notify(isZh ? '恢复失败' : 'Restore failed', e?.message);
     } finally {
@@ -142,9 +144,11 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '备份与恢复' : 'Back Up & Restore'} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '备份与恢复' : 'Back Up & Restore'} onBack={onBack} />
+        </View>
+      )}
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}>
         <Eyebrow style={{ marginBottom: 10 }}>{isZh ? '本地备份' : 'Local backup'}</Eyebrow>
         <Card style={{ padding: 16, gap: 12 }}>
@@ -223,63 +227,59 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
 
               {cloud.error && <Text style={[styles.errorText, { color: '#b3261e' }]}>{cloud.error}</Text>}
 
-              {cloud.status === 'disconnected' || cloud.status === 'connecting' || cloud.status === 'error' ? (
-                <Pressable
-                  onPress={cloud.connect}
-                  disabled={!cloud.isConfigured || cloud.status === 'connecting'}
-                  style={({ pressed }) => [
-                    styles.primaryBtn,
-                    { backgroundColor: theme.accentInk, opacity: !cloud.isConfigured ? 0.4 : cloud.status === 'connecting' ? 0.6 : pressed ? 0.92 : 1 },
-                  ]}
-                >
-                  {cloud.status === 'connecting' ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.primaryBtnText}>{isZh ? '连接 Google 账号' : 'Connect Google account'}</Text>
-                  )}
+              <Pressable
+                onPress={handleCloudBackupNow}
+                disabled={!cloud.isConfigured || backingUpCloud || cloud.status === 'backing-up' || cloud.status === 'connecting'}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: theme.accentInk,
+                    opacity: !cloud.isConfigured
+                      ? 0.4
+                      : backingUpCloud || cloud.status === 'backing-up' || cloud.status === 'connecting'
+                        ? 0.6
+                        : pressed
+                          ? 0.92
+                          : 1,
+                  },
+                ]}
+              >
+                {backingUpCloud || cloud.status === 'backing-up' || cloud.status === 'connecting' ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name="download" size={16} color="#fff" />
+                    <Text style={styles.primaryBtnText}>{isZh ? '备份到 Google Drive' : 'Back up to Google Drive'}</Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={handleCloudRestore}
+                disabled={!cloud.isConfigured || restoringCloud || cloud.status === 'restoring'}
+                style={({ pressed }) => [
+                  styles.secondaryBtn,
+                  {
+                    backgroundColor: colorTheme.surface,
+                    borderColor: colorTheme.line2,
+                    opacity: !cloud.isConfigured || restoringCloud ? 0.6 : pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                {restoringCloud || cloud.status === 'restoring' ? (
+                  <ActivityIndicator color={theme.accent} size="small" />
+                ) : (
+                  <>
+                    <Icon name="upload" size={16} color={theme.accent} />
+                    <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>{isZh ? '从 Google Drive 恢复' : 'Restore from Google Drive'}</Text>
+                  </>
+                )}
+              </Pressable>
+
+              {(cloud.status === 'connected' || cloud.status === 'backing-up' || cloud.status === 'restoring') && (
+                <Pressable onPress={cloud.disconnect} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, alignSelf: 'center' }]}>
+                  <Text style={[styles.disconnectText, { color: colorTheme.ink3 }]}>{isZh ? '断开连接' : 'Disconnect'}</Text>
                 </Pressable>
-              ) : (
-                <>
-                  <Pressable
-                    onPress={handleCloudBackupNow}
-                    disabled={backingUpCloud || cloud.status === 'backing-up'}
-                    style={({ pressed }) => [
-                      styles.primaryBtn,
-                      { backgroundColor: theme.accentInk, opacity: backingUpCloud ? 0.6 : pressed ? 0.92 : 1 },
-                    ]}
-                  >
-                    {backingUpCloud || cloud.status === 'backing-up' ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <>
-                        <Icon name="download" size={16} color="#fff" />
-                        <Text style={styles.primaryBtnText}>{isZh ? '立即备份' : 'Back up now'}</Text>
-                      </>
-                    )}
-                  </Pressable>
-
-                  <Pressable
-                    onPress={handleCloudRestore}
-                    disabled={restoringCloud || cloud.status === 'restoring'}
-                    style={({ pressed }) => [
-                      styles.secondaryBtn,
-                      { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2, opacity: restoringCloud ? 0.6 : pressed ? 0.85 : 1 },
-                    ]}
-                  >
-                    {restoringCloud || cloud.status === 'restoring' ? (
-                      <ActivityIndicator color={theme.accent} size="small" />
-                    ) : (
-                      <>
-                        <Icon name="upload" size={16} color={theme.accent} />
-                        <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>{isZh ? '恢复最新备份' : 'Restore latest backup'}</Text>
-                      </>
-                    )}
-                  </Pressable>
-
-                  <Pressable onPress={cloud.disconnect} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, alignSelf: 'center' }]}>
-                    <Text style={[styles.disconnectText, { color: colorTheme.ink3 }]}>{isZh ? '断开连接' : 'Disconnect'}</Text>
-                  </Pressable>
-                </>
               )}
             </Card>
           </>

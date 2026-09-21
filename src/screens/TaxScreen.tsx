@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
+import { ProBadge } from '../components/ProUi';
 import { MapCommitmentSheet } from '../components/MapCommitmentSheet';
 import { ReliefTagEditSheet } from '../components/ReliefTagEditSheet';
 import { ExportSuccessModal } from '../components/ExportSuccessModal';
+import { InfoButton } from '../components/InfoButton';
 import { Body, Caption, Card, Eyebrow, ProgressTrack, TopBar } from '../components/ui';
 import { computeUsage, evidenceState, isRequestable, reliefEligibility, yaForDate, type ReliefUsage } from '../lib/relief';
 import { RELIEF_SCHEDULES, scheduleForYA, type ReliefLine } from '../lib/reliefSchedule';
@@ -18,6 +20,8 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { colors, radius, uiFont } from '../theme';
 
 // The current calendar year is always offered even when no schedule is registered for it yet:
@@ -37,12 +41,14 @@ function daysUntilMonthEnd(txnDate: string): number {
   return Math.max(0, lastDay - today.getDate());
 }
 
-export function TaxScreen({ onBack }: { onBack: () => void }) {
+export function TaxScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
   const { transactions, commitments, updateCommitmentEntry } = useAppData();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
   const [ya, setYa] = useState(AVAILABLE_YAS[0]);
   const [tags, setTags] = useState<ReliefTag[] | null>(null);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
@@ -109,8 +115,8 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
   }, [schedule]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colorTheme.bg, paddingTop: insets.top }]}>
-      <TopBar title={isZh ? '个人所得税减免' : 'Tax relief'} onBack={onBack} />
+    <View style={[styles.root, { backgroundColor: colorTheme.bg, paddingTop: embedded ? 0 : insets.top }]}>
+      {!embedded && <TopBar title={isZh ? '个人所得税减免' : 'Tax relief'} onBack={onBack} />}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.yaRow}>
@@ -133,6 +139,15 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
           {isZh ? `课税年度 YA ${ya} 目前已申报减免 RM ${fmt(totalClaimed)}` : `RM ${fmt(totalClaimed)} claimed so far for YA ${ya}`}
         </Caption>
 
+        <View style={styles.disclaimerRow}>
+          <Caption color={colorTheme.ink2} style={{ flex: 1 }}>
+            {isZh
+              ? '仅适用于马来西亚个人所得税减免。Pip 只帮你记录可申报项目，不会代你向 LHDN 报税，内容亦不构成税务建议。'
+              : 'Malaysian personal tax relief only. Pip tracks claims for your records. It does not file with LHDN, and this is not tax advice.'}
+          </Caption>
+          <InfoButton entry="tax_relief" />
+        </View>
+
         <View style={styles.topActionsRow}>
           <Pressable onPress={() => setMappingCommitments(true)} style={[styles.actionRow, { borderColor: colorTheme.line2, marginTop: 0 }]}>
             <Icon name="clock" size={16} color={theme.accent} />
@@ -150,6 +165,10 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
             disabled={exportingPdf || !schedule || !tags || tags.length === 0}
             onPress={async () => {
               if (!schedule || !tags) return;
+              if (!isPro) {
+                openPaywall('tax_export', 'tax');
+                return;
+              }
               setExportingPdf(true);
               try {
                 try {
@@ -181,11 +200,16 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
             <Text style={{ color: theme.accent, fontFamily: uiFont(700), fontSize: 13.5 }}>
               {exportingPdf ? (isZh ? '正在生成...' : 'Building PDF...') : (isZh ? '导出报税表 (PDF)' : 'Export tax PDF')}
             </Text>
+            {!isPro ? <ProBadge locked /> : null}
           </Pressable>
           <Pressable
             disabled={exportingZip || !schedule || !tags || tags.length === 0}
             onPress={async () => {
               if (!schedule || !tags) return;
+              if (!isPro) {
+                openPaywall('tax_export', 'tax');
+                return;
+              }
               setExportingZip(true);
               try {
                 try {
@@ -217,6 +241,7 @@ export function TaxScreen({ onBack }: { onBack: () => void }) {
             <Text style={{ color: theme.accent, fontFamily: uiFont(700), fontSize: 13.5 }}>
               {exportingZip ? (isZh ? '正在打包...' : 'Zipping...') : (isZh ? '导出小票包 (.zip)' : 'Export receipts (.zip)')}
             </Text>
+            {!isPro ? <ProBadge locked /> : null}
           </Pressable>
         </View>
 
@@ -434,6 +459,7 @@ const styles = StyleSheet.create({
   yaRow: { flexDirection: 'row', gap: 8 },
   yaChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
   yaChipText: { fontFamily: uiFont(700), fontSize: 13 },
+  disclaimerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 8 },
   lineHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   childRow: { flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 12, marginTop: 8 },
   childBlock: { marginTop: 8 },

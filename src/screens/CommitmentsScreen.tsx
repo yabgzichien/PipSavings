@@ -63,7 +63,7 @@ function addMonthsKey(mk: string, delta: number): string {
  * The recurring commitments screen with a sleek timeline view, month-to-month navigation,
  * accurate due-date grouping, brand logos, daily subtotals, and comprehensive recurring management.
  */
-export function CommitmentsScreen({ onBack }: { onBack: () => void }) {
+export function CommitmentsScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -237,22 +237,24 @@ export function CommitmentsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={isZh ? '定期支出与定投' : 'Recurring commitments'}
-          onBack={onBack}
-          right={
-            <Pressable
-              onPress={() => setEditing('new')}
-              hitSlop={8}
-              accessibilityLabel="Add a recurring commitment"
-              style={[styles.addCircleBtn, { backgroundColor: RED }]}
-            >
-              <Icon name="plus" size={15} color="#ffffff" stroke={2.8} />
-            </Pressable>
-          }
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar
+            title={isZh ? '定期支出与定投' : 'Recurring commitments'}
+            onBack={onBack}
+            right={
+              <Pressable
+                onPress={() => setEditing('new')}
+                hitSlop={8}
+                accessibilityLabel="Add a recurring commitment"
+                style={[styles.addCircleBtn, { backgroundColor: theme.accent }]}
+              >
+                <Icon name="plus" size={15} color="#ffffff" stroke={2.8} />
+              </Pressable>
+            }
+          />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 36 }} showsVerticalScrollIndicator={false}>
         {commitments.length === 0 ? (
@@ -269,7 +271,7 @@ export function CommitmentsScreen({ onBack }: { onBack: () => void }) {
               <Text style={[styles.emptySub, { color: colorTheme.ink2 }]}>
                 {isZh
                   ? '车贷、房租、话费套餐、流媒体订阅或每月固定定投 — 添加一次即可按期打勾完成。'
-                  : "Streaming, telco bills, car loans, or a fixed monthly investment — add it once and keep your schedule on track."}
+                  : 'Click the button to add new commitment.'}
               </Text>
               <View style={{ marginTop: 16, alignSelf: 'stretch' }}>
                 <PrimaryButton onPress={() => setEditing('new')} height={48}>
@@ -963,19 +965,16 @@ function CommitmentEditorModal({
 
             {kind === 'investment' && (
               <View style={{ marginTop: 18 }}>
-                {investmentAccounts.length === 0 ? (
-                  <Text style={[styles.emptySub, { color: colorTheme.amber }]}>
-                    {isZh ? '请先在净资产中添加投资账户或持仓，然后再来设置定投计划。' : 'Add an investment holding or account in Net Worth first, then come back to set up the DCA.'}
-                  </Text>
-                ) : (
-                  <AccountLinkField
-                    accounts={investmentAccounts as any}
-                    selectedId={toAccountId}
-                    onSelect={setToAccountId}
-                    label={isZh ? '转入投资账户' : 'Invest into'}
-                    required
-                  />
-                )}
+                <AccountLinkField
+                  accounts={investmentAccounts as any}
+                  selectedId={toAccountId}
+                  onSelect={setToAccountId}
+                  label={isZh ? '转入投资账户' : 'Invest into'}
+                  required
+                  emptyCreateLabel={isZh ? '创建投资账户' : 'Create investment account'}
+                  createAccountInitialKind="asset"
+                  createAccountInitialClass="investments"
+                />
               </View>
             )}
 

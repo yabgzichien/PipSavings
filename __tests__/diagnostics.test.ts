@@ -5,6 +5,7 @@ jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
   captureException: jest.fn(),
   captureEvent: jest.fn(),
+  captureMessage: jest.fn(),
   setUser: jest.fn(),
 }));
 
@@ -258,5 +259,44 @@ describe('breadcrumbs', () => {
     const { options } = load();
     const crumb = { category: 'navigation', message: 'dashboard' };
     expect(options.beforeBreadcrumb(crumb)).toBe(crumb);
+  });
+});
+
+describe('reportBug', () => {
+  it('sends a typed bug report even when crash diagnostics are off', () => {
+    const { sentry, diagnostics } = load();
+    diagnostics.resolveConsent(false, null);
+
+    diagnostics.reportBug('The save button does nothing');
+
+    expect(sentry.captureMessage).toHaveBeenCalledWith(
+      'The save button does nothing',
+      expect.objectContaining({
+        level: 'info',
+        tags: { flow: 'user-bug-report' },
+      })
+    );
+  });
+
+  it('lets a user bug report through the send gate when diagnostics are off', () => {
+    const { diagnostics, options } = load();
+    diagnostics.resolveConsent(false, null);
+
+    const sent = options.beforeSend({
+      message: 'Cannot parse "STARBUCKS"',
+      tags: { flow: 'user-bug-report' },
+    });
+
+    expect(sent).not.toBeNull();
+    expect(sent.message).toBe('Cannot parse "STARBUCKS"');
+  });
+
+  it('does not send a blank bug report', () => {
+    const { sentry, diagnostics } = load();
+    diagnostics.resolveConsent(false, null);
+
+    diagnostics.reportBug('   ');
+
+    expect(sentry.captureMessage).not.toHaveBeenCalled();
   });
 });

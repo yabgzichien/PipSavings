@@ -1,25 +1,19 @@
 // src/lib/cloudBackup/googleAuth.ts
-// Google OAuth constants + refresh-token exchange for cloud backup. The interactive part of
-// the flow (the consent screen + authorization-code exchange) has to run as a React hook —
-// expo-auth-session's useAuthRequest — so it lives in useCloudBackup.ts; this file only holds
-// the pieces that don't need to be a hook.
+// Google OAuth constants + refresh-token exchange for older cloud-backup sessions.
+// Interactive sign-in is native Google Sign-In in nativeGoogleAuth.ts.
 //
-// SETUP REQUIRED (one-time, external to this repo): create an OAuth client ID in Google Cloud
-// Console (APIs & Services > Credentials > Create Credentials > OAuth client ID > Android),
-// using this app's package name `com.yabg.pip` and your release/debug signing
-// SHA-1 fingerprint(s). On that client's page, open Advanced Settings and turn on "Enable Custom
-// URI scheme" — Google blocks custom-scheme redirects for Android clients by default, and this
-// flow needs one. Then put the resulting client id in `.env.local` as
-// EXPO_PUBLIC_GOOGLE_DRIVE_CLIENT_ID. Cloud backup stays disabled (and says so in Settings)
-// until this is set.
+// SETUP REQUIRED (one-time, external to this repo):
+// 1. Android OAuth client in Google Cloud Console (package `com.yabg.pip` plus EVERY
+//    signing SHA-1: debug, the upload/release keystore, AND Play Console → App integrity
+//    → App signing key certificate. Closed-testing AABs are re-signed by Play).
+// 2. Web OAuth client in the same project. Native Google Sign-In needs that Web client id
+//    as `webClientId` — an Android client id here causes DEVELOPER_ERROR.
+// Put the Web client id in `.env.local` as EXPO_PUBLIC_GOOGLE_DRIVE_CLIENT_ID, then rebuild.
+// Cloud backup stays disabled (and says so in Settings) until this is set.
 export const GOOGLE_DRIVE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_DRIVE_CLIENT_ID ?? '';
 export const isGoogleDriveConfigured = GOOGLE_DRIVE_CLIENT_ID.length > 0;
 
-/** Redirect Google sends the authorization code back to. Android OAuth clients only accept a
- *  custom scheme equal to the app's package name — the app's own `pip://` scheme is rejected
- *  with redirect_uri_mismatch — so this must match the Play Store package, which is the
- *  `applicationId` in android/app/build.gradle, mirrored by `expo.android.package` (app.json).
- *  The matching entry in `expo.scheme` is what registers the intent filter that routes it back. */
+/** Kept for older APKs that stored a PKCE refresh token. New sign-ins use native Google Sign-In. */
 export const GOOGLE_DRIVE_REDIRECT_URI = 'com.yabg.pip:/oauth2redirect';
 
 /** Narrow, hidden-folder-only scope — no access to the user's visible Drive files. */

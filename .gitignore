@@ -85,5 +85,8 @@ tax-relief-evidence-*.zip
 # Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
 .superpowers/
 
+# Local git worktrees
+.worktrees/
+
 # Certificates generator & previews
 certificates/

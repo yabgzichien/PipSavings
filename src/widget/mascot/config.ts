@@ -11,7 +11,17 @@ export type SlotId = 'head' | 'eyes' | 'mouth' | 'holding';
 export type Notch = 1 | 2 | 3 | 4 | 5;
 export type BadgeIcon = 'flame' | 'star' | 'leaf' | 'sprout' | 'none';
 export type BadgeColor = 'amber' | 'red' | 'green' | 'blue' | 'violet';
-export type PresetId = 'classic' | 'nerdy' | 'cool' | 'swordsman' | 'scientist' | 'chef';
+export type PresetId =
+  | 'classic'
+  | 'nerdy'
+  | 'cool'
+  | 'sassy'
+  | 'swordsman'
+  | 'scientist'
+  | 'chef'
+  | 'cowboy'
+  | 'cyborg'
+  | 'wizard';
 
 /**
  * What occupies one of the two slots to the right of the mascot.
@@ -55,7 +65,19 @@ export const DEFAULT_WIDGET_MASCOT_CONFIG: WidgetMascotConfig = {
   badgeColor: 'amber',
 };
 
-const PRESET_IDS: readonly string[] = ['classic', 'nerdy', 'cool', 'swordsman', 'scientist', 'chef', 'custom'];
+const PRESET_IDS: readonly string[] = [
+  'classic',
+  'nerdy',
+  'cool',
+  'sassy',
+  'swordsman',
+  'scientist',
+  'chef',
+  'cowboy',
+  'cyborg',
+  'wizard',
+  'custom',
+];
 const BADGE_ICONS: readonly string[] = ['flame', 'star', 'leaf', 'sprout', 'none'];
 const BADGE_COLORS: readonly string[] = ['amber', 'red', 'green', 'blue', 'violet'];
 const SLOT_CONTENTS: readonly string[] = ['income', 'expense', 'streak', 'none'];
@@ -144,4 +166,13 @@ export function parseWidgetMascotConfig(raw: string | null): WidgetMascotConfig 
 
 export function serializeWidgetMascotConfig(c: WidgetMascotConfig): string {
   return JSON.stringify(c);
+}
+
+/** A backup may carry a Pro-only look. Restoring it without entitlement degrades silently to
+ *  the default: the widget sits on a home screen other people see, so a locked or broken
+ *  widget there is worse than a plain one. Re-subscribing restores the stored look, because
+ *  the original value stays in the backup rather than being rewritten. */
+export function mascotConfigForTier(raw: string, isPro: boolean): string {
+  if (isPro) return raw;
+  return serializeWidgetMascotConfig(DEFAULT_WIDGET_MASCOT_CONFIG);
 }

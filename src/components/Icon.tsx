@@ -14,7 +14,9 @@ export type IconName =
   | 'trash' | 'sliders' | 'gear' | 'alert' | 'pencil' | 'gift' | 'return' | 'percent'
   | 'home' | 'scale' | 'signal' | 'book' | 'shield' | 'store' | 'download' | 'file' | 'table'
   | 'copy' | 'upload' | 'code' | 'pin' | 'chart' | 'filter' | 'share' | 'folder'
-  | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar';
+  | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar'
+  | 'gym' | 'plane' | 'pet' | 'gamepad' | 'users' | 'pill'
+  | 'robot' | 'human' | 'key';
 
 type RenderFn = (stroke: string, sw: number) => React.ReactNode;
 
@@ -406,6 +408,72 @@ const ICONS: Record<IconName, RenderFn> = {
       <Line x1={3} y1={10} x2={21} y2={10} />
       <Line x1={8} y1={3} x2={8} y2={7} />
       <Line x1={16} y1={3} x2={16} y2={7} />
+    </G>
+  ),
+  gym: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M7.5 9.5v5M16.5 9.5v5" />
+      <Path d="M5 8.2v7.6M19 8.2v7.6" />
+      <Path d="M7.5 12h9" />
+      <Path d="M3.5 10.2v3.6M20.5 10.2v3.6" />
+    </G>
+  ),
+  plane: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+    </G>
+  ),
+  pet: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Circle cx={7} cy={8} r={1.7} />
+      <Circle cx={17} cy={8} r={1.7} />
+      <Circle cx={5.2} cy={12.2} r={1.5} />
+      <Circle cx={18.8} cy={12.2} r={1.5} />
+      <Path d="M9.2 14.2c0-1.7 1.2-2.8 2.8-2.8s2.8 1.1 2.8 2.8c0 1.6-1.1 2.6-1.9 3.5-.4.4-1.4.4-1.8 0-.8-.9-1.9-1.9-1.9-3.5z" />
+    </G>
+  ),
+  gamepad: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M7.5 8h9a4.5 4.5 0 014.3 5.8l-.8 2.8A2.6 2.6 0 0117.5 18.5h-1.2a2 2 0 01-1.7-1l-.5-.8a1.6 1.6 0 00-1.4-.8h-1.4a1.6 1.6 0 00-1.4.8l-.5.8a2 2 0 01-1.7 1H6.5a2.6 2.6 0 01-2.5-1.9l-.8-2.8A4.5 4.5 0 017.5 8z" />
+      <Path d="M8.2 12.2h3.2M9.8 10.6v3.2" />
+      <Circle cx={14.8} cy={11.4} r={0.9} fill={s} stroke="none" />
+      <Circle cx={16.8} cy={13.4} r={0.9} fill={s} stroke="none" />
+    </G>
+  ),
+  users: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Circle cx={9} cy={8} r={3} />
+      <Path d="M3.5 19.5c.4-3.4 2.6-5 5.5-5s5.1 1.6 5.5 5" />
+      <Circle cx={16.5} cy={9} r={2.4} />
+      <Path d="M14.2 14.4c1.7-.7 3.5-.5 4.8.6.9.8 1.5 2 1.7 3.5" />
+    </G>
+  ),
+  pill: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M8.4 4.8a4.2 4.2 0 015.9 0l4.9 4.9a4.2 4.2 0 11-5.9 5.9L8.4 10.7a4.2 4.2 0 010-5.9z" />
+      <Path d="M10.2 12.5l5.3-5.3" />
+    </G>
+  ),
+  robot: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M12 3v3" />
+      <Circle cx={12} cy={2.5} r={1} fill={s} stroke="none" />
+      <Rect x={4} y={6} width={16} height={13} rx={4} />
+      <Circle cx={9} cy={12} r={1.2} fill={s} stroke="none" />
+      <Circle cx={15} cy={12} r={1.2} fill={s} stroke="none" />
+      <Path d="M9 16h6M2 10v5M22 10v5" />
+    </G>
+  ),
+  human: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Circle cx={12} cy={8} r={4} />
+      <Path d="M4.5 21c.6-4.4 3.4-6.6 7.5-6.6s6.9 2.2 7.5 6.6" />
+    </G>
+  ),
+  key: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Circle cx={8} cy={12} r={4.2} />
+      <Path d="M12.2 12H22M18 12v3M15 12v2" />
     </G>
   ),
 };

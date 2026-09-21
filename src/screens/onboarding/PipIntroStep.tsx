@@ -5,7 +5,9 @@ import { Icon } from '../../components/Icon';
 import { FadeIn } from '../../components/Motion';
 import { Pip } from '../../components/Pip';
 import { Body, BtnLabel, Title } from '../../components/ui';
-import { activateCurrency, getDisplayCurrency, setDisplayCurrency } from '../../db/currencyRepo';
+import { activateCurrency, deactivateCurrency, getActiveCurrencies, getDisplayCurrency, setDisplayCurrency } from '../../db/currencyRepo';
+import { canActivateCurrency, currenciesToReplaceForFreeSlot, FREE_CURRENCY_LIMIT } from '../../billing/currencyEntitlements';
+import { useEntitlement } from '../../billing/entitlement';
 import { BASE_CURRENCY, SUPPORTED_CURRENCIES } from '../../lib/currencies';
 import { useLanguage } from '../../i18n';
 import * as haptics from '../../lib/haptics';
@@ -20,6 +22,7 @@ export function PipIntroStep({ onNext }: { onNext: () => void }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { language, setLanguage, t } = useLanguage();
+  const { isPro } = useEntitlement();
 
   const [selectedCurrency, setSelectedCurrency] = useState<string>(BASE_CURRENCY);
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
@@ -47,6 +50,22 @@ export function PipIntroStep({ onNext }: { onNext: () => void }) {
   const pickCurrency = async (code: string) => {
     haptics.tap();
     if (code !== BASE_CURRENCY) {
+      let active = await getActiveCurrencies();
+      if (!canActivateCurrency(active, code, isPro) && !isPro && active.length <= FREE_CURRENCY_LIMIT) {
+        for (const extra of currenciesToReplaceForFreeSlot(active, code)) {
+          await deactivateCurrency(extra);
+        }
+        active = await getActiveCurrencies();
+      }
+      if (!canActivateCurrency(active, code, isPro)) {
+        if (active.includes(code)) {
+          setSelectedCurrency(code);
+          await setDisplayCurrency(code);
+        }
+        setPickerOpen(false);
+        setSearch('');
+        return;
+      }
       const ok = await activateCurrency(code);
       if (!ok) {
         notify(

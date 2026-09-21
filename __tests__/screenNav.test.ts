@@ -78,4 +78,16 @@ describe('backTargetFor', () => {
     expect(backTargetFor('export', { ...origins, exportOrigin: 'home' })).toBe('home');
     expect(backTargetFor('export', { ...origins, exportOrigin: 'recap' })).toBe('recap');
   });
+
+  // The paywall is reachable from several explicit gates and Pro-card CTAs, so a fixed back target
+  // would strand the user somewhere they never came from. It follows the same origin pattern
+  // as `export` and `owed`.
+  it('returns the paywall to wherever it was opened from', () => {
+    expect(backTargetFor('paywall', { ...origins, paywallOrigin: 'tax' })).toBe('tax');
+    expect(backTargetFor('paywall', { ...origins, paywallOrigin: 'networth' })).toBe('networth');
+  });
+
+  it('defaults the paywall back to home when no origin was recorded', () => {
+    expect(backTargetFor('paywall', origins)).toBe('home');
+  });
 });

@@ -30,6 +30,15 @@ const CAP_TRIM = '#3F6FD1';
 const CAP_BRIM = '#2E9E5B';
 const CAP_BRIM_LINE = '#1F7A44';
 
+/** 🥳-style party cone (`partyHat`). Blue with white dots and a gold rim, close to the emoji
+ *  without borrowing the user's accent — this still has to read as one Pip. */
+const PARTY_BLUE = '#3B7CFF';
+const PARTY_BLUE_DARK = '#1F56C9';
+const PARTY_DOT = '#FFFDF5';
+const PARTY_RIM = '#FFD34D';
+const PARTY_RIM_LINE = '#C48A14';
+const PARTY_STREAMER = '#F472B6';
+
 /** Cool-pose palette (`glasses`). The gloves are off-white with a warm brown outline rather than
  *  flat white: unoutlined pale hands disappear against a light page, and a neutral grey outline
  *  would pull them out of the coin's family. Teeth are near-white for the same reason. */
@@ -456,6 +465,52 @@ function PropellerCap() {
       <Ellipse cx={50} cy={40.5} rx={34} ry={7} fill="rgba(20,50,30,0.18)" />
       <Ellipse cx={50} cy={38} rx={36} ry={6.5} fill={CAP_BRIM} stroke={CAP_BRIM_LINE} strokeWidth={1.8} />
       <Ellipse cx={50} cy={38} rx={29} ry={4.8} fill="none" stroke={CAP_BRIM_LINE} strokeWidth={1.1} opacity={0.45} />
+    </G>
+  );
+}
+
+/**
+ * A tilted cone party hat (`partyHat`), the 🥳 read: blue crown, white dots, gold brim, and a
+ * handful of confetti chips. Occupies the same head slot as the straw and propeller caps, and
+ * covers the sprout so the cone sits on the coin instead of floating above a plant.
+ *
+ * Drawn inside the 100x100 box. The tilt is a group rotation around the brim, not a skewed
+ * triangle — a skewed cone reads as a flat kite.
+ */
+function PartyHat() {
+  return (
+    <G testID="pip-party-hat">
+      <G testID="pip-party-hat-confetti">
+        <Rect x={71} y={15} width={5.2} height={3.2} rx={0.7} fill={PARTY_STREAMER} rotation={28} originX={73.6} originY={16.6} />
+        <Rect x={76} y={29} width={4.2} height={4.2} rx={0.6} fill={PARTY_RIM} rotation={-16} originX={78.1} originY={31.1} />
+        <Rect x={19} y={17} width={4.8} height={3} rx={0.6} fill={LEAF_RIGHT} rotation={-30} originX={21.4} originY={18.5} />
+        <Rect x={15} y={33} width={3.4} height={5.2} rx={0.6} fill={PARTY_BLUE} rotation={20} originX={16.7} originY={35.6} />
+      </G>
+      <G testID="pip-party-hat-cone" rotation={-22} originX={50} originY={31}>
+        <Ellipse cx={50} cy={33.4} rx={15} ry={5} fill="rgba(30,50,110,0.2)" />
+        <Path d="M35.5 31 L64.5 31 L50 2.4 Z" fill={PARTY_BLUE} />
+        <Path d="M35.5 31 L50 31 L50 2.4 Z" fill={PARTY_BLUE_DARK} opacity={0.28} />
+        <G testID="pip-party-hat-dots" fill={PARTY_DOT}>
+          <Circle cx={50} cy={9.2} r={1.7} />
+          <Circle cx={44.8} cy={15.6} r={1.5} />
+          <Circle cx={55.4} cy={14.8} r={1.6} />
+          <Circle cx={46.6} cy={22.4} r={1.4} />
+          <Circle cx={54.8} cy={21.6} r={1.5} />
+          <Circle cx={50} cy={27.2} r={1.3} />
+        </G>
+        <Ellipse
+          testID="pip-party-hat-rim"
+          cx={50}
+          cy={31}
+          rx={14.6}
+          ry={5}
+          fill={PARTY_RIM}
+          stroke={PARTY_RIM_LINE}
+          strokeWidth={1.3}
+        />
+        <Circle cx={50} cy={2.8} r={2.5} fill={PARTY_DOT} />
+        <Circle cx={50} cy={2.8} r={2.5} fill="none" stroke={PARTY_RIM_LINE} strokeWidth={0.8} />
+      </G>
     </G>
   );
 }
@@ -1270,6 +1325,7 @@ export function Pip({
   eating = false,
   hat,
   propellerHat = false,
+  partyHat = false,
 }: {
   size?: number;
   expr?: PipExpr;
@@ -1318,6 +1374,10 @@ export function Pip({
   /** A color-blocked party cap. Takes over the head slot from `hat`/`PipWearsHat` entirely while
    *  on — a coin only wears one hat at a time. */
   propellerHat?: boolean;
+  /** A 🥳 cone: blue with white dots and a gold brim. Takes the head slot like `propellerHat`,
+   *  and hides the sprout so the cone can sit on the coin. Does not own the face — pair it with
+   *  `expr` (the Pro welcome uses `proud`). */
+  partyHat?: boolean;
 }) {
   // The body is the coin, not the accent: Pip is one fixed character everywhere rather than a
   // shape that recolours per preset. `fill` is the bevel (COIN_FACE), because that disc is what
@@ -1424,10 +1484,16 @@ export function Pip({
         {/* Behind everything, including the sprout. */}
         {sassy && <SassyGlow />}
 
-        {/* sprout — green regardless of body colour, same two-tone leaves as the coin */}
-        <Path d="M50 26 C50 18 50 14 50 12" stroke={LEAF_STEM} strokeWidth={3.2} fill="none" strokeLinecap="round" />
-        <Ellipse cx={42} cy={15} rx={7.5} ry={4.2} fill={LEAF_LEFT} rotation={-32} originX={42} originY={15} />
-        <Ellipse cx={58} cy={13} rx={8.5} ry={4.6} fill={LEAF_RIGHT} rotation={28} originX={58} originY={13} />
+        {/* sprout — green regardless of body colour, same two-tone leaves as the coin.
+            Hidden under `partyHat` so the cone can sit on the head instead of hovering
+            above the plant. */}
+        {partyHat ? null : (
+          <G testID="pip-sprout">
+            <Path d="M50 26 C50 18 50 14 50 12" stroke={LEAF_STEM} strokeWidth={3.2} fill="none" strokeLinecap="round" />
+            <Ellipse cx={42} cy={15} rx={7.5} ry={4.2} fill={LEAF_LEFT} rotation={-32} originX={42} originY={15} />
+            <Ellipse cx={58} cy={13} rx={8.5} ry={4.6} fill={LEAF_RIGHT} rotation={28} originX={58} originY={13} />
+          </G>
+        )}
 
         {/* Before the body: the crossed swords are worn on the back, so the coin has to hide their
             middles. After the sprout, so the leaves stay in front of the hilts rather than being
@@ -1447,11 +1513,13 @@ export function Pip({
 
         {/* After the body so the brim sits over the head, but before the face, which it never
             reaches — the sprout above it is drawn earlier and stays clear of the crown.
-            `propellerHat` takes the head slot outright — a coin only wears one hat. */}
+            `propellerHat` / `partyHat` take the head slot outright — a coin only wears one hat. */}
         {swordsman ? (
           <Bandana />
         ) : scientist ? (
           <LabGoggles />
+        ) : partyHat ? (
+          <PartyHat />
         ) : propellerHat ? (
           <PropellerCap />
         ) : (

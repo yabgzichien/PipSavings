@@ -225,5 +225,40 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
       },
     ],
   },
+  tax_relief: {
+    term: 'Tax relief',
+    short: 'A tracker for Malaysian personal relief lines (LHDN / Form BE). Not tax advice, and Pip never files your return.',
+    body:
+      'This screen is only for Malaysian personal income tax relief. Reliefs in other countries are out of scope.\n\n' +
+      'Pip matches ringgit spending to published relief lines and caps for the year of assessment you pick. Receipts and tags stay on this device.\n\n' +
+      'LHDN is the authority. Caps and eligibility can change, so check hasil.gov.my before you file. You copy the totals into MyTax yourself, and you remain responsible for what you declare.',
+    steps: [
+      {
+        badge: 'Auto-tag',
+        title: 'Keep logging as usual',
+        desc: 'Scan receipts or pay mapped bills. Pip tags eligible ringgit spending against the matching relief line.',
+      },
+      {
+        badge: 'Review',
+        title: 'Pick a year and check the lines',
+        desc: 'Use the YA chips to switch years. Open a tag to fix the category or amount if Pip guessed wrong.',
+      },
+      {
+        badge: 'Add',
+        title: 'Map a bill or add a tag by hand',
+        desc: 'Map a commitment so every payment is tagged, or search a transaction and tag it yourself.',
+      },
+      {
+        badge: 'Evidence',
+        title: 'Attach proof before month-end',
+        desc: 'If a claim is missing a receipt or e-Invoice, attach one. Requestable items expire at the end of that month.',
+      },
+      {
+        badge: 'File',
+        title: 'Export, then type into MyTax',
+        desc: 'Export the PDF summary and receipts zip when you file. Pip does not submit anything to LHDN.',
+      },
+    ],
+  },
 };
 

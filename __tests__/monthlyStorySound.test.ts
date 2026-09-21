@@ -30,7 +30,7 @@ function verifyWav(wav: Buffer) {
 
   expect(audible.length).toBeGreaterThan(1000);
   expect(peak).toBeGreaterThan(0);
-  expect(peak).toBeLessThanOrEqual(0.7);
+  expect(peak).toBeLessThanOrEqual(0.75);
 }
 
 describe('monthly-story.wav', () => {

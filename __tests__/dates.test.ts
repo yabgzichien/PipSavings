@@ -1,4 +1,18 @@
-import { applyDateEdit, fullDate, isValidIsoDate, shortDate } from '../src/lib/dates';
+import {
+  applyDateEdit,
+  dayOfYear,
+  daysInMonth,
+  daysInYear,
+  daysLeftInMonth,
+  daysLeftInYear,
+  fullDate,
+  isLeapYear,
+  isValidIsoDate,
+  monthLabel,
+  monthProgressPct,
+  shortDate,
+  yearProgressPct,
+} from '../src/lib/dates';
 import type { ExtractedTxn } from '../src/lib/types';
 
 function txn(over: Partial<ExtractedTxn>): ExtractedTxn {
@@ -32,6 +46,12 @@ describe('fullDate', () => {
   it('returns empty string for null/bad input', () => {
     expect(fullDate(null)).toBe('');
     expect(fullDate('garbage')).toBe('');
+  });
+});
+
+describe('monthLabel', () => {
+  it('uses a compact month and full year when requested for a concise streak label', () => {
+    expect(monthLabel('2026-02', false)).toBe('Feb 2026');
   });
 });
 
@@ -157,5 +177,32 @@ describe('applyDateEdit', () => {
     const next = applyDateEdit(items, 0, 'garbage-date');
     expect(next[0].date).toBe('garbage-date');
     expect(next[1].date).toBe('2026-07-20');
+  });
+});
+
+describe('monthProgressPct', () => {
+  it('uses day-of-month / days-in-month and hits 100% on the last day', () => {
+    expect(daysInMonth(new Date(2026, 8, 14))).toBe(30); // September
+    expect(monthProgressPct(new Date(2026, 8, 1))).toBe(3); // 1/30
+    expect(monthProgressPct(new Date(2026, 8, 15))).toBe(50); // 15/30
+    expect(monthProgressPct(new Date(2026, 8, 30))).toBe(100);
+    expect(daysLeftInMonth(new Date(2026, 8, 30))).toBe(1);
+  });
+});
+
+describe('yearProgressPct', () => {
+  it('uses day-of-year / days-in-year and handles leap years', () => {
+    expect(isLeapYear(2024)).toBe(true);
+    expect(isLeapYear(2026)).toBe(false);
+    expect(daysInYear(new Date(2026, 0, 1))).toBe(365);
+    expect(daysInYear(new Date(2024, 0, 1))).toBe(366);
+
+    expect(dayOfYear(new Date(2026, 0, 1))).toBe(1);
+    expect(yearProgressPct(new Date(2026, 0, 1))).toBe(0); // 1/365 → 0% rounded
+    // 2026-09-14 is day 257 of 365 → ~70%
+    expect(dayOfYear(new Date(2026, 8, 14))).toBe(257);
+    expect(yearProgressPct(new Date(2026, 8, 14))).toBe(70);
+    expect(yearProgressPct(new Date(2026, 11, 31))).toBe(100);
+    expect(daysLeftInYear(new Date(2026, 11, 31))).toBe(1);
   });
 });

@@ -51,7 +51,8 @@ class MainActivity : Activity() {
             "1000105419.jpg",
             "1000105421.jpg",
             "1000105423.jpg",
-            "tngscreenshot.png"
+            "tngscreenshot.png",
+            "pasted_image.png"
         )
 
         val rootJson = JSONObject()

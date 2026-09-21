@@ -74,6 +74,9 @@ describe('onboardingRestore', () => {
       'restoreCantReadFile',
       'restoreICloudComingSoon',
       'restoreRestoring',
+      'restorePurchasesAskTitle',
+      'restorePurchasesAskBody',
+      'restorePurchasesAskSkip',
     ] as const;
 
     it('has non-empty translations in English and Chinese for all new keys', () => {

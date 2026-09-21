@@ -28,7 +28,7 @@ import { ReviewCheckInToast } from '../components/ReviewCheckInToast';
 
 const fallback: Category = { id: 'other', label: 'Other', icon: 'dots', hue: 220, kind: 'expense', isDefault: true, isHidden: false, templateKey: null, labelOverride: null, iconOverride: null, hueOverride: null };
 
-export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, onAdd, initialMonth, onMonthChange, initialStoryOpen, onInitialStoryHandled }: {
+export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, onAdd, initialMonth, onMonthChange, initialStoryOpen, onInitialStoryHandled, embedded }: {
   onBack: () => void;
   onOpenCalendar?: (month: string) => void;
   onOpenExport?: (month: string) => void;
@@ -38,6 +38,7 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   onMonthChange?: (month: string) => void;
   initialStoryOpen?: boolean;
   onInitialStoryHandled?: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const accent = useAccent();
@@ -120,13 +121,15 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <ReviewCheckInToast />
-      <View style={[styles.nav, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={isZh ? '返回' : 'Back'} style={({ pressed }) => [styles.iconButton, pressed && { backgroundColor: colors.surface }]}>
-          <Icon name="chevronLeft" size={24} color={colors.ink} />
-        </Pressable>
-        <Body weight={700} style={styles.navTitle}>{t('monthlyRecap')}</Body>
-        <View style={styles.iconButton} />
-      </View>
+      {!embedded && (
+        <View style={[styles.nav, { paddingTop: insets.top + spacing.sm }]}>
+          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={isZh ? '返回' : 'Back'} style={({ pressed }) => [styles.iconButton, pressed && { backgroundColor: colors.surface }]}>
+            <Icon name="chevronLeft" size={24} color={colors.ink} />
+          </Pressable>
+          <Body weight={700} style={styles.navTitle}>{t('monthlyRecap')}</Body>
+          <View style={styles.iconButton} />
+        </View>
+      )}
       <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]} showsVerticalScrollIndicator={false}>
         <View style={styles.monthRow}>
           <Pressable onPress={() => { haptics.tap(); setPickerOpen(true); }} accessibilityRole="button" accessibilityLabel={isZh ? '选择月份' : 'Select month'} style={({ pressed }) => [styles.monthPicker, { opacity: pressed ? 0.7 : 1 }]}>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CLASS_BY_ID, type LinkEffect } from '../lib/networth';
-import type { Account } from '../lib/types';
+import type { Account, AccountKind } from '../lib/types';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -40,6 +40,9 @@ export function AccountLinkField({
   label,
   required = false,
   infoEntry,
+  emptyCreateLabel,
+  createAccountInitialKind,
+  createAccountInitialClass,
 }: {
   accounts: Account[];
   selectedId: string | null;
@@ -49,6 +52,11 @@ export function AccountLinkField({
   label?: string;
   required?: boolean;
   infoEntry?: string;
+  /** Replaces an empty required picker with a direct create action. */
+  emptyCreateLabel?: string;
+  /** Context supplied by the caller so the new-account sheet opens ready for the needed type. */
+  createAccountInitialKind?: AccountKind;
+  createAccountInitialClass?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -75,26 +83,37 @@ export function AccountLinkField({
         {infoEntry && <InfoButton entry={infoEntry} />}
       </View>
 
-      <Pressable onPress={() => setOpen(true)} style={[styles.trigger, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
-        {sel ? (
-          selBrand ? (
-            <BrandLogo brand={selBrand} size={18} />
-          ) : (
-            <Icon name={(CLASS_BY_ID[sel.cls]?.icon ?? 'wallet') as IconName} size={16} color={colorTheme.ink2} />
-          )
-        ) : null}
-        <Text
-          style={[
-            styles.triggerText,
-            { color: colorTheme.ink },
-            !sel && [styles.triggerPlaceholder, { color: colorTheme.ink3 }],
-          ]}
-          numberOfLines={1}
+      {active.length === 0 && emptyCreateLabel ? (
+        <Pressable
+          onPress={() => setCreating(true)}
+          accessibilityLabel={emptyCreateLabel}
+          style={[styles.emptyCreate, { backgroundColor: theme.accentTint, borderColor: theme.accent }]}
         >
-          {sel ? sel.name : required ? (isZh ? '选择账户' : 'Select account') : (isZh ? '无' : 'None')}
-        </Text>
-        <Icon name="chevronDown" size={18} color={colorTheme.ink3} />
-      </Pressable>
+          <Icon name="plus" size={17} color={theme.accent} stroke={2.4} />
+          <Text style={[styles.emptyCreateText, { color: theme.onTint }]}>{emptyCreateLabel}</Text>
+        </Pressable>
+      ) : (
+        <Pressable onPress={() => setOpen(true)} style={[styles.trigger, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
+          {sel ? (
+            selBrand ? (
+              <BrandLogo brand={selBrand} size={18} />
+            ) : (
+              <Icon name={(CLASS_BY_ID[sel.cls]?.icon ?? 'wallet') as IconName} size={16} color={colorTheme.ink2} />
+            )
+          ) : null}
+          <Text
+            style={[
+              styles.triggerText,
+              { color: colorTheme.ink },
+              !sel && [styles.triggerPlaceholder, { color: colorTheme.ink3 }],
+            ]}
+            numberOfLines={1}
+          >
+            {sel ? sel.name : required ? (isZh ? '选择账户' : 'Select account') : (isZh ? '无' : 'None')}
+          </Text>
+          <Icon name="chevronDown" size={18} color={colorTheme.ink3} />
+        </Pressable>
+      )}
 
       {sel && effect && onEffect && sel.kind === 'liability' && (
         <>
@@ -153,6 +172,8 @@ export function AccountLinkField({
 
       <AddAccountModal
         visible={creating}
+        initialKind={createAccountInitialKind}
+        initialClass={createAccountInitialClass}
         onClose={() => setCreating(false)}
         onCreated={(id) => {
           setCreating(false);
@@ -207,6 +228,17 @@ const styles = StyleSheet.create({
   },
   triggerText: { flex: 1, fontFamily: uiFont(600), fontSize: 16 },
   triggerPlaceholder: {},
+  emptyCreate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  emptyCreateText: { fontFamily: uiFont(700), fontSize: 15 },
   effectLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   effectLabel: { fontFamily: uiFont(600), fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.4 },
   effectRow: { flexDirection: 'row', borderRadius: 999, padding: 3, marginTop: 6, borderWidth: 1 },

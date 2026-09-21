@@ -25,6 +25,7 @@ export type Screen =
   | 'currencySettings'
   | 'backup'
   | 'widgetCustomizer'
+  | 'paywall'
   | 'trips'
   | 'tripDetail';
 
@@ -36,6 +37,9 @@ export type ScreenOrigins = {
   exportOrigin: Screen;
   commitmentsOrigin?: Screen;
   currencyOrigin?: Screen;
+  /** Where the paywall was triggered from. Several gates and opt-in card CTAs can open it, so a fixed
+   *  back target would strand the user on a screen they never visited. */
+  paywallOrigin?: Screen;
   /** Where the add flow was opened from. Home for the bottom-nav plus, but a trip's own
    *  "Add expense" has to come back to that trip rather than dumping the user on Home. */
   addOrigin?: Screen;
@@ -69,6 +73,8 @@ export function backTargetFor(screen: Screen, origins: ScreenOrigins): Screen | 
       return origins.exportOrigin;
     case 'owed':
       return origins.owedOrigin;
+    case 'paywall':
+      return origins.paywallOrigin ?? 'home';
     case 'calendar':
       return origins.calendarOrigin;
     case 'add':

@@ -8,6 +8,9 @@ const SHADE_FRAME = '#232323';
 const SHADE_LENS = '#2E2E33';
 const SCAR = '#A9503A';
 const SCAR_LIGHT = '#D98C72';
+const SCAN_FRAME = '#1A3A40';
+const SCAN_GLOW = '#22B8BE';
+const SCAN_LIGHT = '#8FE9EC';
 
 export const EYES_PARTS: Record<string, MascotPart> = {
   /** Transcribed from Pip.tsx:221-266 (`Eyes`), the `idle` branch: neither the happy/proud,
@@ -50,16 +53,22 @@ export const EYES_PARTS: Record<string, MascotPart> = {
     ],
   },
 
-  /** Transcribed from Pip.tsx:498-547 (`SassyFace`), eyes + brows only per the brief: the
-   *  `pip-sassy-eyes` group in full, plus just the two brow paths out of `pip-sassy-eyelashes`
-   *  (Pip.tsx:515-516). The winged eyeliner and fanned lash ticks in that same group
-   *  (Pip.tsx:519-528, stroke-width 1.6-2.8) and the lips (Pip.tsx:531-544, a mouth feature, not
-   *  an eyes one) are dropped — at 48dp those finer strokes read as noise, and the brief's "eyes +
-   *  brows only" scopes the id to what still carries at that size. */
+  /** Transcribed from Pip.tsx:498-547 (`SassyFace`) plus Pip.tsx:538-547 (`SassyGlow`). The
+   *  widget previously kept only eyes + brows so the 48dp lashes would not smear; the sassy
+   *  preset now needs the winged liner, fanned lashes and gold halo that the in-app pose shows. */
   sassy: {
     id: 'sassy',
     slot: 'eyes',
     layers: [
+      {
+        z: Z.BEHIND,
+        svg: `<g data-part="sassy" fill="#FFE08A">
+    <circle cx="50" cy="56" r="41" opacity="0.05" />
+    <circle cx="50" cy="56" r="38.5" opacity="0.07" />
+    <circle cx="50" cy="56" r="36" opacity="0.09" />
+    <circle cx="50" cy="56" r="34" opacity="0.12" />
+  </g>`,
+      },
       {
         z: Z.FACE,
         svg: `<g data-part="sassy">
@@ -74,6 +83,14 @@ export const EYES_PARTS: Record<string, MascotPart> = {
     <g fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round">
       <path d="M31.5 45.5 Q37.5 41.5 45 44.5" stroke-width="2.3" opacity="0.82" />
       <path d="M55 44.5 Q62.5 41.5 68.5 45.5" stroke-width="2.3" opacity="0.82" />
+      <path d="M34.5 52.5 Q40 47 45.5 52.5" stroke-width="2.8" />
+      <path d="M54.5 52.5 Q60 47 65.5 52.5" stroke-width="2.8" />
+      <path d="M34.8 51.6 L30.6 48.4" stroke-width="1.8" />
+      <path d="M36.6 49.8 L33.8 46.8" stroke-width="1.6" />
+      <path d="M33.9 53.4 L29.4 52.4" stroke-width="1.7" />
+      <path d="M65.2 51.6 L69.4 48.4" stroke-width="1.8" />
+      <path d="M63.4 49.8 L66.2 46.8" stroke-width="1.6" />
+      <path d="M66.1 53.4 L70.6 52.4" stroke-width="1.7" />
     </g>
   </g>`,
       },
@@ -147,6 +164,25 @@ export const EYES_PARTS: Record<string, MascotPart> = {
         svg: `<g data-part="blissful" fill="none" stroke="${INK}" stroke-width="3.4" stroke-linecap="round">
     <path d="M32.5 55.5 Q39.5 47.5 46.5 55.5" />
     <path d="M53.5 55.5 Q60.5 47.5 67.5 55.5" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** One ordinary Pip eye, one cyan scanner visor — the cyborg read at widget size. */
+  scanner: {
+    id: 'scanner',
+    slot: 'eyes',
+    layers: [
+      {
+        z: Z.FACE,
+        svg: `<g data-part="scanner">
+    <circle cx="40" cy="55" r="4.2" fill="${INK}" />
+    <circle cx="41.5" cy="53.5" r="1.3" fill="#fff" />
+    <rect x="52" y="48.6" width="18.4" height="13" rx="3.4" fill="${SCAN_FRAME}" stroke="${SCAN_GLOW}" stroke-width="1.6" />
+    <rect x="54.2" y="52" width="14" height="6" rx="1.5" fill="${SCAN_GLOW}" />
+    <rect x="56.2" y="53.2" width="5.2" height="3.4" rx="0.8" fill="${SCAN_LIGHT}" />
+    <line x1="55" y1="61.2" x2="67.4" y2="61.2" stroke="${SCAN_LIGHT}" stroke-width="1.1" stroke-linecap="round" opacity="0.7" />
   </g>`,
       },
     ],

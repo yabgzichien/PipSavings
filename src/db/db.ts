@@ -91,6 +91,7 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
       kind        TEXT NOT NULL,
       cls         TEXT NOT NULL,
       archived    INTEGER NOT NULL DEFAULT 0,
+      archived_at TEXT,
       created_at  TEXT NOT NULL,
       sub         TEXT,
       symbol      TEXT,
@@ -106,7 +107,8 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
       account_id  TEXT NOT NULL,
       value       REAL NOT NULL,
       as_of       TEXT NOT NULL,
-      created_at  TEXT NOT NULL
+      created_at  TEXT NOT NULL,
+      source      TEXT NOT NULL DEFAULT 'manual'
     );
     CREATE TABLE IF NOT EXISTS price_cache (
       symbol      TEXT PRIMARY KEY NOT NULL,
@@ -377,6 +379,20 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
   // with higher confidence even when names are formatted differently.
   try {
     await db.execAsync('ALTER TABLE split_payments ADD COLUMN bank_label TEXT');
+  } catch {
+    // column already present
+  }
+
+  // Migration (2026-09-14, net worth history chart): provenance on balance readings so the
+  // history chart can distinguish a user-verified balance from a linked/price-derived one,
+  // plus an archive timestamp so archived accounts stay in historical months then drop out.
+  try {
+    await db.execAsync("ALTER TABLE balance_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
+  } catch {
+    // column already present
+  }
+  try {
+    await db.execAsync('ALTER TABLE accounts ADD COLUMN archived_at TEXT');
   } catch {
     // column already present
   }

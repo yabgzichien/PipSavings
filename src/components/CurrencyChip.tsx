@@ -7,6 +7,9 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
+import { canActivateCurrency, canAddAnotherCurrency } from '../billing/currencyEntitlements';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { activateCurrency } from '../db/currencyRepo';
 import { SUPPORTED_CURRENCIES } from '../lib/currencies';
 import { notify } from '../lib/platformAlert';
@@ -40,6 +43,8 @@ export function CurrencyChip({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
 
   const close = () => {
     setOpen(false);
@@ -56,6 +61,11 @@ export function CurrencyChip({
 
   const activate = async (code: string) => {
     if (pendingCode) return;
+    if (!canActivateCurrency(active, code, isPro)) {
+      close();
+      openPaywall('multi_currency');
+      return;
+    }
     setPendingCode(code);
     try {
       const ok = await activateCurrency(code);
@@ -136,7 +146,17 @@ export function CurrencyChip({
                     );
                   })}
               {!adding && addable.length > 0 && (
-                <Pressable onPress={() => setAdding(true)} style={[styles.option, styles.addOption]}>
+                <Pressable
+                  onPress={() => {
+                    if (!canAddAnotherCurrency(active, isPro)) {
+                      close();
+                      openPaywall('multi_currency');
+                      return;
+                    }
+                    setAdding(true);
+                  }}
+                  style={[styles.option, styles.addOption]}
+                >
                   <Icon name="plus" size={15} color={theme.accent} stroke={2.4} />
                   <Text style={[styles.optionText, { color: theme.accent }]}>
                     {isZh ? '添加货币' : 'Add currency'}

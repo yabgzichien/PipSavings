@@ -1,35 +1,43 @@
 // src/lib/cloudBackup/useCloudBackup.ts
-// React hook wrapping the Google Drive OAuth flow (expo-auth-session) and the Drive REST calls
-// in googleDriveApi.ts into the state a Settings screen (or the silent auto-backup trigger)
-// needs. Android only — see googleAuth.ts for the one-time OAuth client setup this requires.
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+// React hook wrapping native Google Sign-In + Drive REST calls into the state a Settings
+// screen (or the silent auto-backup trigger) needs. Android only — see googleAuth.ts.
+import { useCallback, useEffect, useState } from 'react';
 import { getMeta, setMeta } from '../../db/metaRepo';
-import {
-  GOOGLE_DRIVE_CLIENT_ID,
-  GOOGLE_DRIVE_REDIRECT_URI,
-  GOOGLE_DRIVE_SCOPES,
-  isGoogleDriveConfigured,
-  refreshAccessToken,
-} from './googleAuth';
+import { isGoogleDriveConfigured, refreshAccessToken } from './googleAuth';
+import { backupToDrive as runBackupToDrive, restoreFromDrive as runRestoreFromDrive } from './cloudBackupFlow';
 import { downloadBackup, fetchAccountEmail, uploadBackup } from './googleDriveApi';
+import {
+  googleSignInUserMessage,
+  hasNativeGoogleSession,
+  interactiveGoogleSignIn,
+  signOutGoogle,
+  silentGoogleAccess,
+} from './nativeGoogleAuth';
 import {
   clearStoredCredential,
   getStoredAccountEmail,
   getStoredRefreshToken,
   setStoredAccountEmail,
-  setStoredRefreshToken,
 } from './tokenStore';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const LAST_BACKUP_AT_KEY = 'cloud_backup_google_last_at';
 
-const DISCOVERY = {
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint: 'https://oauth2.googleapis.com/token',
-  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+async function silentAccessWithLegacyFallback() {
+  const native = await silentGoogleAccess();
+  if (native.status === 'success') return native;
+  const refreshToken = await getStoredRefreshToken();
+  if (!refreshToken) return { status: 'none' as const };
+  const { accessToken } = await refreshAccessToken(refreshToken);
+  return {
+    status: 'success' as const,
+    accessToken,
+    email: await getStoredAccountEmail(),
+  };
+}
+
+const nativeDriveAuth = {
+  silentAccess: silentAccessWithLegacyFallback,
+  interactiveSignIn: interactiveGoogleSignIn,
 };
 
 export type CloudBackupStatus =
@@ -40,26 +48,22 @@ export type CloudBackupStatus =
   | 'restoring'
   | 'error';
 
+export type CloudRestoreResult =
+  | { status: 'ok'; bytes: Uint8Array }
+  | { status: 'empty' }
+  | { status: 'cancelled' };
+
 export interface CloudBackupState {
   isConfigured: boolean;
   status: CloudBackupStatus;
   accountEmail: string | null;
   lastBackupAt: string | null;
   error: string | null;
-  connect: () => void;
+  connect: () => Promise<'connected' | 'cancelled'>;
   disconnect: () => Promise<void>;
   backupNow: (zipBytes: Uint8Array) => Promise<void>;
-  restoreLatest: () => Promise<Uint8Array | null>;
-}
-
-/** Exchanges the stored refresh token for a fresh access token. Refreshed on every call rather
- *  than cached — backups happen at most a few times a day, so the extra round trip is cheap
- *  next to the complexity of tracking access-token expiry. */
-async function getFreshAccessToken(): Promise<string> {
-  const refreshToken = await getStoredRefreshToken();
-  if (!refreshToken) throw new Error('Google Drive is not connected.');
-  const { accessToken } = await refreshAccessToken(refreshToken);
-  return accessToken;
+  backupToDrive: (zipBytes: Uint8Array) => Promise<'ok' | 'cancelled'>;
+  restoreLatest: () => Promise<CloudRestoreResult>;
 }
 
 export function useCloudBackup(): CloudBackupState {
@@ -68,27 +72,6 @@ export function useCloudBackup(): CloudBackupState {
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // `native` wins over `scheme` in a built app, which is what we want: Google requires the
-  // package-name scheme here, not the app's `pip://` one. See GOOGLE_DRIVE_REDIRECT_URI.
-  const redirectUri = useMemo(
-    () => AuthSession.makeRedirectUri({ scheme: 'pip', native: GOOGLE_DRIVE_REDIRECT_URI }),
-    []
-  );
-
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_DRIVE_CLIENT_ID,
-      scopes: GOOGLE_DRIVE_SCOPES,
-      redirectUri,
-      responseType: AuthSession.ResponseType.Code,
-      usePKCE: true,
-      extraParams: { access_type: 'offline', prompt: 'consent' },
-    },
-    DISCOVERY
-  );
-
-  // Restore "already connected" status on mount from the stored refresh token, without
-  // forcing a re-consent every time Settings opens.
   useEffect(() => {
     (async () => {
       const [refreshToken, email, lastAt] = await Promise.all([
@@ -98,94 +81,109 @@ export function useCloudBackup(): CloudBackupState {
       ]);
       setAccountEmail(email);
       setLastBackupAt(lastAt);
-      if (refreshToken) setStatus('connected');
+      if (hasNativeGoogleSession() || refreshToken) setStatus('connected');
     })();
   }, []);
 
-  // Completes the flow once the consent screen redirects back with an authorization code.
-  useEffect(() => {
-    if (!response) return;
-    if (response.type !== 'success') {
-      if (response.type === 'error') setError(response.error?.message ?? 'Google sign-in failed.');
-      setStatus((s) => (s === 'connecting' ? 'disconnected' : s));
-      return;
-    }
-    (async () => {
-      try {
-        const tokenResult = await AuthSession.exchangeCodeAsync(
-          {
-            clientId: GOOGLE_DRIVE_CLIENT_ID,
-            code: response.params.code,
-            redirectUri,
-            extraParams: { code_verifier: request?.codeVerifier ?? '' },
-          },
-          DISCOVERY
-        );
-        if (!tokenResult.refreshToken) {
-          throw new Error("Google didn't return a refresh token. Try disconnecting and connecting again.");
-        }
-        await setStoredRefreshToken(tokenResult.refreshToken);
-        const email = await fetchAccountEmail(tokenResult.accessToken);
-        if (email) {
-          await setStoredAccountEmail(email);
-          setAccountEmail(email);
-        }
-        setStatus('connected');
-        setError(null);
-      } catch (e: any) {
-        setError(e?.message ?? 'Could not finish connecting to Google Drive.');
-        setStatus('error');
-      }
-    })();
-  }, [response, request, redirectUri]);
+  const rememberEmail = useCallback(async (email: string | null) => {
+    if (!email) return;
+    await setStoredAccountEmail(email);
+    setAccountEmail(email);
+  }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async (): Promise<'connected' | 'cancelled'> => {
     if (!isGoogleDriveConfigured) {
       setError('Google Drive backup is not configured yet.');
-      return;
+      return 'cancelled';
     }
     setError(null);
     setStatus('connecting');
-    void promptAsync();
-  }, [promptAsync]);
+    try {
+      const result = await interactiveGoogleSignIn();
+      if (result.status === 'cancelled') {
+        setStatus('disconnected');
+        return 'cancelled';
+      }
+      await rememberEmail(result.email);
+      if (!result.email) {
+        const email = await fetchAccountEmail(result.accessToken);
+        await rememberEmail(email);
+      }
+      setStatus('connected');
+      return 'connected';
+    } catch (e: any) {
+      const message = googleSignInUserMessage(e);
+      setError(message);
+      setStatus('error');
+      throw new Error(message);
+    }
+  }, [rememberEmail]);
 
   const disconnect = useCallback(async () => {
+    await signOutGoogle();
     await clearStoredCredential();
     setAccountEmail(null);
     setStatus('disconnected');
   }, []);
 
-  const backupNow = useCallback(async (zipBytes: Uint8Array) => {
+  const backupToDrive = useCallback(async (zipBytes: Uint8Array): Promise<'ok' | 'cancelled'> => {
+    if (!isGoogleDriveConfigured) {
+      setError('Google Drive backup is not configured yet.');
+      throw new Error('Google Drive backup is not configured yet.');
+    }
     setStatus('backing-up');
     setError(null);
     try {
-      const accessToken = await getFreshAccessToken();
-      await uploadBackup(accessToken, zipBytes);
+      const result = await runBackupToDrive(zipBytes, {
+        ...nativeDriveAuth,
+        upload: uploadBackup,
+      });
+      if (result === 'cancelled') {
+        const stillConnected = hasNativeGoogleSession() || Boolean(await getStoredRefreshToken());
+        setStatus(stillConnected ? 'connected' : 'disconnected');
+        return 'cancelled';
+      }
+      await rememberEmail(await getStoredAccountEmail());
       const at = new Date().toISOString();
       await setMeta(LAST_BACKUP_AT_KEY, at);
       setLastBackupAt(at);
       setStatus('connected');
+      return 'ok';
     } catch (e: any) {
-      setError(e?.message ?? 'Backup to Google Drive failed.');
+      const message = googleSignInUserMessage(e);
+      setError(message);
       setStatus('error');
-      throw e;
+      throw new Error(message);
     }
-  }, []);
+  }, [rememberEmail]);
 
-  const restoreLatest = useCallback(async (): Promise<Uint8Array | null> => {
+  const backupNow = useCallback(async (zipBytes: Uint8Array) => {
+    const result = await backupToDrive(zipBytes);
+    if (result === 'cancelled') return;
+  }, [backupToDrive]);
+
+  const restoreLatest = useCallback(async (): Promise<CloudRestoreResult> => {
     setStatus('restoring');
     setError(null);
     try {
-      const accessToken = await getFreshAccessToken();
-      const bytes = await downloadBackup(accessToken);
-      setStatus('connected');
-      return bytes;
+      const result = await runRestoreFromDrive({
+        ...nativeDriveAuth,
+        download: downloadBackup,
+      });
+      const stillConnected = hasNativeGoogleSession() || Boolean(await getStoredRefreshToken());
+      setStatus(stillConnected ? 'connected' : 'disconnected');
+      if (result.status === 'ok') {
+        const email = await getStoredAccountEmail();
+        await rememberEmail(email);
+      }
+      return result;
     } catch (e: any) {
-      setError(e?.message ?? 'Restoring from Google Drive failed.');
+      const message = googleSignInUserMessage(e);
+      setError(message);
       setStatus('error');
-      throw e;
+      throw new Error(message);
     }
-  }, []);
+  }, [rememberEmail]);
 
   return {
     isConfigured: isGoogleDriveConfigured,
@@ -196,18 +194,17 @@ export function useCloudBackup(): CloudBackupState {
     connect,
     disconnect,
     backupNow,
+    backupToDrive,
     restoreLatest,
   };
 }
 
-/** Silent, non-interactive counterpart to backupNow/getFreshAccessToken for the foreground
- *  auto-backup trigger (useCloudBackupSync.ts), which has no UI to drive a hook's lifecycle
- *  from. Throws are caught by the caller and logged, never surfaced to the user. */
+/** Silent, non-interactive counterpart to backupToDrive for the foreground auto-backup
+ *  trigger (useCloudBackupSync.ts). Throws are caught by the caller and logged. */
 export async function silentBackupIfConnected(zipBytes: Uint8Array): Promise<boolean> {
-  const refreshToken = await getStoredRefreshToken();
-  if (!refreshToken) return false;
-  const { accessToken } = await refreshAccessToken(refreshToken);
-  await uploadBackup(accessToken, zipBytes);
+  const silent = await silentAccessWithLegacyFallback();
+  if (silent.status !== 'success') return false;
+  await uploadBackup(silent.accessToken, zipBytes);
   await setMeta(LAST_BACKUP_AT_KEY, new Date().toISOString());
   return true;
 }
@@ -217,5 +214,6 @@ export async function getLastCloudBackupAt(): Promise<string | null> {
 }
 
 export async function isCloudBackupConnected(): Promise<boolean> {
+  if (hasNativeGoogleSession()) return true;
   return (await getStoredRefreshToken()) !== null;
 }

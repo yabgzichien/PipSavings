@@ -31,10 +31,10 @@ SPLIT BILLS THE WAY THE RECEIPT ACTUALLY WORKS
 Split down to the item, with service charge, service tax, and vouchers applied the way they were on the actual bill, not divided evenly and hoped for the best. The Owed screen keeps track of who still needs to pay you back.
 
 EXPORT LIKE AN ACCOUNTANT WOULD
-PDF statements, Excel workbooks, HTML analytics, CSV, or JSON you can import straight back in.
+Preview reports on device for free, or export PDF statements, Excel workbooks, HTML analytics, CSV, or tax audit packs with Pip Pro.
 
 Pip won't lecture you with a stern dashboard and red numbers. It'll nudge you the way a blunt friend would: a notification when your streak's about to break, a widget that knows exactly how many days it's been. Clarity, not guilt trips, though it won't pretend it isn't a little judgmental.
 
-Free to use. No account required to get started.
+Free to use. Optional Pip Pro for unlimited AI receipt scans and advanced exports. No account required to get started.
 
 Pip. Know your money.

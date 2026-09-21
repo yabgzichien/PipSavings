@@ -48,6 +48,18 @@ export async function setDisplayCurrency(code: string): Promise<void> {
 }
 
 /**
+ * Fetch and cache a currency's FX rate without adding it to the picker. Import paths need
+ * this for currencies that appear on rows but cannot join a Free user's active set.
+ */
+export async function ensureFxRate(code: string): Promise<boolean> {
+  if (code === BASE_CURRENCY) return true;
+  const rate = await fetchRateMYR(code);
+  if (rate == null) return false;
+  await saveFxRate(code, rate);
+  return true;
+}
+
+/**
  * Turn a currency on. Fetching and caching its rate is part of activation, and failure
  * aborts it: this is the network gate that guarantees every activatable currency already
  * has a cached rate, which is what lets transaction entry stay fully offline.
@@ -55,13 +67,21 @@ export async function setDisplayCurrency(code: string): Promise<void> {
  * Returns false when the rate could not be fetched, so the caller can show a message.
  */
 export async function activateCurrency(code: string): Promise<boolean> {
-  if (code === BASE_CURRENCY) return true;
-  const rate = await fetchRateMYR(code);
-  if (rate == null) return false;
-  await saveFxRate(code, rate);
+  if (!(await ensureFxRate(code))) return false;
   const active = await getActiveCurrencies();
   if (!active.includes(code)) await setActiveCurrencies([...active, code]);
   return true;
+}
+
+/** Add already-cached currencies to the picker without fetching again. */
+export async function addActiveCurrencies(codes: string[]): Promise<void> {
+  if (codes.length === 0) return;
+  const active = await getActiveCurrencies();
+  const next = [...active];
+  for (const code of codes) {
+    if (code !== BASE_CURRENCY && !next.includes(code)) next.push(code);
+  }
+  if (next.length !== active.length) await setActiveCurrencies(next);
 }
 
 /**

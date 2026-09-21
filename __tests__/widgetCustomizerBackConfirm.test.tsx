@@ -42,6 +42,8 @@ jest.mock('../src/state/accent', () => ({
 jest.mock('../src/state/colorScheme', () => ({
   useThemeColors: () => require('../src/theme').LIGHT_COLORS,
 }));
+jest.mock('../src/billing/entitlement', () => ({ useEntitlement: () => ({ isPro: true }) }));
+jest.mock('../src/billing/paywallContext', () => ({ usePaywall: () => ({ openPaywall: jest.fn() }) }));
 
 describe('WidgetCustomizerScreen back confirmation', () => {
   beforeEach(() => {

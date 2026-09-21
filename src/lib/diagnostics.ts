@@ -57,6 +57,12 @@ const MAX_EVENTS_PER_SESSION = 20;
 /** Per flow, so one chatty tag can't eat the whole session budget and starve a later crash. */
 const MAX_HANDLED_PER_TAG = 3;
 
+/** Tag on events the user typed in Settings → Report a bug. These skip the crash-consent
+ *  gate: sending the form is the consent. They also skip message redaction, because the
+ *  message *is* the report. */
+export const USER_BUG_REPORT_FLOW = 'user-bug-report';
+const MAX_BUG_REPORT_CHARS = 2000;
+
 type Gate = 'pending' | 'on' | 'off';
 
 /** Module-level because the native crash handler has to be armed before React renders, which is
@@ -66,6 +72,10 @@ let pending: Sentry.ErrorEvent[] = [];
 /** Counts events actually transmitted this session, not ones merely held or dropped. */
 let sessionEventCount = 0;
 let handledPerTag: Partial<Record<DiagTag, number>> = {};
+
+function isUserBugReport(event: Sentry.ErrorEvent): boolean {
+  return event.tags?.flow === USER_BUG_REPORT_FLOW;
+}
 
 /**
  * Arm crash reporting. Called synchronously from index.ts before the app registers, so native
@@ -102,6 +112,12 @@ export function armDiagnostics(dsn: string | undefined): void {
  *  rejection, the ErrorBoundary, or reportError(). Redaction happens here so no future call site
  *  can route around it. */
 function gateEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
+  if (isUserBugReport(event)) {
+    const device = event.contexts?.device;
+    if (device) event.contexts = { ...event.contexts, device: reduceDeviceContext(device) };
+    return event;
+  }
+
   const redacted = redactEvent(event);
   if (gate === 'off') return null;
 
@@ -200,4 +216,16 @@ export function reportFatal(err: unknown, componentStack?: string): void {
     level: 'fatal',
     contexts: componentStack ? { react: { componentStack } } : undefined,
   });
+}
+
+/** File a user-typed bug report. Empty input is ignored. The crash-diagnostics toggle does
+ *  not apply: typing and sending the form is the consent. */
+export function reportBug(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+  Sentry.captureMessage(trimmed.slice(0, MAX_BUG_REPORT_CHARS), {
+    level: 'info',
+    tags: { flow: USER_BUG_REPORT_FLOW },
+  });
+  return true;
 }

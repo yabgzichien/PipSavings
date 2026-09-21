@@ -133,6 +133,12 @@ export interface Account {
   cls: string;
   archived: boolean;
   createdAt: string;
+  /**
+   * YYYY-MM-DD when the account was archived. Null/undefined while active.
+   * Historical net-worth series includes the account through this date, then drops it.
+   * When missing on an already-archived row, callers fall back to the last balance entry.
+   */
+  archivedAt?: string | null;
   // Live-priced investment holdings (null for plain manual-value accounts):
   sub: string | null; // 'crypto' | 'stock' | 'commodity'
   symbol: string | null; // Yahoo Finance symbol, e.g. 'BTC-USD', 'AAPL', '1155.KL'
@@ -155,6 +161,15 @@ export interface PriceQuote {
   asOf: string; // ISO datetime of the quote
 }
 
+/**
+ * How a balance reading was produced.
+ * - `manual`: user recorded / verified the number (counts as "measured" on the chart)
+ * - `linked`: derived from a linked transaction (carried for chart honesty)
+ * - `price`: auto snapshot from a live holding quote (carried for chart honesty)
+ * Legacy rows without a source are treated as `manual`.
+ */
+export type BalanceEntrySource = 'manual' | 'linked' | 'price';
+
 /** A dated value reading for an account. The latest reading is the current value. */
 export interface BalanceEntry {
   id: string;
@@ -162,6 +177,7 @@ export interface BalanceEntry {
   value: number; // for liabilities, the outstanding amount (positive)
   asOf: string; // YYYY-MM-DD
   createdAt: string;
+  source?: BalanceEntrySource;
 }
 
 /**

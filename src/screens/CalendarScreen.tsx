@@ -4,12 +4,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line, Path } from 'react-native-svg';
 import { compactAmt, fmtMoney } from '../lib/format';
 import type { Transaction } from '../lib/types';
+import { daysLeftInYear, yearProgressPct } from '../lib/dates';
+import { YEAR_PROGRESS_SEEN_KEY, yearProgressCaption } from '../lib/timeProgress';
+import { TimeProgressBar } from '../components/TimeProgressBar';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
-import { colors, numFont, platformShadow, shadowCard, uiFont } from '../theme';
+import { colors, numFont, platformShadow, shadowCard, spacing, uiFont } from '../theme';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -258,17 +261,39 @@ function YearBlock({
   todayIso,
   selectedIso,
   onSelectDay,
+  showYearProgress,
 }: {
   year: number;
   todayIso: string;
   selectedIso: string;
   onSelectDay: (year: number, month: number, day: number) => void;
+  showYearProgress?: boolean;
 }) {
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const yearPct = yearProgressPct(new Date());
+  const yearDaysLeft = daysLeftInYear(new Date());
+
   return (
     <View style={styles.yearBlock}>
-      <Text style={[styles.yearBlockTitle, { color: colorTheme.ink }]}>{isZh ? `${year}年` : year}</Text>
+      <Text
+        style={[
+          styles.yearBlockTitle,
+          { color: colorTheme.ink, marginBottom: showYearProgress ? 8 : 16 },
+        ]}
+      >
+        {isZh ? `${year}年` : year}
+      </Text>
+      {showYearProgress ? (
+        <View style={styles.yearProgressWrap}>
+          <TimeProgressBar
+            percent={yearPct}
+            storageKey={YEAR_PROGRESS_SEEN_KEY}
+            captionFor={(pct) => yearProgressCaption(yearDaysLeft, pct, isZh)}
+            accessibilityLabel={isZh ? '今年进度' : 'Year progress'}
+          />
+        </View>
+      ) : null}
       <View style={styles.yearBlockGrid}>
         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
           <View key={m} style={styles.yearBlockItem}>
@@ -336,9 +361,10 @@ function InfiniteYearScroll({
         todayIso={todayIso}
         selectedIso={selectedIso}
         onSelectDay={onSelectDay}
+        showYearProgress={year === currentYear}
       />
     ),
-    [todayIso, selectedIso, onSelectDay],
+    [todayIso, selectedIso, onSelectDay, currentYear],
   );
 
   const keyExtractor = useCallback((year: number) => String(year), []);
@@ -536,10 +562,12 @@ export function CalendarScreen({
   onBack,
   initialMonth,
   onAdd,
+  embedded,
 }: {
   onBack: () => void;
   initialMonth?: string;
   onAdd: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -591,8 +619,9 @@ export function CalendarScreen({
   const weekdayLabels = isZh ? WEEKDAY_LABELS_ZH : WEEKDAY_LABELS_EN;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colorTheme.bg }]}>
+    <View style={[styles.root, { paddingTop: embedded ? 0 : insets.top, backgroundColor: colorTheme.bg }]}>
       {/* ── Nav bar ── */}
+      {!embedded && (
       <View style={styles.nav}>
         <Pressable onPress={onBack} style={[styles.navBtn, { backgroundColor: colorTheme.surface }]} accessibilityRole="button" accessibilityLabel="Back">
           <Svg width={10} height={17} viewBox="0 0 10 17" fill="none">
@@ -621,6 +650,7 @@ export function CalendarScreen({
           )}
         </Pressable>
       </View>
+      )}
 
       {viewMode === 'month' ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 28 }}>
@@ -956,8 +986,10 @@ const styles = StyleSheet.create({
     fontFamily: uiFont(700),
     fontSize: 36,
     letterSpacing: -0.5,
-    marginBottom: 16,
     marginTop: 8,
+  },
+  yearProgressWrap: {
+    marginBottom: spacing.sm,
   },
   yearBlockGrid: {
     flexDirection: 'row',

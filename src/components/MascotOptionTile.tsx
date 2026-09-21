@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
+import { ProBadge } from './ProUi';
 
 export const TILE_SIZE = 78;
 
@@ -20,12 +21,14 @@ export function MascotOptionTile({
   label,
   onPress,
   size = TILE_SIZE,
+  requiresPro = false,
 }: {
   svg: string;
   selected: boolean;
   label: string;
   onPress: () => void;
   size?: number;
+  requiresPro?: boolean;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -37,7 +40,7 @@ export function MascotOptionTile({
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={label}
+      accessibilityLabel={requiresPro ? `${label}, Requires Pip Pro` : label}
       style={[
         styles.tile,
         {
@@ -53,6 +56,11 @@ export function MascotOptionTile({
       <View style={[styles.art, { padding }]} pointerEvents="none">
         <SvgXml xml={svg} width="100%" height="100%" />
       </View>
+      {requiresPro ? (
+        <View style={styles.proBadge} pointerEvents="none">
+          <ProBadge locked />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -67,4 +75,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   art: { width: '100%', height: '100%', padding: 6 },
+  proBadge: { position: 'absolute', right: 4, top: 4, transform: [{ scale: 0.72 }] },
 });

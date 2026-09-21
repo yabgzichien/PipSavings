@@ -14,6 +14,8 @@ import { TourAnchor } from '../components/TourAnchor';
 import { BtnLabel, BubbleText, CategoryChip, Eyebrow, PipSays, PrimaryButton, TopBar } from '../components/ui';
 import { activateCurrency, getActiveCurrencies, getEntryCurrency, setEntryCurrency } from '../db/currencyRepo';
 import { listFxRates } from '../db/fxRepo';
+import { canActivateCurrency } from '../billing/currencyEntitlements';
+import { useEntitlement } from '../billing/entitlement';
 import { todayISO } from '../lib/duplicates';
 import { fullDate, isValidIsoDate } from '../lib/dates';
 import { CLASS_BY_ID, defaultLinkEffect, type LinkEffect } from '../lib/networth';
@@ -57,12 +59,15 @@ export function ManualEntryScreen({
   initialDate = null,
   initialCategoryId = null,
   initialCategorySource = null,
+  initialAccountId = null,
+  initialAccountName = null,
   initialSplit = null,
   initialTripId = null,
   isTutorial = false,
   activeTourAnchor = null,
   onAmountValidChange,
   onCategoryChosen,
+  embedded,
 }: {
   categories: Category[];
   onBack: () => void;
@@ -85,6 +90,9 @@ export function ManualEntryScreen({
    *  prefill or it's a plain default. Drives the "AI guess"/"Learned" badge on that category's
    *  chip so the user can see it wasn't a manual pick. */
   initialCategorySource?: CategorySuggestion['source'] | null;
+  /** Account resolved from chat text, or a missing account name to create before review. */
+  initialAccountId?: string | null;
+  initialAccountName?: string | null;
   initialSplit?: SplitDraft | null;
   /** Prefills the optional trip — set when entry was opened from a trip's own "Add expense".
    *  The user can still change or clear it here; whatever they leave is what `onComplete` reports. */
@@ -98,11 +106,13 @@ export function ManualEntryScreen({
   /** Fires once a category is picked, so the guided tour's category step can auto-advance to
    *  the actual "Add expense" button rather than exposing its own separate Next. */
   onCategoryChosen?: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { t, formatFullDate, isZh } = useLanguage();
+  const { isPro } = useEntitlement();
   const { accounts, recordBalanceLink, ensureDefaultAccount, trips } = useAppData();
   const [merchant, setMerchant] = useState(initialMerchant ?? '');
   const [amountText, setAmountText] = useState(
@@ -150,12 +160,12 @@ export function ManualEntryScreen({
       // be one the user has ever entered before. Activate it here rather than leaving the
       // amount stuck on an inactive currency with no cached rate and no way to save.
       if (initialCurrency && !active.includes(initialCurrency)) {
-        if (await activateCurrency(initialCurrency)) {
+        if (canActivateCurrency(active, initialCurrency, isPro) && await activateCurrency(initialCurrency)) {
           [active, fx] = await Promise.all([getActiveCurrencies(), listFxRates()]);
         }
       }
       setActiveCurrencies(active);
-      if (initialCurrency) {
+      if (initialCurrency && active.includes(initialCurrency)) {
         setCurrency(initialCurrency);
       } else {
         setCurrency(entry);
@@ -208,7 +218,7 @@ export function ManualEntryScreen({
     return (act.find((a) => a.cls === 'cash') ?? act[0])?.id ?? null;
   }, [assetAccounts, accounts]);
 
-  const [fromAccountId, setFromAccountId] = useState<string | null>(defaultAcctId);
+  const [fromAccountId, setFromAccountId] = useState<string | null>(initialAccountId ?? defaultAcctId);
   const [toAccountId, setToAccountId] = useState<string | null>(null);
 
   const visibleAccounts = useMemo(() => visibleChoices(paymentAccounts, fromAccountId, MAX_OPTIONAL_CHIPS), [paymentAccounts, fromAccountId]);
@@ -315,7 +325,7 @@ export function ManualEntryScreen({
 
   // Seed the default account selection once accounts are known, creating a
   // default "Cash" account if the user has none yet.
-  const seededRef = useRef(false);
+  const seededRef = useRef(Boolean(initialAccountId));
   useEffect(() => {
     if (seededRef.current) return;
     if (defaultAcctId) {
@@ -330,6 +340,10 @@ export function ManualEntryScreen({
       });
     }
   }, [defaultAcctId, ensureDefaultAccount]);
+
+  useEffect(() => {
+    if (initialAccountName) setAddingAccount(true);
+  }, [initialAccountName]);
 
   // A split whose gross no longer matches the amount field is stale (the user changed the bill
   // after splitting it), so it is dropped rather than silently applied to a different number.
@@ -392,9 +406,11 @@ export function ManualEntryScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={title ?? (startSplitting ? (isZh ? '分摊账单' : 'Split a bill') : (isZh ? '手动记账' : 'Add manually'))} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={title ?? (startSplitting ? (isZh ? '分摊账单' : 'Split a bill') : (isZh ? '手动记账' : 'Add manually'))} onBack={onBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
@@ -773,6 +789,9 @@ export function ManualEntryScreen({
 
       <AddAccountModal
         visible={addingAccount}
+        initialName={initialAccountName}
+        initialClass="bank"
+        initialCurrency={currency}
         onClose={() => setAddingAccount(false)}
         onCreated={(id) => {
           setFromAccountId(id);

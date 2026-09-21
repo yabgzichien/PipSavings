@@ -37,6 +37,8 @@ jest.mock('../src/state/store', () => ({
     resetAllData: jest.fn(),
     resetToOnboarding: jest.fn(),
     resetTutorial: jest.fn(),
+    glossaryEnabled: true,
+    setGlossaryEnabled: jest.fn(),
   }),
 }));
 
@@ -58,6 +60,7 @@ jest.mock('../src/state/accent', () => ({
 jest.mock('../src/state/colorScheme', () => ({
   useThemeColors: () => require('../src/theme').LIGHT_COLORS,
   useColorSchemeMode: () => ({ mode: 'light', setMode: jest.fn(), resolvedScheme: 'light' }),
+  useResolvedScheme: () => 'light',
 }));
 
 jest.mock('../src/state/useDisplayCurrency', () => ({

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pip",
     "slug": "pip-expenses-tracker",
-    "version": "1.0.15",
+    "version": "1.0.16",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": ["pip", "com.yabg.pip"],
@@ -11,7 +11,7 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 16,
+      "versionCode": 17,
       "adaptiveIcon": {
         "backgroundColor": "#1f8a5b",
         "foregroundImage": "./assets/android-icon-foreground.png"

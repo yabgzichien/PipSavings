@@ -29,9 +29,15 @@ export type AlertRequest =
 interface AlertHostCtx {
   request: AlertRequest | null;
   dismiss: () => void;
+  /** Clears only if `req` is still the active alert — so onConfirm can chain a follow-up. */
+  dismissIf: (req: AlertRequest) => void;
 }
 
-const Ctx = createContext<AlertHostCtx>({ request: null, dismiss: () => {} });
+const Ctx = createContext<AlertHostCtx>({
+  request: null,
+  dismiss: () => {},
+  dismissIf: () => {},
+});
 
 /** The currently-mounted host's setter, if any. Set on mount, cleared on unmount  a call to
  *  `dispatchAlert` before any host has mounted (shouldn't happen; the host is mounted at the
@@ -47,6 +53,10 @@ export function dispatchAlert(req: AlertRequest): void {
 export function AlertHostProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<AlertRequest | null>(null);
   const dismiss = useCallback(() => setRequest(null), []);
+  const dismissIf = useCallback(
+    (req: AlertRequest) => setRequest((cur) => (cur === req ? null : cur)),
+    []
+  );
 
   useEffect(() => {
     bridgeShow = setRequest;
@@ -55,7 +65,10 @@ export function AlertHostProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const value = useMemo<AlertHostCtx>(() => ({ request, dismiss }), [request, dismiss]);
+  const value = useMemo<AlertHostCtx>(
+    () => ({ request, dismiss, dismissIf }),
+    [request, dismiss, dismissIf]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

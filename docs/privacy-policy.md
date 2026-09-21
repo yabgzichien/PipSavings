@@ -1,6 +1,6 @@
 # Privacy Policy for PipSavings
 
-Last updated: 17 September 2026
+Last updated: 20 September 2026
 
 PipSavings (“Pip”) is a personal bookkeeping app for Android. Contact: **zichienyang@gmail.com**. Pip is not directed at children.
 
@@ -24,11 +24,13 @@ Camera, photos, and notifications are used only for scans, saving a story image,
 
 **Live prices (optional).** Ticker or currency codes are sent to Yahoo Finance for public quotes, not your quantities.
 
+**Ask Pip (optional, your API key).** Prompts and attached images go **directly** to the user-configured provider (Gemini / Groq / OpenRouter). Pip does not proxy them and does not keep them. Dashboard use and the local ledger stay on device.
+
 We do not sell your data and we do not show ads. Off-device traffic uses HTTPS.
 
 ## Parties that may receive data
 
-Google Play, Google (Drive / Sign-In), Cloudflare, external AI services, RevenueCat, Sentry, Yahoo Finance.
+Google Play, Google (Drive / Sign-In), Cloudflare, external AI services, Gemini, Groq, OpenRouter, RevenueCat, Sentry, Yahoo Finance.
 
 ## Deletion
 

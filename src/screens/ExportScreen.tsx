@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExportSuccessModal } from '../components/ExportSuccessModal';
 import { Icon } from '../components/Icon';
+import { ProBadge } from '../components/ProUi';
 import { Amount, Card, TopBar } from '../components/ui';
 import {
   buildFinancialReportBundle,
@@ -32,6 +33,8 @@ import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { platformShadow, radius, uiFont } from '../theme';
 
 type ExportMode = 'summary' | 'advanced';
@@ -58,9 +61,11 @@ const WORKBOOK_SHEETS = [
 export function ExportScreen({
   onBack,
   initialMonth,
+  embedded,
 }: {
   onBack: () => void;
   initialMonth?: string;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -68,6 +73,8 @@ export function ExportScreen({
   const { formatMonthLabel, isZh } = useLanguage();
   const { transactions, categories, accounts, balanceEntries, markTaskDone } = useAppData();
   const displayCurrency = useDisplayCurrency();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
 
   const now = useMemo(() => new Date(), []);
   const currentYear = now.getFullYear();
@@ -136,6 +143,10 @@ export function ExportScreen({
   const visibleCategories = reportData.incomeStatement.expenseRows.slice(0, 4);
 
   const handleExport = async () => {
+    if (!isPro) {
+      openPaywall('report_export', 'export');
+      return;
+    }
     setExporting(true);
     try {
       const periodSlug = activePeriod.label.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -193,9 +204,11 @@ export function ExportScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '导出' : 'Export'} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '导出' : 'Export'} onBack={onBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -525,6 +538,7 @@ export function ExportScreen({
                       ? (isZh ? '导出财务报表 (PDF)' : 'Export Financial Statement (PDF)')
                       : (isZh ? '导出 Excel 工作簿' : 'Export Excel workbook')}
                 </Text>
+                {!isPro ? <ProBadge locked /> : null}
               </>
             )}
           </Pressable>

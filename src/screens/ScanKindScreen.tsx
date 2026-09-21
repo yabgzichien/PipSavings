@@ -12,6 +12,9 @@ import { Body, BubbleText, Label, PipSays, TopBar } from '../components/ui';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
+import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import { radius, spacing } from '../theme';
 import type { PickedImage } from './AttachScreen';
 
@@ -32,7 +35,32 @@ export function ScanKindScreen({
 }) {
   const insets = useSafeAreaInsets();
   const colorTheme = useThemeColors();
-  const { isZh } = useLanguage();
+  const { isZh, t } = useLanguage();
+  const {
+    isPro,
+    canScan,
+    scansRemaining,
+    scansLimit,
+    dailyScansRemaining,
+    dailyScansLimit,
+  } = useEntitlement();
+  const { openPaywall } = usePaywall();
+
+  const handleReceipt = () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      return;
+    }
+    onReceipt();
+  };
+
+  const handleHistory = () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      return;
+    }
+    onHistory();
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
@@ -41,6 +69,20 @@ export function ScanKindScreen({
         showsVerticalScrollIndicator={false}
       >
         <TopBar title={isZh ? '您扫描了什么？' : 'What did you scan?'} onBack={onBack} />
+
+        {!isPro && (
+          <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.xs }}>
+            <ScanQuotaBadge
+              quota={{
+                monthRemaining: scansRemaining,
+                monthTotal: scansLimit,
+                dayRemaining: dailyScansRemaining,
+                dayTotal: dailyScansLimit,
+              }}
+              t={t}
+            />
+          </View>
+        )}
 
         <View style={{ paddingHorizontal: spacing.base, paddingTop: spacing.sm }}>
           <PipSays expr="curious">
@@ -61,7 +103,7 @@ export function ScanKindScreen({
             icon="receipt"
             title={isZh ? '消费小票 / 收据' : 'A receipt'}
             sub={isZh ? '单笔消费。我会识别每一项明细，您也可以与朋友分摊。' : "One purchase. I'll read every line item, and you can split it with friends."}
-            onPress={onReceipt}
+            onPress={handleReceipt}
           />
         </View>
 
@@ -70,7 +112,7 @@ export function ScanKindScreen({
             icon="scan"
             title={isZh ? '对账单 / 交易明细' : 'Transaction history'}
             sub={isZh ? '电子钱包或银行应用的交易记录列表。我会提取所有明细。' : "A list of transactions from an e-wallet or bank app. I'll pull them all out."}
-            onPress={onHistory}
+            onPress={handleHistory}
           />
         </View>
       </ScrollView>

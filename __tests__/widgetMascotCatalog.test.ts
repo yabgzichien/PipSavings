@@ -4,10 +4,10 @@ import { DEFAULT_WIDGET_MASCOT_CONFIG } from '../src/widget/mascot/config';
 import { composeMascot } from '../src/widget/mascot/compose';
 
 const EXPECTED = {
-  head: ['none', 'strawHat', 'propellerCap', 'bandana', 'goggles'],
-  eyes: ['default', 'big', 'sassy', 'shades', 'scarred', 'blissful'],
-  mouth: ['smile', 'grin', 'open', 'tongue', 'katanaBite'],
-  holding: ['none', 'lollipop', 'noodleBowl', 'flask', 'thumbsUp', 'crossedKatana'],
+  head: ['none', 'strawHat', 'propellerCap', 'bandana', 'goggles', 'cowboyHat', 'cyborgPlate', 'wizardHat'],
+  eyes: ['default', 'big', 'sassy', 'shades', 'scarred', 'blissful', 'scanner'],
+  mouth: ['smile', 'grin', 'open', 'tongue', 'katanaBite', 'lips'],
+  holding: ['none', 'lollipop', 'noodleBowl', 'flask', 'thumbsUp', 'crossedKatana', 'lasso', 'claw', 'wand'],
 } as const;
 
 describe('part catalog', () => {
@@ -73,6 +73,51 @@ describe('presets', () => {
       expect(() => composeMascot(c, 3)).not.toThrow();
       expect(composeMascot(c, 3)).toContain('<svg');
     }
+  });
+
+  it('puts the propeller cap on the lollipop nerdy look', () => {
+    expect(PRESETS.nerdy).toEqual({
+      head: 'propellerCap',
+      eyes: 'big',
+      mouth: 'smile',
+      holding: 'lollipop',
+    });
+  });
+
+  it('sassy transcribes the glow, lashes and glossy lips', () => {
+    expect(PRESETS.sassy).toEqual({
+      head: 'none',
+      eyes: 'sassy',
+      mouth: 'lips',
+      holding: 'none',
+    });
+    const lashes = PART_CATALOG.eyes.sassy.layers.map((l) => l.svg).join('\n');
+    expect(lashes).toContain('M34.5 52.5 Q40 47 45.5 52.5');
+    expect(lashes).toContain('M34.8 51.6 L30.6 48.4');
+    expect(lashes).toContain('#FFE08A');
+    expect(PART_CATALOG.eyes.sassy.layers.some((l) => l.z < 0)).toBe(true);
+    expect(PART_CATALOG.mouth.lips.layers[0].svg).toContain('#E85D83');
+  });
+
+  it('cowboy, cyborg and wizard are complete character looks', () => {
+    expect(PRESETS.cowboy).toEqual({
+      head: 'cowboyHat',
+      eyes: 'default',
+      mouth: 'grin',
+      holding: 'lasso',
+    });
+    expect(PRESETS.cyborg).toEqual({
+      head: 'cyborgPlate',
+      eyes: 'scanner',
+      mouth: 'smile',
+      holding: 'claw',
+    });
+    expect(PRESETS.wizard).toEqual({
+      head: 'wizardHat',
+      eyes: 'default',
+      mouth: 'smile',
+      holding: 'wand',
+    });
   });
 });
 

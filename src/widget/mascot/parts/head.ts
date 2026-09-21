@@ -17,6 +17,20 @@ const BAND_LIGHT = '#35B26C';
 const GOGGLE_FRAME = '#2B3138';
 const GOGGLE_STRAP = '#3C4650';
 const GOGGLE_LENS = '#BFE7F2';
+const COWBOY = '#C08A4A';
+const COWBOY_LINE = '#7A4E1E';
+const COWBOY_BAND = '#4A2E14';
+const COWBOY_STAR = '#FFD34D';
+const CYBORG_METAL = '#8A96A3';
+const CYBORG_METAL_DARK = '#3C4650';
+const CYBORG_RIVET = '#DCE6EC';
+const CYBORG_GLOW = '#22B8BE';
+const CYBORG_GLOW_LIGHT = '#8FE9EC';
+const WIZARD = '#5B3FA8';
+const WIZARD_DARK = '#3A2678';
+const WIZARD_BRIM = '#7B5CC8';
+const WIZARD_BAND = '#2A1860';
+const WIZARD_STAR = '#FFD34D';
 
 export const HEAD_PARTS: Record<string, MascotPart> = {
   none: { id: 'none', slot: 'head', layers: [] },
@@ -106,6 +120,78 @@ export const HEAD_PARTS: Record<string, MascotPart> = {
       <circle cx="64" cy="36.5" r="6.4" fill="${GOGGLE_LENS}" />
       <path d="M59.6 36.5 A 4.6 4.6 0 0 1 63.4 32.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.75" />
     </g>
+  </g>`,
+      },
+    ],
+  },
+
+  /** Leather Stetson: taller pinched crown than the straw hat, a wider brim, and a gold star
+   *  concho on the band so it still reads at widget size. Crown first, brim last, same occlusion
+   *  trick as strawHat. */
+  cowboyHat: {
+    id: 'cowboyHat',
+    slot: 'head',
+    layers: [
+      {
+        z: Z.HEAD,
+        svg: `<g data-part="cowboyHat">
+    <path d="M27 39 L31 22 C33 12 40 8 50 8 C60 8 67 12 69 22 L73 39 Z" fill="${COWBOY}" stroke="${COWBOY_LINE}" stroke-width="1.8" stroke-linejoin="round" />
+    <path d="M50 8 L47.6 39 L52.4 39 Z" fill="${COWBOY_LINE}" opacity="0.28" />
+    <path d="M31.6 25 L68.4 25 L71.6 36 L28.4 36 Z" fill="${COWBOY_BAND}" />
+    <path d="M50 27.2 L51.8 31 L56.2 31.4 L52.8 34.2 L53.8 38.4 L50 36.2 L46.2 38.4 L47.2 34.2 L43.8 31.4 L48.2 31 Z" fill="${COWBOY_STAR}" stroke="${COWBOY_LINE}" stroke-width="0.6" stroke-linejoin="round" />
+    <ellipse cx="50" cy="41.2" rx="38" ry="7.2" fill="rgba(90,50,10,0.2)" />
+    <ellipse cx="50" cy="38.4" rx="41" ry="7.4" fill="${COWBOY}" stroke="${COWBOY_LINE}" stroke-width="1.8" />
+    <ellipse cx="50" cy="38.4" rx="31" ry="5.2" fill="none" stroke="${COWBOY_LINE}" stroke-width="1.1" opacity="0.45" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** Left-side cranial plate, rivets, and a cyan antenna. Sits on the temple so the scanner eye
+   *  and the sprout still have room. */
+  cyborgPlate: {
+    id: 'cyborgPlate',
+    slot: 'head',
+    layers: [
+      {
+        z: Z.HEAD,
+        svg: `<g data-part="cyborgPlate">
+    <line x1="30" y1="22" x2="22" y2="6.5" stroke="${CYBORG_METAL_DARK}" stroke-width="2.6" stroke-linecap="round" />
+    <circle cx="22" cy="5.4" r="3.4" fill="${CYBORG_GLOW}" stroke="${CYBORG_METAL_DARK}" stroke-width="1.3" />
+    <circle cx="22" cy="5.4" r="1.5" fill="${CYBORG_GLOW_LIGHT}" />
+    <path d="M17.5 48 C15.5 38 21 25 36 19.5 C43 17.5 47 22 44.5 28.5 L38 44 C29.5 52 20.5 53 17.5 48 Z" fill="${CYBORG_METAL}" stroke="${CYBORG_METAL_DARK}" stroke-width="1.6" stroke-linejoin="round" />
+    <path d="M22 36 L36 24" fill="none" stroke="${CYBORG_RIVET}" stroke-width="1.3" opacity="0.55" stroke-linecap="round" />
+    <circle cx="28" cy="27.5" r="1.5" fill="${CYBORG_RIVET}" />
+    <circle cx="23.6" cy="36.5" r="1.5" fill="${CYBORG_RIVET}" />
+    <circle cx="32.2" cy="38.2" r="1.5" fill="${CYBORG_RIVET}" />
+    <circle cx="26.4" cy="43.8" r="2.1" fill="${CYBORG_GLOW}" />
+    <circle cx="26.4" cy="43.8" r="0.9" fill="${CYBORG_GLOW_LIGHT}" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** Tall starry cone with a shallow brim. Crown first so the brim occludes its base, matching
+   *  strawHat; the cone covers the sprout the way partyHat does in Pip.tsx. */
+  wizardHat: {
+    id: 'wizardHat',
+    slot: 'head',
+    layers: [
+      {
+        z: Z.HEAD,
+        svg: `<g data-part="wizardHat">
+    <path d="M24 39 L30 21 C33 11 40 3.4 50 1.4 C60 3.4 67 11 70 21 L76 39 Z" fill="${WIZARD}" stroke="${WIZARD_DARK}" stroke-width="1.6" stroke-linejoin="round" />
+    <path d="M50 1.4 L50 39 L70 21 Z" fill="${WIZARD_DARK}" opacity="0.22" />
+    <g fill="${WIZARD_STAR}">
+      <circle cx="45.5" cy="14.5" r="1.4" />
+      <circle cx="54.2" cy="12.8" r="1.2" />
+      <circle cx="48.2" cy="22.4" r="1.3" />
+      <circle cx="56.4" cy="21.2" r="1.1" />
+    </g>
+    <path d="M36.2 25.5 L63.8 25.5 L67.4 35.4 L32.6 35.4 Z" fill="${WIZARD_BAND}" />
+    <path d="M50 27.2 L51.3 30 L54.4 30.3 L52.1 32.3 L52.7 35.4 L50 33.8 L47.3 35.4 L47.9 32.3 L45.6 30.3 L48.7 30 Z" fill="${WIZARD_STAR}" />
+    <ellipse cx="50" cy="40.4" rx="36" ry="6.6" fill="rgba(40,20,80,0.2)" />
+    <ellipse cx="50" cy="38" rx="38" ry="6.4" fill="${WIZARD_BRIM}" stroke="${WIZARD_DARK}" stroke-width="1.6" />
   </g>`,
       },
     ],

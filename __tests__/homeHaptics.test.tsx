@@ -1,9 +1,12 @@
 import React from 'react';
 import { BottomNav } from '../src/components/BottomNav';
-import { Pip } from '../src/components/Pip';
 import { DashboardScreen } from '../src/screens/DashboardScreen';
 import * as haptics from '../src/lib/haptics';
 
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(),
+  setAudioModeAsync: jest.fn(),
+}));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -69,9 +72,7 @@ describe('Home haptics', () => {
     const tree = render(
       <DashboardScreen onScan={jest.fn()} onOpenAll={jest.fn()} onOpenBreakdown={jest.fn()} />
     );
-    const mascot = tree.root.findAll((node: any) =>
-      typeof node.props.onPress === 'function' && node.findAllByType(Pip).length > 0
-    )[0];
+    const mascot = tree.root.findByProps({ testID: 'home-mascot-button' });
 
     TestRenderer.act(() => mascot.props.onPress());
 

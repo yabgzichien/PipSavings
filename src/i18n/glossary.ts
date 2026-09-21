@@ -213,6 +213,41 @@ export const ZH_GLOSSARY: Record<string, GlossaryEntry> = {
       },
     ],
   },
+  tax_relief: {
+    term: '税务减免',
+    short: '马来西亚个人所得税减免（LHDN / BE 表格）的记录工具。不构成税务建议，Pip 也不会代你报税。',
+    body:
+      '本页仅用于马来西亚个人所得税减免。其他国家的税务减免不在范围内。\n\n' +
+      'Pip 会把令吉支出对照你所选课税年度的减免项目与上限。收据与标签都保存在这台设备上。\n\n' +
+      'LHDN 才是最终依据。减免上限与资格可能调整，报税前请到 hasil.gov.my 核对。你需要自行把总额填进 MyTax，申报内容由你负责。',
+    steps: [
+      {
+        badge: '自动标记',
+        title: '照常记账即可',
+        desc: '扫描小票或支付已关联的定期账单。符合条件的令吉支出会自动标到对应减免项目。',
+      },
+      {
+        badge: '核对',
+        title: '选择课税年度并检查项目',
+        desc: '用 YA 标签切换年份。点开标签即可修正分类或金额。',
+      },
+      {
+        badge: '添加',
+        title: '关联账单或手动添加',
+        desc: '关联一笔定期项目后，每次付款都会自动标记；也可以搜索交易后自行添加。',
+      },
+      {
+        badge: '凭证',
+        title: '在月底前附上证明',
+        desc: '如果缺少收据或电子发票，请补上。可索取电子发票的项目会在当月结束时截止。',
+      },
+      {
+        badge: '申报',
+        title: '导出后自行填入 MyTax',
+        desc: '报税时导出 PDF 汇总和小票压缩包。Pip 不会向 LHDN 提交任何资料。',
+      },
+    ],
+  },
 };
 
 export function getGlossaryEntry(entryKey: string, lang: SupportedLanguage = 'en'): GlossaryEntry | undefined {

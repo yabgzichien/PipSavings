@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n';
 import { useGlossary } from '../state/glossary';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
+import { useAppData } from '../state/store';
 import { colors, radius, uiFont } from '../theme';
 import { Pip } from './Pip';
 import { GlossaryVisualGuide } from './GlossaryVisualGuide';
@@ -13,8 +14,10 @@ import { GlossaryVisualGuide } from './GlossaryVisualGuide';
  *  label/eyebrow (row + gap), same role as LenderConsole's InfoButton (app/shared.tsx). */
 export function InfoButton({ entry, color }: { entry: string; color?: string }) {
   const { open } = useGlossary();
+  const { glossaryEnabled } = useAppData();
   const colorTheme = useThemeColors();
   const { language } = useLanguage();
+  if (!glossaryEnabled) return null;
   const term = getGlossaryEntry(entry, language)?.term ?? 'this';
   return (
     <Pressable

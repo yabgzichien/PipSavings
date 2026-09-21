@@ -6,6 +6,9 @@ import { Z } from './types';
 const INK = '#7A4800';
 const TEETH = '#FFFDF5';
 const TONGUE = '#E85D83';
+const LIP_DARK = '#9D3157';
+const LIP = '#E85D83';
+const LIP_LIGHT = '#FFD2DE';
 const GUARD_GOLD = '#C8A02E';
 const GUARD_GOLD_DARK = '#7C5F12';
 const HILT_WRAP = '#232A31';
@@ -76,6 +79,23 @@ export const MOUTH_PARTS: Record<string, MascotPart> = {
         svg: `<g data-part="tongue">
     <path d="M39.5 64.5 Q50 61.5 60.5 64.5 Q59.5 79.5 50 79.5 Q40.5 79.5 39.5 64.5 Z" fill="${INK}" />
     <ellipse cx="50" cy="75.4" rx="5.6" ry="3.4" fill="${TONGUE}" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** Transcribed from Pip.tsx:586-599 (`SassyFace` lips). Two lobes plus a highlight so the
+   *  gloss still reads at widget size without photo-real texture. */
+  lips: {
+    id: 'lips',
+    slot: 'mouth',
+    layers: [
+      {
+        z: Z.FACE,
+        svg: `<g data-part="lips">
+    <path d="M39 68 C42 63.5 46 63 50 65.2 C54 63 58 63.5 61 68 C56.8 69.8 53.2 70.2 50 70.2 C46.8 70.2 43.2 69.8 39 68 Z" fill="${LIP_DARK}" />
+    <path d="M39 68 C44 69.2 56 69.2 61 68 C58.2 75.7 41.8 75.7 39 68 Z" fill="${LIP}" stroke="${LIP_DARK}" stroke-width="0.9" />
+    <path d="M52.7 71.5 Q55.5 70.4 58 71.2" fill="none" stroke="${LIP_LIGHT}" stroke-width="1.5" stroke-linecap="round" opacity="0.9" />
   </g>`,
       },
     ],

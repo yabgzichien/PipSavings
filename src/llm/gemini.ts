@@ -20,6 +20,7 @@ import {
 } from './extractPrompt';
 import {
   LLMError,
+  type AskPipLlmInput,
   type CategoryGuessInput,
   type CoachInput,
   type DocExtractInput,
@@ -60,7 +61,7 @@ async function callGemini(model: string, apiKey: string, parts: GeminiPart[], op
       temperature: opts.temperature ?? 0,
       ...(opts.json ? { responseMimeType: 'application/json' } : {}),
       ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
-      ...(opts.noThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      ...(opts.noThinking ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {}),
     },
   };
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
@@ -196,6 +197,19 @@ export const GeminiProvider: LLMProvider = {
       noThinking: true,
     });
     return contentOf(json).trim();
+  },
+
+  async askPip({ apiKey, model, system, user }: AskPipLlmInput): Promise<unknown> {
+    const json = await callGemini(model, apiKey, [{ text: user }], {
+      system,
+      json: true,
+      noThinking: true,
+    });
+    try {
+      return JSON.parse(contentOf(json));
+    } catch {
+      throw new LLMError('bad_response', 'Model response was not JSON.');
+    }
   },
 
   async guessCategories({ apiKey, model, items, categories }: CategoryGuessInput): Promise<Record<number, string | null>> {

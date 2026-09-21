@@ -54,10 +54,10 @@ const DEFAULT_VOICE = 'triad';
 
 function getMonthComposition(m) {
   switch (m) {
-    case '01': // New Year Sparks
+    case '01': // New Year Sparks — fanfare ascending, big leaps, bright peaks
       return {
-        label: 'Jan - New Year Sparks: celebration chimes & bells',
-        lowpassHz: 3600,
+        label: 'Jan - New Year Sparks: celebration fanfare & triumphant bells',
+        lowpassHz: 4800,
         chords: [
           { at: 0.0, freqs: [146.83, 220.0, 293.66, 369.99] }, // Dmaj7
           { at: 3.0, freqs: [196.0, 246.94, 293.66, 369.99] },  // Gmaj7
@@ -71,19 +71,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 110.0 }, { at: 10.5, freq: 82.41 },
         ],
         melody: [
-          { at: 0.0, freq: 739.99 }, { at: 0.75, freq: 880.0 }, { at: 1.5, freq: 987.77 }, { at: 2.25, freq: 1108.73 },
-          { at: 3.0, freq: 1174.66 }, { at: 3.75, freq: 987.77 }, { at: 4.5, freq: 880.0 }, { at: 5.25, freq: 739.99 },
-          { at: 6.0, freq: 659.25 }, { at: 6.75, freq: 739.99 }, { at: 7.5, freq: 880.0 }, { at: 8.25, freq: 1174.66 },
-          { at: 9.0, freq: 1108.73 }, { at: 9.75, freq: 987.77 }, { at: 10.5, freq: 880.0 }, { at: 11.25, freq: 739.99 },
+          // Phrase 1: D4→D5 octave leap, climb to D6
+          { at: 0.0, freq: 293.66 }, { at: 0.375, freq: 587.33 },
+          { at: 0.75, freq: 880.0 }, { at: 1.125, freq: 1174.66 },
+          // Phrase 2: B5→F#5→A5→C#6
+          { at: 1.5, freq: 987.77 }, { at: 1.875, freq: 739.99 },
+          { at: 2.25, freq: 880.0 }, { at: 2.625, freq: 1108.73 },
+          // Phrase 3: climb B5→D6→E6 (peak!)
+          { at: 3.0, freq: 987.77 }, { at: 3.375, freq: 1174.66 },
+          { at: 3.75, freq: 1318.51 }, { at: 4.125, freq: 1174.66 },
+          // Phrase 4: fall back, swing up
+          { at: 4.5, freq: 987.77 }, { at: 4.875, freq: 880.0 },
+          { at: 5.25, freq: 739.99 }, { at: 5.625, freq: 880.0 },
+          // Phrase 5: F#5→B5→D6→B5
+          { at: 6.0, freq: 739.99 }, { at: 6.375, freq: 987.77 },
+          { at: 6.75, freq: 1174.66 }, { at: 7.125, freq: 987.77 },
+          // Phrase 6: A5 → E6 climax!
+          { at: 7.5, freq: 880.0 }, { at: 7.875, freq: 1318.51 },
+          { at: 8.25, freq: 1174.66 }, { at: 8.625, freq: 987.77 },
+          // Phrase 7: A5→D6→E6→F#6 (ultimate peak!)
+          { at: 9.0, freq: 880.0 }, { at: 9.375, freq: 1174.66 },
+          { at: 9.75, freq: 1318.51 }, { at: 10.125, freq: 1479.98 },
+          // Resolution: D6→B5→F#5→A4
+          { at: 10.5, freq: 1174.66 }, { at: 10.875, freq: 987.77 },
+          { at: 11.25, freq: 739.99 }, { at: 11.625, freq: 440.0 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.18, decayScale: 0.6 }, { ratio: 3, gain: 0.08, decayScale: 0.4 }, { ratio: 4.5, gain: 0.04, decayScale: 0.3 }],
-        noiseFreq: 3600,
+        noiseFreq: 5000,
       };
 
-    case '02': // Chinese New Year
+    case '02': // Chinese New Year — driving pentatonic runs, bold gong
       return {
-        label: 'Feb - Chinese New Year: pentatonic bell chimes & gong rhythm',
-        lowpassHz: 3500,
+        label: 'Feb - Chinese New Year: driving pentatonic & gong fanfare',
+        lowpassHz: 4200,
         chords: [
           { at: 0.0, freqs: [130.81, 196.0, 261.63, 329.63] }, // C
           { at: 3.0, freqs: [196.0, 261.63, 293.66, 392.0] },  // Gsus4
@@ -98,19 +118,38 @@ function getMonthComposition(m) {
         ],
         gong: [0.0, 3.0, 6.0, 9.0],
         melody: [
-          { at: 0.0, freq: 659.25 }, { at: 0.75, freq: 783.99 }, { at: 1.5, freq: 880.0 }, { at: 2.25, freq: 783.99 },
-          { at: 3.0, freq: 1046.5 }, { at: 3.75, freq: 880.0 }, { at: 4.5, freq: 783.99 }, { at: 5.25, freq: 659.25 },
-          { at: 6.0, freq: 587.33 }, { at: 6.75, freq: 659.25 }, { at: 7.5, freq: 783.99 }, { at: 8.25, freq: 880.0 },
-          { at: 9.0, freq: 783.99 }, { at: 9.75, freq: 659.25 }, { at: 10.5, freq: 587.33 }, { at: 11.25, freq: 523.25 },
+          // Phrase 1: C5→G5→C6 — pentatonic launch
+          { at: 0.0, freq: 523.25 }, { at: 0.375, freq: 783.99 },
+          { at: 0.75, freq: 1046.5 }, { at: 1.125, freq: 1174.66 },
+          // Phrase 2: C6→A5→G5→C6
+          { at: 1.5, freq: 1046.5 }, { at: 1.875, freq: 880.0 },
+          { at: 2.25, freq: 783.99 }, { at: 2.625, freq: 1046.5 },
+          // Phrase 3: D6→C6→A5→E5
+          { at: 3.0, freq: 1174.66 }, { at: 3.375, freq: 1046.5 },
+          { at: 3.75, freq: 880.0 }, { at: 4.125, freq: 659.25 },
+          // Phrase 4: G5→C6→E6!
+          { at: 4.5, freq: 783.99 }, { at: 4.875, freq: 1046.5 },
+          { at: 5.25, freq: 1318.51 }, { at: 5.625, freq: 1046.5 },
+          // Phrase 5: A5→E5→G5→C6
+          { at: 6.0, freq: 880.0 }, { at: 6.375, freq: 659.25 },
+          { at: 6.75, freq: 783.99 }, { at: 7.125, freq: 1046.5 },
+          // Phrase 6: D6→G6 peak!
+          { at: 7.5, freq: 1174.66 }, { at: 7.875, freq: 1567.98 },
+          { at: 8.25, freq: 1318.51 }, { at: 8.625, freq: 1174.66 },
+          // Resolution: C6→A5→G5→C6→A5→E5→C5→C4
+          { at: 9.0, freq: 1046.5 }, { at: 9.375, freq: 880.0 },
+          { at: 9.75, freq: 783.99 }, { at: 10.125, freq: 1046.5 },
+          { at: 10.5, freq: 880.0 }, { at: 10.875, freq: 659.25 },
+          { at: 11.25, freq: 523.25 }, { at: 11.625, freq: 261.63 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.16, decayScale: 0.5 }, { ratio: 3, gain: 0.06, decayScale: 0.3 }],
-        noiseFreq: 2200,
+        noiseFreq: 3000,
       };
 
-    case '03': // Spring Awakening
+    case '03': // Spring Awakening — ascending runs, woodwind leaps
       return {
-        label: 'Mar - Spring Awakening: breezy marimba & woodwind arpeggios',
-        lowpassHz: 3400,
+        label: 'Mar - Spring Awakening: soaring woodwind & marimba leaps',
+        lowpassHz: 4500,
         chords: [
           { at: 0.0, freqs: [174.61, 246.94, 261.63, 329.63] }, // Fmaj7#11
           { at: 3.0, freqs: [196.0, 246.94, 293.66, 392.0] },  // G6
@@ -124,19 +163,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 65.41 }, { at: 10.5, freq: 98.0 },
         ],
         melody: [
-          { at: 0.0, freq: 523.25 }, { at: 0.75, freq: 659.25 }, { at: 1.5, freq: 880.0 }, { at: 2.25, freq: 987.77 },
-          { at: 3.0, freq: 783.99 }, { at: 3.75, freq: 587.33 }, { at: 4.5, freq: 659.25 }, { at: 5.25, freq: 783.99 },
-          { at: 6.0, freq: 987.77 }, { at: 6.75, freq: 880.0 }, { at: 7.5, freq: 659.25 }, { at: 8.25, freq: 783.99 },
-          { at: 9.0, freq: 659.25 }, { at: 9.75, freq: 587.33 }, { at: 10.5, freq: 523.25 }, { at: 11.25, freq: 440.0 },
+          // Phrase 1: F4→C5→F5→B5 — spring launch
+          { at: 0.0, freq: 349.23 }, { at: 0.375, freq: 523.25 },
+          { at: 0.75, freq: 698.46 }, { at: 1.125, freq: 987.77 },
+          // Phrase 2: C6→A5→B5→D6
+          { at: 1.5, freq: 1046.5 }, { at: 1.875, freq: 880.0 },
+          { at: 2.25, freq: 987.77 }, { at: 2.625, freq: 1174.66 },
+          // Phrase 3: C6→A5→G5→E5
+          { at: 3.0, freq: 1046.5 }, { at: 3.375, freq: 880.0 },
+          { at: 3.75, freq: 783.99 }, { at: 4.125, freq: 659.25 },
+          // Phrase 4: G5→B5→D6→E6!
+          { at: 4.5, freq: 783.99 }, { at: 4.875, freq: 987.77 },
+          { at: 5.25, freq: 1174.66 }, { at: 5.625, freq: 1318.51 },
+          // Phrase 5: D6→C6→A5→G5
+          { at: 6.0, freq: 1174.66 }, { at: 6.375, freq: 1046.5 },
+          { at: 6.75, freq: 880.0 }, { at: 7.125, freq: 783.99 },
+          // Phrase 6: A5→D6→E6
+          { at: 7.5, freq: 880.0 }, { at: 7.875, freq: 1174.66 },
+          { at: 8.25, freq: 1318.51 }, { at: 8.625, freq: 1174.66 },
+          // Phrase 7: C6→D6→E6 triple peak
+          { at: 9.0, freq: 1046.5 }, { at: 9.375, freq: 1174.66 },
+          { at: 9.75, freq: 1318.51 }, { at: 10.125, freq: 1174.66 },
+          // Resolution: C6→A5→F5→C5
+          { at: 10.5, freq: 1046.5 }, { at: 10.875, freq: 880.0 },
+          { at: 11.25, freq: 698.46 }, { at: 11.625, freq: 523.25 },
         ],
         melodyPartials: [{ ratio: 3, gain: 0.12, decayScale: 0.4 }, { ratio: 2, gain: 0.1, decayScale: 0.5 }],
-        noiseFreq: 2600,
+        noiseFreq: 4000,
       };
 
-    case '04': // Pastel Sakura
+    case '04': // Pastel Sakura — sweeping romantic leaps, Eb-major grandeur
       return {
-        label: 'Apr - Pastel Sakura: romantic music box & soft chords',
-        lowpassHz: 3300,
+        label: 'Apr - Pastel Sakura: sweeping romantic arcs & soaring chords',
+        lowpassHz: 4000,
         chords: [
           { at: 0.0, freqs: [155.56, 233.08, 293.66, 349.23] }, // Ebmaj7
           { at: 3.0, freqs: [174.61, 207.65, 261.63, 311.13] }, // Fm7
@@ -150,19 +209,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 103.83 }, { at: 10.5, freq: 77.78 },
         ],
         melody: [
-          { at: 0.0, freq: 783.99 }, { at: 0.75, freq: 932.33 }, { at: 1.5, freq: 1046.5 }, { at: 2.25, freq: 932.33 },
-          { at: 3.0, freq: 830.61 }, { at: 3.75, freq: 783.99 }, { at: 4.5, freq: 698.46 }, { at: 5.25, freq: 622.25 },
-          { at: 6.0, freq: 783.99 }, { at: 6.75, freq: 932.33 }, { at: 7.5, freq: 1174.66 }, { at: 8.25, freq: 1046.5 },
-          { at: 9.0, freq: 932.33 }, { at: 9.75, freq: 830.61 }, { at: 10.5, freq: 783.99 }, { at: 11.25, freq: 698.46 },
+          // Phrase 1: Eb5→Bb5 sixth leap, sweep to Eb6
+          { at: 0.0, freq: 622.25 }, { at: 0.375, freq: 932.33 },
+          { at: 0.75, freq: 1244.51 }, { at: 1.125, freq: 1046.5 },
+          // Phrase 2: Bb5→Ab5→Bb5→D6
+          { at: 1.5, freq: 932.33 }, { at: 1.875, freq: 830.61 },
+          { at: 2.25, freq: 932.33 }, { at: 2.625, freq: 1174.66 },
+          // Phrase 3: C6→Ab5→G5→F5
+          { at: 3.0, freq: 1046.5 }, { at: 3.375, freq: 830.61 },
+          { at: 3.75, freq: 783.99 }, { at: 4.125, freq: 698.46 },
+          // Phrase 4: G5→C6→Eb6!
+          { at: 4.5, freq: 783.99 }, { at: 4.875, freq: 1046.5 },
+          { at: 5.25, freq: 1244.51 }, { at: 5.625, freq: 1046.5 },
+          // Phrase 5: Bb5→D6→Eb6→C6
+          { at: 6.0, freq: 932.33 }, { at: 6.375, freq: 1174.66 },
+          { at: 6.75, freq: 1244.51 }, { at: 7.125, freq: 1046.5 },
+          // Phrase 6: Bb5→D6→Eb6→C6
+          { at: 7.5, freq: 932.33 }, { at: 7.875, freq: 1174.66 },
+          { at: 8.25, freq: 1244.51 }, { at: 8.625, freq: 1046.5 },
+          // Phrase 7: D6→Bb5→C6→Ab5
+          { at: 9.0, freq: 1174.66 }, { at: 9.375, freq: 932.33 },
+          { at: 9.75, freq: 1046.5 }, { at: 10.125, freq: 830.61 },
+          // Resolution: Bb5→F5→Eb5→Bb4
+          { at: 10.5, freq: 932.33 }, { at: 10.875, freq: 698.46 },
+          { at: 11.25, freq: 622.25 }, { at: 11.625, freq: 466.16 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.2, decayScale: 0.7 }, { ratio: 4, gain: 0.08, decayScale: 0.4 }],
-        noiseFreq: 3000,
+        noiseFreq: 3500,
       };
 
-    case '05': // Golden Sun & Picnic
+    case '05': // Golden Sun — bright G major, big leaps, F#6 peak
       return {
-        label: 'May - Golden Sun & Picnic: cheerful kalimba & acoustic sunshine',
-        lowpassHz: 3500,
+        label: 'May - Golden Sun & Picnic: bright leaping kalimba & sunshine anthem',
+        lowpassHz: 5000,
         chords: [
           { at: 0.0, freqs: [196.0, 246.94, 293.66, 392.0] },  // G
           { at: 3.0, freqs: [130.81, 196.0, 246.94, 329.63] }, // Cmaj7
@@ -176,19 +255,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 73.42 }, { at: 10.5, freq: 110.0 },
         ],
         melody: [
-          { at: 0.0, freq: 493.88 }, { at: 0.75, freq: 587.33 }, { at: 1.5, freq: 783.99 }, { at: 2.25, freq: 880.0 },
-          { at: 3.0, freq: 987.77 }, { at: 3.75, freq: 880.0 }, { at: 4.5, freq: 783.99 }, { at: 5.25, freq: 659.25 },
-          { at: 6.0, freq: 783.99 }, { at: 6.75, freq: 987.77 }, { at: 7.5, freq: 1174.66 }, { at: 8.25, freq: 987.77 },
-          { at: 9.0, freq: 880.0 }, { at: 9.75, freq: 783.99 }, { at: 10.5, freq: 659.25 }, { at: 11.25, freq: 587.33 },
+          // Phrase 1: G4→G5 octave, B5→D6
+          { at: 0.0, freq: 392.0 }, { at: 0.375, freq: 783.99 },
+          { at: 0.75, freq: 987.77 }, { at: 1.125, freq: 1174.66 },
+          // Phrase 2: E6!→D6→B5→A5
+          { at: 1.5, freq: 1318.51 }, { at: 1.875, freq: 1174.66 },
+          { at: 2.25, freq: 987.77 }, { at: 2.625, freq: 880.0 },
+          // Phrase 3: C6→D6→E6→D6
+          { at: 3.0, freq: 1046.5 }, { at: 3.375, freq: 1174.66 },
+          { at: 3.75, freq: 1318.51 }, { at: 4.125, freq: 1174.66 },
+          // Phrase 4: B5→A5→G5→B5
+          { at: 4.5, freq: 987.77 }, { at: 4.875, freq: 880.0 },
+          { at: 5.25, freq: 783.99 }, { at: 5.625, freq: 987.77 },
+          // Phrase 5: A5→D6→E6→F#6 ultimate peak!
+          { at: 6.0, freq: 880.0 }, { at: 6.375, freq: 1174.66 },
+          { at: 6.75, freq: 1318.51 }, { at: 7.125, freq: 1479.98 },
+          // Phrase 6: E6→D6→B5→A5
+          { at: 7.5, freq: 1318.51 }, { at: 7.875, freq: 1174.66 },
+          { at: 8.25, freq: 987.77 }, { at: 8.625, freq: 880.0 },
+          // Phrase 7: G5→C6→D6→E6
+          { at: 9.0, freq: 783.99 }, { at: 9.375, freq: 1046.5 },
+          { at: 9.75, freq: 1174.66 }, { at: 10.125, freq: 1318.51 },
+          // Resolution: D6→B5→G5→B4
+          { at: 10.5, freq: 1174.66 }, { at: 10.875, freq: 987.77 },
+          { at: 11.25, freq: 783.99 }, { at: 11.625, freq: 493.88 },
         ],
         melodyPartials: [{ ratio: 3, gain: 0.15, decayScale: 0.35 }, { ratio: 2, gain: 0.08, decayScale: 0.5 }],
-        noiseFreq: 2800,
+        noiseFreq: 5000,
       };
 
-    case '06': // Dragon Boat Festival
+    case '06': // Dragon Boat Festival — driving D-minor power, F6 peak
       return {
-        label: 'Jun - Dragon Boat Festival: bamboo drums & pentatonic wave plucks',
-        lowpassHz: 3400,
+        label: 'Jun - Dragon Boat Festival: driving bamboo drums & powerful wave plucks',
+        lowpassHz: 4200,
         chords: [
           { at: 0.0, freqs: [146.83, 220.0, 261.63, 293.66] }, // Dm
           { at: 3.0, freqs: [174.61, 220.0, 261.63, 349.23] }, // F
@@ -202,20 +301,41 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 110.0 }, { at: 10.5, freq: 82.41 },
         ],
         bambooDrums: true,
+        melodyDecay: 0.22,
         melody: [
-          { at: 0.0, freq: 587.33 }, { at: 0.75, freq: 698.46 }, { at: 1.5, freq: 783.99 }, { at: 2.25, freq: 880.0 },
-          { at: 3.0, freq: 1046.5 }, { at: 3.75, freq: 880.0 }, { at: 4.5, freq: 783.99 }, { at: 5.25, freq: 698.46 },
-          { at: 6.0, freq: 783.99 }, { at: 6.75, freq: 880.0 }, { at: 7.5, freq: 1046.5 }, { at: 8.25, freq: 1174.66 },
-          { at: 9.0, freq: 1046.5 }, { at: 9.75, freq: 880.0 }, { at: 10.5, freq: 698.46 }, { at: 11.25, freq: 587.33 },
+          // Phrase 1: D5→D4 drop, D5→A5 — aggressive power start
+          { at: 0.0, freq: 587.33 }, { at: 0.375, freq: 293.66 },
+          { at: 0.75, freq: 587.33 }, { at: 1.125, freq: 880.0 },
+          // Phrase 2: D6!→A5→G5→C6
+          { at: 1.5, freq: 1174.66 }, { at: 1.875, freq: 880.0 },
+          { at: 2.25, freq: 783.99 }, { at: 2.625, freq: 1046.5 },
+          // Phrase 3: A5→G5→F5→A5
+          { at: 3.0, freq: 880.0 }, { at: 3.375, freq: 783.99 },
+          { at: 3.75, freq: 698.46 }, { at: 4.125, freq: 880.0 },
+          // Phrase 4: D6→E6→D6→C6
+          { at: 4.5, freq: 1174.66 }, { at: 4.875, freq: 1318.51 },
+          { at: 5.25, freq: 1174.66 }, { at: 5.625, freq: 1046.5 },
+          // Phrase 5: A5→F5→A5→D6
+          { at: 6.0, freq: 880.0 }, { at: 6.375, freq: 698.46 },
+          { at: 6.75, freq: 880.0 }, { at: 7.125, freq: 1174.66 },
+          // Phrase 6: E6→F6 peak!→E6→D6
+          { at: 7.5, freq: 1318.51 }, { at: 7.875, freq: 1396.91 },
+          { at: 8.25, freq: 1318.51 }, { at: 8.625, freq: 1174.66 },
+          // Phrase 7: C6→A5→G5→Bb5
+          { at: 9.0, freq: 1046.5 }, { at: 9.375, freq: 880.0 },
+          { at: 9.75, freq: 783.99 }, { at: 10.125, freq: 932.33 },
+          // Resolution: C6→A5→F5→D5
+          { at: 10.5, freq: 1046.5 }, { at: 10.875, freq: 880.0 },
+          { at: 11.25, freq: 698.46 }, { at: 11.625, freq: 587.33 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.16, decayScale: 0.5 }, { ratio: 4, gain: 0.06, decayScale: 0.3 }],
-        noiseFreq: 2400,
+        noiseFreq: 2200,
       };
 
-    case '07': // Midsummer Festival
+    case '07': // Midsummer Festival — tropical Bb, G6 peak, steel-pan staccato
       return {
-        label: 'Jul - Midsummer Festival: tropical steel-pan & playful marimba',
-        lowpassHz: 3600,
+        label: 'Jul - Midsummer Festival: tropical steel-pan burst & G6 climax',
+        lowpassHz: 5000,
         chords: [
           { at: 0.0, freqs: [233.08, 293.66, 349.23, 466.16] }, // Bb
           { at: 3.0, freqs: [155.56, 233.08, 311.13, 392.0] },  // Eb
@@ -228,21 +348,42 @@ function getMonthComposition(m) {
           { at: 6.0, freq: 87.31 }, { at: 7.5, freq: 130.81 },
           { at: 9.0, freq: 98.0 }, { at: 10.5, freq: 146.83 },
         ],
+        melodyDecay: 0.22,
         melody: [
-          { at: 0.0, freq: 698.46 }, { at: 0.75, freq: 932.33 }, { at: 1.5, freq: 1174.66 }, { at: 2.25, freq: 1046.5 },
-          { at: 3.0, freq: 932.33 }, { at: 3.75, freq: 783.99 }, { at: 4.5, freq: 698.46 }, { at: 5.25, freq: 783.99 },
-          { at: 6.0, freq: 932.33 }, { at: 6.75, freq: 1046.5 }, { at: 7.5, freq: 1174.66 }, { at: 8.25, freq: 1396.91 },
-          { at: 9.0, freq: 1174.66 }, { at: 9.75, freq: 1046.5 }, { at: 10.5, freq: 932.33 }, { at: 11.25, freq: 698.46 },
+          // Phrase 1: Bb4→F5→Bb5→D6 — tropical launch
+          { at: 0.0, freq: 466.16 }, { at: 0.375, freq: 698.46 },
+          { at: 0.75, freq: 932.33 }, { at: 1.125, freq: 1174.66 },
+          // Phrase 2: Eb6→C6→Bb5→G5
+          { at: 1.5, freq: 1244.51 }, { at: 1.875, freq: 1046.5 },
+          { at: 2.25, freq: 932.33 }, { at: 2.625, freq: 783.99 },
+          // Phrase 3: Eb5→G5→Bb5→C6
+          { at: 3.0, freq: 622.25 }, { at: 3.375, freq: 783.99 },
+          { at: 3.75, freq: 932.33 }, { at: 4.125, freq: 1046.5 },
+          // Phrase 4: D6→F6→G6 ultimate peak!→F6
+          { at: 4.5, freq: 1174.66 }, { at: 4.875, freq: 1396.91 },
+          { at: 5.25, freq: 1567.98 }, { at: 5.625, freq: 1396.91 },
+          // Phrase 5: D6→C6→A5→G5
+          { at: 6.0, freq: 1174.66 }, { at: 6.375, freq: 1046.5 },
+          { at: 6.75, freq: 880.0 }, { at: 7.125, freq: 783.99 },
+          // Phrase 6: F5→Bb5→D6→F6
+          { at: 7.5, freq: 698.46 }, { at: 7.875, freq: 932.33 },
+          { at: 8.25, freq: 1174.66 }, { at: 8.625, freq: 1396.91 },
+          // Phrase 7: Eb6→C6→Bb5→G5
+          { at: 9.0, freq: 1244.51 }, { at: 9.375, freq: 1046.5 },
+          { at: 9.75, freq: 932.33 }, { at: 10.125, freq: 783.99 },
+          // Resolution: F5→Bb5→G5→Bb4
+          { at: 10.5, freq: 698.46 }, { at: 10.875, freq: 932.33 },
+          { at: 11.25, freq: 783.99 }, { at: 11.625, freq: 466.16 },
         ],
         melodyPartials: [{ ratio: 1.58, gain: 0.2, decayScale: 0.4 }, { ratio: 2.3, gain: 0.1, decayScale: 0.3 }, { ratio: 3.1, gain: 0.05, decayScale: 0.2 }],
-        noiseFreq: 3100,
+        noiseFreq: 4500,
       };
 
-    case '08': // Late Summer Bloom
+    case '08': // Late Summer Bloom — F major groove, climbing E6 peak
     default:
       return {
-        label: 'Aug - Late Summer Bloom: cozy lo-fi Rhodes & marimba groove',
-        lowpassHz: 3400,
+        label: 'Aug - Late Summer Bloom: lo-fi Rhodes groove & E6 summer peak',
+        lowpassHz: 4200,
         chords: [
           { at: 0.0, freqs: [174.61, 220.0, 261.63, 329.63] }, // Fmaj7
           { at: 3.0, freqs: [196.0, 246.94, 293.66, 392.0] },  // G6
@@ -256,19 +397,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 110.0 }, { at: 10.5, freq: 164.81 },
         ],
         melody: [
-          { at: 0.0, freq: 523.25 }, { at: 0.75, freq: 659.25 }, { at: 1.5, freq: 783.99 }, { at: 2.25, freq: 880.0 },
-          { at: 3.0, freq: 987.77 }, { at: 3.75, freq: 783.99 }, { at: 4.5, freq: 587.33 }, { at: 5.25, freq: 659.25 },
-          { at: 6.0, freq: 783.99 }, { at: 6.75, freq: 659.25 }, { at: 7.5, freq: 523.25 }, { at: 8.25, freq: 587.33 },
-          { at: 9.0, freq: 659.25 }, { at: 9.75, freq: 587.33 }, { at: 10.5, freq: 523.25 }, { at: 11.25, freq: 493.88 },
+          // Phrase 1: F4→C5→F5→A5 — building warmth
+          { at: 0.0, freq: 349.23 }, { at: 0.375, freq: 523.25 },
+          { at: 0.75, freq: 698.46 }, { at: 1.125, freq: 880.0 },
+          // Phrase 2: C6→A5→G5→B5
+          { at: 1.5, freq: 1046.5 }, { at: 1.875, freq: 880.0 },
+          { at: 2.25, freq: 783.99 }, { at: 2.625, freq: 987.77 },
+          // Phrase 3: C6→D6→E6!→D6
+          { at: 3.0, freq: 1046.5 }, { at: 3.375, freq: 1174.66 },
+          { at: 3.75, freq: 1318.51 }, { at: 4.125, freq: 1174.66 },
+          // Phrase 4: C6→A5→G5→E5
+          { at: 4.5, freq: 1046.5 }, { at: 4.875, freq: 880.0 },
+          { at: 5.25, freq: 783.99 }, { at: 5.625, freq: 659.25 },
+          // Phrase 5: F5→A5→C6→D6
+          { at: 6.0, freq: 698.46 }, { at: 6.375, freq: 880.0 },
+          { at: 6.75, freq: 1046.5 }, { at: 7.125, freq: 1174.66 },
+          // Phrase 6: E6→D6→C6→B5
+          { at: 7.5, freq: 1318.51 }, { at: 7.875, freq: 1174.66 },
+          { at: 8.25, freq: 1046.5 }, { at: 8.625, freq: 987.77 },
+          // Phrase 7: A5→C6→D6→E6
+          { at: 9.0, freq: 880.0 }, { at: 9.375, freq: 1046.5 },
+          { at: 9.75, freq: 1174.66 }, { at: 10.125, freq: 1318.51 },
+          // Resolution: D6→B5→A5→F5
+          { at: 10.5, freq: 1174.66 }, { at: 10.875, freq: 987.77 },
+          { at: 11.25, freq: 880.0 }, { at: 11.625, freq: 698.46 },
         ],
         melodyPartials: [{ ratio: 4, gain: 0.12, decayScale: 0.35 }, { ratio: 2, gain: 0.08, decayScale: 0.5 }],
-        noiseFreq: 2400,
+        noiseFreq: 3200,
       };
 
-    case '09': // Mid-Autumn Moon
+    case '09': // Mid-Autumn Moon — G major sweeping Guzheng, G6 sweep
       return {
-        label: 'Sep - Mid-Autumn Moon: Guzheng & bamboo windchimes',
-        lowpassHz: 3300,
+        label: 'Sep - Mid-Autumn Moon: soaring Guzheng sweeps & G6 moonrise',
+        lowpassHz: 4000,
         chords: [
           { at: 0.0, freqs: [196.0, 246.94, 293.66, 392.0] },  // G
           { at: 3.0, freqs: [164.81, 196.0, 246.94, 329.63] }, // Em7
@@ -282,19 +443,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 73.42 }, { at: 10.5, freq: 110.0 },
         ],
         melody: [
-          { at: 0.0, freq: 587.33 }, { at: 0.75, freq: 659.25 }, { at: 1.5, freq: 783.99 }, { at: 2.25, freq: 987.77 },
-          { at: 3.0, freq: 1174.66 }, { at: 3.75, freq: 987.77 }, { at: 4.5, freq: 880.0 }, { at: 5.25, freq: 783.99 },
-          { at: 6.0, freq: 659.25 }, { at: 6.75, freq: 783.99 }, { at: 7.5, freq: 880.0 }, { at: 8.25, freq: 987.77 },
-          { at: 9.0, freq: 880.0 }, { at: 9.75, freq: 783.99 }, { at: 10.5, freq: 659.25 }, { at: 11.25, freq: 587.33 },
+          // Phrase 1: G4→G5→D6→G6 — moonrise sweep!
+          { at: 0.0, freq: 392.0 }, { at: 0.375, freq: 783.99 },
+          { at: 0.75, freq: 1174.66 }, { at: 1.125, freq: 1567.98 },
+          // Phrase 2: E6→B5→A5→D6
+          { at: 1.5, freq: 1318.51 }, { at: 1.875, freq: 987.77 },
+          { at: 2.25, freq: 880.0 }, { at: 2.625, freq: 1174.66 },
+          // Phrase 3: B5→G5→E5→A5
+          { at: 3.0, freq: 987.77 }, { at: 3.375, freq: 783.99 },
+          { at: 3.75, freq: 659.25 }, { at: 4.125, freq: 880.0 },
+          // Phrase 4: D6→E6→D6→B5
+          { at: 4.5, freq: 1174.66 }, { at: 4.875, freq: 1318.51 },
+          { at: 5.25, freq: 1174.66 }, { at: 5.625, freq: 987.77 },
+          // Phrase 5: G5→C6→E6→G6 second sweep!
+          { at: 6.0, freq: 783.99 }, { at: 6.375, freq: 1046.5 },
+          { at: 6.75, freq: 1318.51 }, { at: 7.125, freq: 1567.98 },
+          // Phrase 6: F#6→E6→D6→B5
+          { at: 7.5, freq: 1479.98 }, { at: 7.875, freq: 1318.51 },
+          { at: 8.25, freq: 1174.66 }, { at: 8.625, freq: 987.77 },
+          // Phrase 7: A5→D6→E6→G6 final climax!
+          { at: 9.0, freq: 880.0 }, { at: 9.375, freq: 1174.66 },
+          { at: 9.75, freq: 1318.51 }, { at: 10.125, freq: 1567.98 },
+          // Resolution: F#6→D6→B5→D5
+          { at: 10.5, freq: 1479.98 }, { at: 10.875, freq: 1174.66 },
+          { at: 11.25, freq: 987.77 }, { at: 11.625, freq: 587.33 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.16, decayScale: 0.5 }, { ratio: 3, gain: 0.08, decayScale: 0.35 }],
-        noiseFreq: 3400,
+        noiseFreq: 4000,
       };
 
-    case '10': // Halloween Twilight
+    case '10': // Halloween Twilight — staccato chromatic tension, F6 scare peak
       return {
-        label: 'Oct - Halloween Twilight: playful spooky pizzicato & dancing music box',
-        lowpassHz: 3500,
+        label: 'Oct - Halloween Twilight: staccato chromatic scares & F6 fright peak',
+        lowpassHz: 4500,
         chords: [
           { at: 0.0, freqs: [146.83, 220.0, 293.66, 349.23] }, // Dm
           { at: 3.0, freqs: [196.0, 233.08, 293.66, 392.0] },  // Gm
@@ -307,21 +488,41 @@ function getMonthComposition(m) {
           { at: 6.0, freq: 116.54 }, { at: 7.5, freq: 87.31 },
           { at: 9.0, freq: 110.0 }, { at: 10.5, freq: 82.41 },
         ],
+        melodyDecay: 0.18,
         melody: [
-          { at: 0.0, freq: 587.33 }, { at: 0.75, freq: 698.46 }, { at: 1.5, freq: 880.0 }, { at: 2.25, freq: 932.33 },
-          { at: 3.0, freq: 783.99 }, { at: 3.75, freq: 932.33 }, { at: 4.5, freq: 1174.66 }, { at: 5.25, freq: 1108.73 },
-          { at: 6.0, freq: 1174.66 }, { at: 6.75, freq: 932.33 }, { at: 7.5, freq: 783.99 }, { at: 8.25, freq: 698.46 },
-          { at: 9.0, freq: 659.25 }, { at: 9.75, freq: 783.99 }, { at: 10.5, freq: 554.37 }, { at: 11.25, freq: 587.33 },
+          // Phrase 1: D5→A5→D6→A5 — spooky staccato strikes
+          { at: 0.0, freq: 587.33 }, { at: 0.375, freq: 880.0 },
+          { at: 0.75, freq: 1174.66 }, { at: 1.125, freq: 880.0 },
+          // Phrase 2: G5→F5→G5→C6
+          { at: 1.5, freq: 783.99 }, { at: 1.875, freq: 698.46 },
+          { at: 2.25, freq: 783.99 }, { at: 2.625, freq: 1046.5 },
+          // Phrase 3: Bb5→D6→C#6!→C6 (tritone tension)
+          { at: 3.0, freq: 932.33 }, { at: 3.375, freq: 1174.66 },
+          { at: 3.75, freq: 1108.73 }, { at: 4.125, freq: 1046.5 },
+          // Phrase 4: A5→D6→Eb6→C6
+          { at: 4.5, freq: 880.0 }, { at: 4.875, freq: 1174.66 },
+          { at: 5.25, freq: 1244.51 }, { at: 5.625, freq: 1046.5 },
+          // Phrase 5: D6→A5→G5→F5
+          { at: 6.0, freq: 1174.66 }, { at: 6.375, freq: 880.0 },
+          { at: 6.75, freq: 783.99 }, { at: 7.125, freq: 698.46 },
+          // Phrase 6: A5→Eb6→D6→F6 peak!
+          { at: 7.5, freq: 880.0 }, { at: 7.875, freq: 1244.51 },
+          { at: 8.25, freq: 1174.66 }, { at: 8.625, freq: 1396.91 },
+          // Phrase 7: D6→C6→Bb5→A5
+          { at: 9.0, freq: 1174.66 }, { at: 9.375, freq: 1046.5 },
+          { at: 9.75, freq: 932.33 }, { at: 10.125, freq: 880.0 },
+          // Resolution: F5→A5→D5→D4
+          { at: 10.5, freq: 698.46 }, { at: 10.875, freq: 880.0 },
+          { at: 11.25, freq: 587.33 }, { at: 11.625, freq: 293.66 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.15, decayScale: 0.4 }, { ratio: 3, gain: 0.08, decayScale: 0.25 }],
-        melodyDecay: 0.28,
-        noiseFreq: 2600,
+        noiseFreq: 3000,
       };
 
-    case '11': // Warm Hearth & Gratitude
+    case '11': // Warm Hearth — jazz swing, G6 climax double peak
       return {
-        label: 'Nov - Warm Hearth & Gratitude: hearthside jazz piano & brush swing',
-        lowpassHz: 3200,
+        label: 'Nov - Warm Hearth & Gratitude: jazz swing piano & G6 double climax',
+        lowpassHz: 4000,
         chords: [
           { at: 0.0, freqs: [130.81, 196.0, 246.94, 293.66, 329.63] }, // Cmaj9
           { at: 3.0, freqs: [146.83, 220.0, 261.63, 311.13, 349.23] }, // Dm9
@@ -335,19 +536,39 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 98.0 }, { at: 10.5, freq: 146.83 },
         ],
         melody: [
-          { at: 0.0, freq: 523.25 }, { at: 0.75, freq: 659.25 }, { at: 1.5, freq: 783.99 }, { at: 2.25, freq: 987.77 },
-          { at: 3.0, freq: 1174.66 }, { at: 3.75, freq: 880.0 }, { at: 4.5, freq: 1046.5 }, { at: 5.25, freq: 1318.51 },
-          { at: 6.0, freq: 987.77 }, { at: 6.75, freq: 783.99 }, { at: 7.5, freq: 659.25 }, { at: 8.25, freq: 1174.66 },
-          { at: 9.0, freq: 987.77 }, { at: 9.75, freq: 880.0 }, { at: 10.5, freq: 783.99 }, { at: 11.25, freq: 523.25 },
+          // Phrase 1: C5→G5→B5→E6!
+          { at: 0.0, freq: 523.25 }, { at: 0.375, freq: 783.99 },
+          { at: 0.75, freq: 987.77 }, { at: 1.125, freq: 1318.51 },
+          // Phrase 2: D6→B5→A5→C6
+          { at: 1.5, freq: 1174.66 }, { at: 1.875, freq: 987.77 },
+          { at: 2.25, freq: 880.0 }, { at: 2.625, freq: 1046.5 },
+          // Phrase 3: D6→B5→A5→G5
+          { at: 3.0, freq: 1174.66 }, { at: 3.375, freq: 987.77 },
+          { at: 3.75, freq: 880.0 }, { at: 4.125, freq: 783.99 },
+          // Phrase 4: E5→B5→E6→G6 peak!
+          { at: 4.5, freq: 659.25 }, { at: 4.875, freq: 987.77 },
+          { at: 5.25, freq: 1318.51 }, { at: 5.625, freq: 1567.98 },
+          // Phrase 5: E6→D6→B5→G5
+          { at: 6.0, freq: 1318.51 }, { at: 6.375, freq: 1174.66 },
+          { at: 6.75, freq: 987.77 }, { at: 7.125, freq: 783.99 },
+          // Phrase 6: A5→C6→D6→E6
+          { at: 7.5, freq: 880.0 }, { at: 7.875, freq: 1046.5 },
+          { at: 8.25, freq: 1174.66 }, { at: 8.625, freq: 1318.51 },
+          // Phrase 7: G6 second peak!→E6→D6→B5
+          { at: 9.0, freq: 1567.98 }, { at: 9.375, freq: 1318.51 },
+          { at: 9.75, freq: 1174.66 }, { at: 10.125, freq: 987.77 },
+          // Resolution: A5→G5→E5→C5
+          { at: 10.5, freq: 880.0 }, { at: 10.875, freq: 783.99 },
+          { at: 11.25, freq: 659.25 }, { at: 11.625, freq: 523.25 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.12, decayScale: 0.5 }, { ratio: 3, gain: 0.04, decayScale: 0.3 }],
-        noiseFreq: 2200,
+        noiseFreq: 2800,
       };
 
-    case '12': // Christmas & Winter Joy
+    case '12': // Christmas & Winter Joy — joyful C major, triple G6 triumph
       return {
-        label: 'Dec - Christmas & Winter Joy: sleigh bells & holiday music box',
-        lowpassHz: 3500,
+        label: 'Dec - Christmas & Winter Joy: triumphant sleigh bells & G6 triple peak',
+        lowpassHz: 5000,
         chords: [
           { at: 0.0, freqs: [130.81, 196.0, 261.63, 329.63] }, // C
           { at: 3.0, freqs: [174.61, 220.0, 261.63, 329.63] }, // Fmaj7
@@ -361,14 +582,35 @@ function getMonthComposition(m) {
           { at: 9.0, freq: 98.0 }, { at: 10.5, freq: 146.83 },
         ],
         sleighBells: true,
+        noiseInterval: 0.25,
         melody: [
-          { at: 0.0, freq: 659.25 }, { at: 0.75, freq: 783.99 }, { at: 1.5, freq: 1046.5 }, { at: 2.25, freq: 987.77 },
-          { at: 3.0, freq: 880.0 }, { at: 3.75, freq: 698.46 }, { at: 4.5, freq: 587.33 }, { at: 5.25, freq: 698.46 },
-          { at: 6.0, freq: 783.99 }, { at: 6.75, freq: 987.77 }, { at: 7.5, freq: 1174.66 }, { at: 8.25, freq: 1046.5 },
-          { at: 9.0, freq: 987.77 }, { at: 9.75, freq: 880.0 }, { at: 10.5, freq: 783.99 }, { at: 11.25, freq: 659.25 },
+          // Phrase 1: C5→G5→C6→E6! — triumphant launch
+          { at: 0.0, freq: 523.25 }, { at: 0.375, freq: 783.99 },
+          { at: 0.75, freq: 1046.5 }, { at: 1.125, freq: 1318.51 },
+          // Phrase 2: D6→B5→C6→A5
+          { at: 1.5, freq: 1174.66 }, { at: 1.875, freq: 987.77 },
+          { at: 2.25, freq: 1046.5 }, { at: 2.625, freq: 880.0 },
+          // Phrase 3: G5→F5→A5→C6
+          { at: 3.0, freq: 783.99 }, { at: 3.375, freq: 698.46 },
+          { at: 3.75, freq: 880.0 }, { at: 4.125, freq: 1046.5 },
+          // Phrase 4: D6→E6→G6 first peak!→E6
+          { at: 4.5, freq: 1174.66 }, { at: 4.875, freq: 1318.51 },
+          { at: 5.25, freq: 1567.98 }, { at: 5.625, freq: 1318.51 },
+          // Phrase 5: D6→E6→D6→B5
+          { at: 6.0, freq: 1174.66 }, { at: 6.375, freq: 1318.51 },
+          { at: 6.75, freq: 1174.66 }, { at: 7.125, freq: 987.77 },
+          // Phrase 6: C6→E6→G6 second peak!→E6
+          { at: 7.5, freq: 1046.5 }, { at: 7.875, freq: 1318.51 },
+          { at: 8.25, freq: 1567.98 }, { at: 8.625, freq: 1318.51 },
+          // Phrase 7: D6→E6→G6 third peak!→E6
+          { at: 9.0, freq: 1174.66 }, { at: 9.375, freq: 1318.51 },
+          { at: 9.75, freq: 1567.98 }, { at: 10.125, freq: 1318.51 },
+          // Resolution: D6→B5→A5→C5
+          { at: 10.5, freq: 1174.66 }, { at: 10.875, freq: 987.77 },
+          { at: 11.25, freq: 880.0 }, { at: 11.625, freq: 523.25 },
         ],
         melodyPartials: [{ ratio: 2, gain: 0.18, decayScale: 0.6 }, { ratio: 4, gain: 0.08, decayScale: 0.35 }],
-        noiseFreq: 4800,
+        noiseFreq: 6000,
       };
   }
 }
@@ -388,89 +630,104 @@ function createMonthlyStoryVoice(month) {
   /** @type {NoiseHit[]} */
   const noise = [];
 
-  // 1. Chords
+  // 1. Chords — louder, shorter decay for rhythmic punch
   for (const chord of comp.chords) {
     for (const freq of chord.freqs) {
       notes.push({
         freq,
         at: chord.at,
-        gain: 0.28,
-        decaySec: 2.7,
-        attackSec: 0.03,
+        gain: 0.34,        // ↑ from 0.28 — more presence
+        decaySec: 1.4,     // ↓ from 2.7 — snappier, rhythmic
+        attackSec: 0.02,
         partials: [
-          { ratio: 2, gain: 0.15, decayScale: 0.6 },
-          { ratio: 3, gain: 0.05, decayScale: 0.4 },
+          { ratio: 2, gain: 0.18, decayScale: 0.6 },
+          { ratio: 3, gain: 0.07, decayScale: 0.4 },
         ],
       });
     }
   }
 
-  // 2. Bass
+  // 2. Bass — louder, tighter
   for (const b of comp.bass) {
     notes.push({
       freq: b.freq,
       at: b.at,
-      gain: 0.48,
-      decaySec: 2.4,
-      attackSec: 0.02,
-      partials: [{ ratio: 2, gain: 0.08, decayScale: 0.5 }],
+      gain: 0.56,        // ↑ from 0.48
+      decaySec: 1.2,     // ↓ from 2.4 — punchier
+      attackSec: 0.015,
+      partials: [{ ratio: 2, gain: 0.10, decayScale: 0.5 }],
     });
   }
 
-  // Optional gong (CNY)
+  // Optional gong (CNY) — bigger impact
   if (comp.gong) {
     for (const at of comp.gong) {
       notes.push({
         freq: 130.81,
         at,
-        gain: 0.35,
+        gain: 0.45,        // ↑ from 0.35
         decaySec: 1.8,
         attackSec: 0.005,
         partials: [
-          { ratio: 1.41, gain: 0.22, decayScale: 0.6 },
-          { ratio: 2.15, gain: 0.14, decayScale: 0.4 },
-          { ratio: 3.52, gain: 0.08, decayScale: 0.3 },
+          { ratio: 1.41, gain: 0.28, decayScale: 0.6 },
+          { ratio: 2.15, gain: 0.18, decayScale: 0.4 },
+          { ratio: 3.52, gain: 0.10, decayScale: 0.3 },
         ],
       });
     }
   }
 
-  // 3. Lead melody
+  // 3. Lead melody — louder, snappy staccato, prominent
   for (const item of comp.melody) {
     notes.push({
       freq: item.freq,
       at: item.at,
-      gain: 0.45,
-      decaySec: comp.melodyDecay ?? 0.46,
-      attackSec: 0.005,
+      gain: 0.62,        // ↑ from 0.45
+      decaySec: comp.melodyDecay ?? 0.28,  // ↓ from 0.46 — staccato punch
+      attackSec: 0.003,
       partials: comp.melodyPartials,
     });
   }
 
-  // 4. Rhythm & Noise
-  const noiseInterval = comp.noiseInterval ?? 0.375;
-  for (let t = 0; t < 12.0; t += noiseInterval) {
-    noise.push({ freq: comp.noiseFreq ?? 2400, at: t, gain: comp.sleighBells ? 0.06 : 0.04, decaySec: 0.02 });
+  // 4. Hi-hat / noise — double-time density, on-beats accented
+  const hihatInterval = comp.noiseInterval ?? 0.1875;  // ↓ from 0.375 — double time
+  const hihatBase = comp.sleighBells ? 0.09 : 0.08;   // ↑ from 0.04/0.06
+  for (let t = 0; t < 12.0; t += hihatInterval) {
+    const onBeat = Math.round(t / 0.375) % 2 === 0;
+    noise.push({
+      freq: comp.noiseFreq ?? 3200,
+      at: t,
+      gain: onBeat ? hihatBase : hihatBase * 0.65,
+      decaySec: 0.018,
+    });
   }
 
-  // Gentle kick hits
-  for (let t = 0; t < 12.0; t += 1.5) {
-    notes.push({ freq: 85, at: t, gain: 0.14, decaySec: 0.08, attackSec: 0.005, dropSemis: -6 });
+  // 5. Kick drum — downbeats strong, upbeats lighter, deep thump
+  for (let t = 0; t < 12.0; t += 0.75) {
+    const downbeat = Math.round(t / 1.5) % 2 === 0;
+    notes.push({
+      freq: 82,
+      at: t,
+      gain: downbeat ? 0.28 : 0.18,  // ↑ from flat 0.14 — dynamic kicks
+      decaySec: 0.10,
+      attackSec: 0.004,
+      dropSemis: -8,          // ↑ from -6 — deeper thump
+    });
   }
 
-  // Optional bamboo drums (Dragon Boat)
+  // Optional bamboo drums (Dragon Boat) — double-time, punchy
   if (comp.bambooDrums) {
-    for (let t = 0; t < 12.0; t += 0.75) {
-      noise.push({ freq: 850, at: t, gain: 0.12, decaySec: 0.03 });
+    for (let t = 0; t < 12.0; t += 0.375) {  // ↓ from 0.75 — double time
+      noise.push({ freq: 850, at: t, gain: 0.18, decaySec: 0.025 });  // ↑ from 0.12
     }
   }
 
   return {
-    label: `Story Soundtrack (${comp.label}) — non-copyrighted procedural lo-fi for Pip stories.`,
+    label: `Story Soundtrack (${comp.label}) — non-copyrighted procedural for Pip stories.`,
     durationSec: 12.0,
-    peak: 0.65,
-    releaseSec: 0.08,
-    lowpassHz: comp.lowpassHz ?? 3400,
+    peak: 0.72,          // ↑ from 0.65 — louder overall
+    releaseSec: 0.06,
+    lowpassHz: comp.lowpassHz ?? 4200,  // brighter default
     lowpassPoles: 2,
     noise,
     notes,

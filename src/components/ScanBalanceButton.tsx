@@ -2,7 +2,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text } from 'react-native';
-import { getLLM, llmErrorMessage } from '../llm';
+import { submitSnapshotScan } from '../billing/scanProxy';
+import { useEntitlement } from '../billing/entitlement';
 import { notify } from '../lib/platformAlert';
 import { useAccent } from '../state/accent';
 import { colors, uiFont } from '../theme';
@@ -11,26 +12,35 @@ import { Icon } from './Icon';
 /** Snap or pick a screenshot of a balance; the vision model reads the amount and reports it back. */
 export function ScanBalanceButton({ onResult }: { onResult: (amount: number) => void }) {
   const theme = useAccent();
+  const { isPro } = useEntitlement();
   const [busy, setBusy] = useState(false);
 
   const extract = async (res: ImagePicker.ImagePickerResult) => {
     if (res.canceled || !res.assets?.length) return;
     const a = res.assets[0];
-    if (!a.base64) { notify('Hmm', "That image couldn't be read."); return; }
+    if (!a.uri && !a.base64) { notify('Hmm', "That image couldn't be read."); return; }
     setBusy(true);
     try {
-      const llm = await getLLM();
-      if (!llm.can('extractBalance')) {
-        notify('Scanning unavailable', "Balance scanning isn't available right now. You can type the amount in instead.");
+      const snapRes = await submitSnapshotScan({
+        uri: a.uri,
+        imageBase64: a.base64 || undefined,
+        mimeType: a.mimeType ?? 'image/jpeg',
+      }, isPro ? 'pro' : 'free');
+      if (snapRes.quotaBlocked) {
+        notify('Scan limit reached', 'You have reached your free scan limit.');
         return;
       }
-      const amount = await llm.extractBalance({
-        parts: [{ kind: 'binary', base64: a.base64, mimeType: a.mimeType ?? 'image/jpeg' }],
-      });
-      if (amount == null) notify('Hmm', "I couldn't read a clear amount. Try a clearer screenshot or type it in.");
-      else onResult(amount);
-    } catch (e) {
-      notify('Scan failed', llmErrorMessage(e));
+      if (!snapRes.ok || !snapRes.snapshot) {
+        notify('Hmm', "I couldn't read a clear amount. Try a clearer screenshot or type it in.");
+        return;
+      }
+      if (snapRes.snapshot.kind === 'balance' && snapRes.snapshot.amount != null) {
+        onResult(snapRes.snapshot.amount);
+      } else {
+        notify('Hmm', "I couldn't read a clear amount. Try a clearer screenshot or type it in.");
+      }
+    } catch (e: any) {
+      notify('Scan failed', e?.message || 'Failed to scan balance');
     } finally {
       setBusy(false);
     }
@@ -39,12 +49,12 @@ export function ScanBalanceButton({ onResult }: { onResult: (amount: number) => 
   const pickGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { notify('Permission needed', 'Allow photo access to pick a screenshot.'); return; }
-    await extract(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], base64: true, quality: 0.7 }));
+    await extract(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 }));
   };
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) { notify('Permission needed', 'Allow camera access to snap a balance.'); return; }
-    await extract(await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 }));
+    await extract(await ImagePicker.launchCameraAsync({ quality: 0.85 }));
   };
 
   const start = () => {

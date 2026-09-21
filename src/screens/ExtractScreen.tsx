@@ -19,10 +19,17 @@ import { tap } from '../lib/haptics';
 import { useModalHandoff } from '../lib/modalHandoff';
 import { suggestForMerchant } from '../lib/recommend';
 import type { ExtractedTxn } from '../lib/types';
-import { getLLM, llmErrorMessage } from '../llm';
+import { llmErrorMessage } from '../llm';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
+import { submitScan } from '../billing/scanProxy';
+import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
+import type { OcrOutcome } from '../lib/receiptOcr';
+import { PipUpsellCard } from '../components/PipUpsellCard';
+import { fireOnce, getMomentLine, type UpsellMoment } from '../billing/moments';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useReducedMotion } from '../state/useReducedMotion';
@@ -41,13 +48,17 @@ const FOUND_HOLD_MS = motionDuration.enter;
 
 export function ExtractScreen({
   image,
+  prefetchedOcr,
   cachedItems,
   linkId: initialLinkId = null,
   onBack,
   onDone,
   onItemsExtracted,
+  embedded,
 }: {
   image: PickedImage;
+  /** OCR started on ScanKind — skip a second ML Kit pass. */
+  prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
   cachedItems?: ExtractedTxn[];
   linkId?: string | null;
   onBack: () => void;
@@ -58,12 +69,26 @@ export function ExtractScreen({
   /** Notifies the parent as soon as transactions are extracted or loaded, so background
    *  category guessing can begin while the user is still reviewing the rows. */
   onItemsExtracted?: (items: ExtractedTxn[]) => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { isZh, tCat } = useLanguage();
-  const { memory, catById, accounts, entryCategories } = useAppData();
+  const { isZh, t, tCat } = useLanguage();
+  const { memory, catById, accounts } = useAppData();
+  const {
+    tier,
+    isPro,
+    canScan,
+    hasByok,
+    scansRemaining,
+    scansLimit,
+    dailyScansRemaining,
+    dailyScansLimit,
+    refreshAllowance,
+  } = useEntitlement();
+  const { openPaywall } = usePaywall();
+  const [proCardMoment, setProCardMoment] = useState<UpsellMoment | null>(null);
   const [phase, setPhase] = useState<Phase>(cachedItems ? 'result' : 'scanning');
   const [items, setItems] = useState<ExtractedTxn[]>(cachedItems ?? []);
   const [error, setError] = useState('');
@@ -136,21 +161,53 @@ export function ExtractScreen({
       onItemsExtracted?.(cachedItems);
       return;
     }
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      setError(t('scansDailyNone') || 'Scan limit reached');
+      setPhase('error');
+      return;
+    }
     let alive = true;
     const start = Date.now();
     (async () => {
       try {
-        const llm = await getLLM();
-        const rows = await llm.extract({
-          imageBase64: image.base64,
-          mimeType: image.mime,
-          categories: entryCategories.map((c) => ({ id: c.id, label: c.label, kind: c.kind })),
-        });
+        let rows: ExtractedTxn[] = [];
+        const proxyResult = await submitScan(
+          {
+            uri: image.uri,
+            imageBase64: image.base64,
+            mimeType: image.mime,
+            prefetchedOcr,
+          },
+          tier
+        );
+        if (proxyResult.quotaBlocked) {
+          if (!alive) return;
+          openPaywall('scan_quota', 'add');
+          setError(t('scansDailyNone') || 'Scan limit reached');
+          setPhase('error');
+          return;
+        }
+        if (!proxyResult.ok || !proxyResult.items || proxyResult.items.length === 0) {
+          if (!alive) return;
+          setError(proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image."));
+          setPhase('error');
+          return;
+        }
+        rows = proxyResult.items;
         if (!alive) return;
+        void refreshAllowance();
         setElapsedMs(Date.now() - start);
         setItems(rows);
         onItemsExtracted?.(rows);
         setPhase('result');
+        if (!isPro && rows.length > 0) {
+          void (async () => {
+            if (await fireOnce('first_scan')) {
+              if (alive) setProCardMoment('first_scan');
+            }
+          })();
+        }
       } catch (e) {
         if (!alive) return;
         setError(llmErrorMessage(e));
@@ -160,7 +217,7 @@ export function ExtractScreen({
     return () => {
       alive = false;
     };
-  }, [image, cachedItems, onItemsExtracted, entryCategories]);
+  }, [image, cachedItems, onItemsExtracted, canScan, tier, openPaywall, refreshAllowance, t]);
 
   useEffect(() => {
     if (phase !== 'found') return;
@@ -192,19 +249,39 @@ export function ExtractScreen({
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 4, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: embedded ? 4 : insets.top + 4, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <TopBar
-          title={
-            phase === 'scanning'
-              ? (isZh ? '正在识别…' : 'Reading…')
-              : phase === 'error'
-              ? 'Hmm'
-              : (isZh ? '已找到' : 'Found it')
-          }
-          onBack={onBack}
-        />
+        {!embedded && (
+          <TopBar
+            title={
+              phase === 'scanning'
+                ? (isZh ? '正在识别…' : 'Reading…')
+                : phase === 'error'
+                ? 'Hmm'
+                : (isZh ? '已找到' : 'Found it')
+            }
+            onBack={onBack}
+          />
+        )}
+
+        {!embedded && !isPro && (
+          <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
+            {hasByok ? (
+              <Text style={{ color: colorTheme.ink2 }}>{t('askPipUsingKey')}</Text>
+            ) : (
+              <ScanQuotaBadge
+                quota={{
+                  monthRemaining: scansRemaining,
+                  monthTotal: scansLimit,
+                  dayRemaining: dailyScansRemaining,
+                  dayTotal: dailyScansLimit,
+                }}
+                t={t}
+              />
+            )}
+          </View>
+        )}
 
         <View style={{ paddingHorizontal: 18, paddingTop: 6 }}>
           {phase === 'scanning' && (() => {
@@ -269,6 +346,15 @@ export function ExtractScreen({
             </PipSays>
           )}
         </View>
+
+        {proCardMoment === 'first_scan' && (
+          <PipUpsellCard
+            line={getMomentLine('first_scan', isZh)}
+            t={t}
+            onDismiss={() => setProCardMoment(null)}
+            onPress={() => openPaywall('scan_quota', 'add')}
+          />
+        )}
 
         {/* picked image preview with scanline, tappable to view full-screen */}
         <Pressable onPress={() => setViewingPhoto(true)} style={{ paddingHorizontal: 18, paddingTop: 18 }}>

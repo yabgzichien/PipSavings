@@ -1,0 +1,13 @@
+name = "pip-ai-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# REVENUECAT_SECRET_KEY is a wrangler secret. Never put sk_ keys in this file.
+[vars]
+PRO_ENTITLEMENT_ID = "pip_pro"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pip-quota-db"
+database_id = "91d3c17c-e87c-4e41-aab0-1be5e0e79c06"
+migrations_dir = "migrations"

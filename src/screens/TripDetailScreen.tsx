@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EditTransactionModal } from '../components/EditTransactionModal';
@@ -10,6 +10,7 @@ import { TripIconPickerSheet } from '../components/TripIconPickerSheet';
 import { TxnRow } from './AllTransactionsScreen';
 import { Amount, Body, Card, Caption, CatBadge, Eyebrow, Label, PrimaryButton, Title, TopBar } from '../components/ui';
 import { fmtMoney } from '../lib/format';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { confirmAction } from '../lib/platformAlert';
 import { outstanding } from '../lib/split';
 import { computeTripTotals, expensesForTrip, reassignedFromOtherTrips } from '../lib/trips';
@@ -214,20 +215,27 @@ export function TripDetailScreen({
   tripId,
   onBack,
   onAddExpense,
+  embedded,
+  initialCategoryId,
+  onSheetOpenChange,
 }: {
   tripId: string;
   onBack: () => void;
   /** Opens the normal add flow with this trip prefilled and visible. */
   onAddExpense: (tripId: string, tripName: string) => void;
+  embedded?: boolean;
+  initialCategoryId?: string;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { t, tCat, isZh, formatShortDate } = useLanguage();
+  const { t, tCat, isZh, formatShortDate, formatFullDate } = useLanguage();
   const { trips, transactions, catById, splits, shares, renameTrip, setTripArchived, setTripIcon, deleteTrip } = useAppData();
   const dc = useDisplayCurrency();
 
   const [editing, setEditing] = useState<Transaction | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -237,7 +245,11 @@ export function TripDetailScreen({
   const trip = trips.find((tr) => tr.id === tripId);
 
   /** Set by tapping a category in the breakdown: the list below narrows to that category. */
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(initialCategoryId ?? null);
+
+  useEffect(() => {
+    setCategoryFilter(initialCategoryId ?? null);
+  }, [initialCategoryId]);
 
   const tripTxns = useMemo(() => expensesForTrip(transactions, tripId), [transactions, tripId]);
   const totals = useMemo(() => computeTripTotals(transactions, tripId, dc.convertTxn), [transactions, tripId, dc]);
@@ -265,9 +277,11 @@ export function TripDetailScreen({
   if (!trip) {
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar title={t('tripsTitle')} onBack={onBack} />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar title={t('tripsTitle')} onBack={onBack} />
+          </View>
+        )}
         <View style={styles.center}>
           <Pip size={64} expr="curious" />
           <Body color={colorTheme.ink2} style={{ marginTop: spacing.md }}>
@@ -301,34 +315,44 @@ export function TripDetailScreen({
     });
   };
 
+  const tripDateText = trip.startDate && trip.endDate
+    ? trip.startDate === trip.endDate
+      ? formatFullDate(trip.startDate)
+      : `${formatFullDate(trip.startDate)} – ${formatFullDate(trip.endDate)}`
+    : trip.startDate || trip.endDate
+      ? formatFullDate(trip.startDate ?? trip.endDate)
+      : (isZh ? '未设置日期' : 'Dates not set');
+
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={trip.name}
-          onBack={onBack}
-          // Rename, archive and delete are all occasional. Behind one trigger they stop competing
-          // with the two things this screen is for: what the trip cost, and adding to it.
-          right={
-            <OverflowMenu
-              title={trip.name}
-              accessibilityLabel={`${isZh ? '更多操作' : 'More actions'}: ${trip.name}`}
-              size={17}
-              actions={[
-                { label: isZh ? '重命名行程' : 'Rename trip', icon: 'pencil', onPress: openRename },
-                {
-                  label: trip.archived ? t('unarchiveTrip') : t('archiveTrip'),
-                  icon: 'folder',
-                  onPress: () => { void setTripArchived(trip.id, !trip.archived); },
-                },
-                // Stated, not asked: `deleteTripTitle` is the confirmation's question and reads
-                // wrong as a menu item the user has not chosen yet.
-                { label: isZh ? '移除行程' : 'Remove trip', icon: 'trash', destructive: true, onPress: confirmDelete },
-              ]}
-            />
-          }
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar
+            title={trip.name}
+            onBack={onBack}
+            // Rename, archive and delete are all occasional. Behind one trigger they stop competing
+            // with the two things this screen is for: what the trip cost, and adding to it.
+            right={
+              <OverflowMenu
+                title={trip.name}
+                accessibilityLabel={`${isZh ? '更多操作' : 'More actions'}: ${trip.name}`}
+                size={17}
+                actions={[
+                  { label: isZh ? '重命名行程' : 'Rename trip', icon: 'pencil', onPress: openRename },
+                  {
+                    label: trip.archived ? t('unarchiveTrip') : t('archiveTrip'),
+                    icon: 'folder',
+                    onPress: () => { void setTripArchived(trip.id, !trip.archived); },
+                  },
+                  // Stated, not asked: `deleteTripTitle` is the confirmation's question and reads
+                  // wrong as a menu item the user has not chosen yet.
+                  { label: isZh ? '移除行程' : 'Remove trip', icon: 'trash', destructive: true, onPress: confirmDelete },
+                ]}
+              />
+            }
+          />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.xl }} showsVerticalScrollIndicator={false}>
         {renaming && (
@@ -364,6 +388,10 @@ export function TripDetailScreen({
           >
             <TripBadge trip={trip} size={44} rad={14} muted={trip.archived} />
           </Pressable>
+          <View style={styles.tripDates}>
+            <Icon name="calendar" size={14} color={colorTheme.ink2} />
+            <Caption color={colorTheme.ink2}>{tripDateText}</Caption>
+          </View>
           <Eyebrow>{t('tripRecordedExpenses')}</Eyebrow>
           <Amount value={totals.recordedExpenses} currency={dc.code} size={32} weight={700} />
           <Caption color={colorTheme.ink2} style={{ marginTop: spacing.xs }}>
@@ -493,6 +521,7 @@ const styles = StyleSheet.create({
 
   heroIcon: { alignSelf: 'flex-start', marginBottom: spacing.sm },
   hero: { padding: spacing.base, marginBottom: spacing.md, alignItems: 'flex-start' },
+  tripDates: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
 
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, borderRadius: radius.sm },

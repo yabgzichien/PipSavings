@@ -44,7 +44,8 @@ describe('restoreFromBackupPayload', () => {
     const serialized = '{"version":1,"preset":"classic"}';
     await restoreFromBackupPayload(
       { preferences: { settings: { widgetMascotConfig: serialized } } },
-      new Map()
+      new Map(),
+      true
     );
 
     const insert = db.statements.find(
@@ -53,6 +54,24 @@ describe('restoreFromBackupPayload', () => {
         statement.args[0] === 'widget_mascot_config'
     );
     expect(insert?.args[1]).toBe(serialized);
+  });
+
+  it('degrades the widget mascot config to default when not Pro', async () => {
+    const db = install(fakeDb());
+    const serialized = '{"version":2,"preset":"custom","head":"goggles"}';
+    await restoreFromBackupPayload(
+      { preferences: { settings: { widgetMascotConfig: serialized } } },
+      new Map(),
+      false
+    );
+
+    const insert = db.statements.find(
+      (statement) =>
+        statement.sql.includes('INSERT INTO app_meta') &&
+        statement.args[0] === 'widget_mascot_config'
+    );
+    expect(insert?.args[1]).not.toBe(serialized);
+    expect(insert?.args[1]).toContain('"head":"none"');
   });
 
   it('wipes every user table before inserting anything', async () => {

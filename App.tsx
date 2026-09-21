@@ -12,10 +12,12 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomNav, type NavTab } from './src/components/BottomNav';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Pip } from './src/components/Pip';
@@ -26,6 +28,7 @@ import { BreakdownScreen } from './src/screens/BreakdownScreen';
 import { CategoriesScreen } from './src/screens/CategoriesScreen';
 import { BudgetScreen } from './src/screens/BudgetScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { ChatModeHome, type ChatModeHomeHandle } from './src/screens/ChatModeHome';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { NetWorthScreen } from './src/screens/NetWorthScreen';
 import { NetWorthHistoryScreen } from './src/screens/NetWorthHistoryScreen';
@@ -44,6 +47,8 @@ import { TripsScreen } from './src/screens/TripsScreen';
 import { TripDetailScreen } from './src/screens/TripDetailScreen';
 import { GlossaryModal } from './src/components/InfoButton';
 import { AppAlertModal } from './src/components/AppAlertModal';
+import { AskPipDiscloseSheet, type AskPipDiscloseKind } from './src/components/AskPipDiscloseSheet';
+import { AskPipKeySheet } from './src/components/AskPipKeySheet';
 import { TourSpotlight, type TourStepInfo } from './src/components/TourSpotlight';
 import { AccentProvider, useAccent } from './src/state/accent';
 import { AlertHostProvider } from './src/state/alertHost';
@@ -51,6 +56,10 @@ import { ColorSchemeProvider, useColorSchemeMode, useThemeColors } from './src/s
 import { GlossaryProvider, useGlossary } from './src/state/glossary';
 import { LanguageProvider, useLanguage } from './src/i18n';
 import { AppDataProvider, useAppData } from './src/state/store';
+import { EntitlementProvider, useEntitlement } from './src/billing/entitlement';
+import type { GateTrigger } from './src/billing/gates';
+import { PaywallProvider } from './src/billing/paywallContext';
+import { PaywallScreen } from './src/screens/PaywallScreen';
 import { useBackHandler, useExitConfirm } from './src/state/useBackHandler';
 import { useNow } from './src/state/useNow';
 import { useReminderSync } from './src/state/useReminderSync';
@@ -59,7 +68,27 @@ import { syncAllWidgets } from './src/widget/syncWidgets';
 import type { TxnType } from './src/lib/types';
 import { backTargetFor, type Screen } from './src/lib/screenNav';
 import { EXPLORE_TASKS, type ExploreTaskId } from './src/lib/tasks';
+import { featuredTripForDate } from './src/lib/trips';
+import { isHolding } from './src/lib/prices';
+import { pickNeedsYou } from './src/lib/askPip/needsYou';
+import { HOME_MODE_KEY, parseHomeMode, type HomeMode } from './src/lib/askPip/homeMode';
+import { defaultAskPipKeyStore } from './src/lib/askPip/keyStore';
+import {
+  ASK_PIP_DISCLOSED_PHOTO,
+  ASK_PIP_DISCLOSED_SEND,
+  isAskPipDisclosed,
+  markAskPipDisclosed,
+} from './src/lib/askPip/disclose';
+import { ASK_PIP_VIEWS, type AskPipViewId } from './src/lib/askPip/catalog';
+import type { AskPipWorld } from './src/lib/askPip/resolve';
+import type { AskPipFrame } from './src/lib/askPip/session';
+import { runAskPipModel } from './src/llm/askPipClient';
+import { LLMError } from './src/llm/types';
+import { getMeta, setMeta } from './src/db/metaRepo';
+import { notify } from './src/lib/platformAlert';
 import { platformShadow, uiFont } from './src/theme';
+import type { WidgetMascotConfig } from './src/widget/mascot/config';
+import { seedNetWorthDemo } from './src/lib/seedNetWorthDemo';
 
 /**
  * Web-only: a global :focus-visible outline so keyboard users get a visible focus indicator
@@ -95,22 +124,27 @@ export default function App() {
   return (
     <ColorSchemeProvider>
       <PhoneFrame>
-        <SafeAreaProvider>
-          <AppDataProvider>
-            <AccentProvider>
-              <LanguageProvider>
-                <GlossaryProvider>
-                  <AlertHostProvider>
-                    <ErrorBoundary>
-                      <Root fontsLoaded={fontsLoaded} />
-                    </ErrorBoundary>
-                  </AlertHostProvider>
-                </GlossaryProvider>
-              </LanguageProvider>
-            </AccentProvider>
-          </AppDataProvider>
-          <ThemedStatusBar />
-        </SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <AppDataProvider>
+              <EntitlementProvider>
+                <AccentProvider>
+                  <LanguageProvider>
+                    <GlossaryProvider>
+                      <AlertHostProvider>
+                        <ErrorBoundary>
+                          <Root fontsLoaded={fontsLoaded} />
+                          {__DEV__ ? <DevNetWorthSeeder /> : null}
+                        </ErrorBoundary>
+                      </AlertHostProvider>
+                    </GlossaryProvider>
+                  </LanguageProvider>
+                </AccentProvider>
+              </EntitlementProvider>
+            </AppDataProvider>
+            <ThemedStatusBar />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
       </PhoneFrame>
     </ColorSchemeProvider>
   );
@@ -120,6 +154,31 @@ export default function App() {
 function ThemedStatusBar() {
   const { resolvedScheme } = useColorSchemeMode();
   return <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />;
+}
+
+/**
+ * Dev-only: expose `globalThis.__pipSeedNetWorth()` so localhost can be seeded from the
+ * browser console / CDP without a settings UI. Reloads after seeding so store + entitlement
+ * pick up the new rows and the lifetime Pro grant.
+ */
+function DevNetWorthSeeder() {
+  useEffect(() => {
+    const g = globalThis as typeof globalThis & {
+      __pipSeedNetWorth?: () => Promise<{ accounts: number; entries: number; proGranted: boolean }>;
+    };
+    g.__pipSeedNetWorth = async () => {
+      const result = await seedNetWorthDemo(new Date());
+      // Hard reload so AppDataProvider + EntitlementProvider re-read SQLite / grant cache.
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => window.location.reload(), 50);
+      }
+      return result;
+    };
+    return () => {
+      delete g.__pipSeedNetWorth;
+    };
+  }, []);
+  return null;
 }
 
 /**
@@ -192,6 +251,23 @@ function StatusClock({ color }: { color: string }) {
   return <Text style={[webStyles.clock, { color }]}>{`${hh}:${mm}`}</Text>;
 }
 
+const ASK_PIP_ATTACH_HINT_KEY = 'ask_pip_attach_hint_seen';
+
+const dayKey = (d: Date) => {
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+function currentFromPrompt(user: string): AskPipFrame | null {
+  const match = user.match(/^Current view: (.+)$/m);
+  const view = match?.[1];
+  if (!view || view === 'none') return null;
+  if (!(ASK_PIP_VIEWS as readonly string[]).includes(view)) return null;
+  return { view: view as AskPipViewId, filters: {} };
+}
+
 export type TourStepKey =
   | 'plus'
   | 'scan_explain'
@@ -216,10 +292,33 @@ const MANUAL_TOUR_SUB_STEPS: TourStepKey[] = [
 ];
 
 function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
-  const { ready, onboardingComplete, taxRequestableCount, tutorialComplete, dismissTutorial } = useAppData();
+  const {
+    ready,
+    onboardingComplete,
+    taxRequestableCount,
+    tutorialComplete,
+    dismissTutorial,
+    trips,
+    people,
+    categories,
+    transactions,
+    accounts,
+    openShares,
+    commitmentOccurrences,
+    streak,
+    streakWeek,
+    streakWeekKinds,
+    streakTodayIndex,
+    checkInToday,
+    streakFreezeAvailable,
+    streakGraduated,
+    streakStartLabel,
+    streakPaused,
+  } = useAppData();
+  const { isPro, refreshByok } = useEntitlement();
   const accentTheme = useAccent();
   const theme = useThemeColors();
-  const { t } = useLanguage();
+  const { t, language, translations } = useLanguage();
   useWebFocusRing(accentTheme.accent);
   // Global rather than per-screen: the reminder ladder has to be re-armed whenever the app is
   // opened or a transaction is saved, and neither is tied to any one screen. No-ops on web.
@@ -227,8 +326,27 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   // Silent Google Drive auto-backup (Android only), re-checked whenever the app foregrounds.
   useCloudBackupSync();
   const [screen, setScreen] = useState<Screen>('home');
+  const [homeMode, setHomeMode] = useState<HomeMode>('dashboard');
+  const [hasAskPipKey, setHasAskPipKey] = useState(false);
+  const [askPipKeyOpen, setAskPipKeyOpen] = useState(false);
+  const [disclose, setDisclose] = useState<{ kind: AskPipDiscloseKind; resolve: (ok: boolean) => void } | null>(null);
+  const discloseRef = useRef(disclose);
+  discloseRef.current = disclose;
+  const chatHomeRef = useRef<ChatModeHomeHandle>(null);
+  const now = useNow();
   // Owed is reachable from both Home and Activity, so back has to return where it came from.
   const [owedOrigin, setOwedOrigin] = useState<Screen>('transactions');
+  const [paywallOrigin, setPaywallOrigin] = useState<Screen>('home');
+  const [paywallTrigger, setPaywallTrigger] = useState<GateTrigger>('scan_quota');
+  const [widgetCustomizerDraft, setWidgetCustomizerDraft] = useState<WidgetMascotConfig | null>(null);
+
+  const openPaywall = React.useCallback((trigger: GateTrigger, origin?: Screen) => {
+    setPaywallOrigin(origin ?? screen);
+    setPaywallTrigger(trigger);
+    setScreen('paywall');
+  }, [screen]);
+
+  const paywallContextValue = React.useMemo(() => ({ openPaywall }), [openPaywall]);
   const [txnFilter, setTxnFilter] = useState<string | null>(null);
   const [categoryDetailId, setCategoryDetailId] = useState<string | null>(null);
   // Recap remounts after calendar/export/trip navigation; retain the month being reviewed.
@@ -267,6 +385,122 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { openEntry: openGlossaryEntry } = useGlossary();
   const [sawSplitGlossary, setSawSplitGlossary] = useState(false);
   const [guidedExploreTaskId, setGuidedExploreTaskId] = useState<ExploreTaskId | null>(null);
+
+  useEffect(() => {
+    void getMeta(HOME_MODE_KEY).then((raw) => setHomeMode(parseHomeMode(raw)));
+  }, []);
+
+  const refreshAskPipKey = useCallback(() => {
+    const store = defaultAskPipKeyStore();
+    void Promise.all([store.getProvider(), store.getApiKey()]).then(([providerId, apiKey]) => {
+      setHasAskPipKey(Boolean(providerId && apiKey));
+    });
+    void refreshByok();
+  }, [refreshByok]);
+
+  useEffect(() => {
+    refreshAskPipKey();
+  }, [homeMode, screen, refreshAskPipKey]);
+
+  const persistHomeMode = useCallback((next: HomeMode) => {
+    setHomeMode(next);
+    void setMeta(HOME_MODE_KEY, next);
+  }, []);
+
+  const today = dayKey(now);
+  const featuredTrip = useMemo(() => featuredTripForDate(trips, today), [trips, today]);
+  const askPipWorld = useMemo<AskPipWorld>(
+    () => ({
+      trips: trips.map((trip) => ({ id: trip.id, name: trip.name, archived: trip.archived })),
+      people: people.map((person) => ({ id: person.id, name: person.name })),
+      categories: categories.map((category) => ({ id: category.id, label: category.label })),
+      transactions,
+    }),
+    [trips, people, categories, transactions],
+  );
+  const needsYou = useMemo(
+    () =>
+      pickNeedsYou({
+        shares: openShares,
+        occurrences: commitmentOccurrences,
+        today,
+        currentMonth: today.slice(0, 7),
+      }),
+    [openShares, commitmentOccurrences, today],
+  );
+
+  const runChatModel = useCallback(
+    async (prompt: { system: string; user: string }) => {
+      const store = defaultAskPipKeyStore();
+      const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
+      if (!providerId || !apiKey) {
+        throw new LLMError('auth', 'Missing Ask Pip key');
+      }
+      const utterance = prompt.user.match(/^Utterance: (.*)$/m)?.[1] ?? '';
+      const promptToday = prompt.user.match(/^Today: (\d{4}-\d{2}-\d{2})$/m)?.[1];
+      return runAskPipModel({
+        providerId,
+        apiKey,
+        utterance,
+        tripNames: askPipWorld.trips.map((trip) => trip.name),
+        personNames: askPipWorld.people.map((person) => person.name),
+        categoryLabels: askPipWorld.categories.map((category) => category.label),
+        current: currentFromPrompt(prompt.user),
+        today: promptToday,
+      });
+    },
+    [askPipWorld],
+  );
+
+  const finishDisclose = useCallback((ok: boolean) => {
+    const pending = discloseRef.current;
+    setDisclose(null);
+    if (!pending) return;
+    if (!ok) {
+      pending.resolve(false);
+      return;
+    }
+    const key = pending.kind === 'photo' ? ASK_PIP_DISCLOSED_PHOTO : ASK_PIP_DISCLOSED_SEND;
+    void markAskPipDisclosed(setMeta, key).then(() => pending.resolve(true));
+  }, []);
+
+  const disclosePhoto = useCallback(async () => {
+    if (await isAskPipDisclosed(getMeta, ASK_PIP_DISCLOSED_PHOTO)) return true;
+    return new Promise<boolean>((resolve) => setDisclose({ kind: 'photo', resolve }));
+  }, []);
+  const discloseSend = useCallback(async () => {
+    if (await isAskPipDisclosed(getMeta, ASK_PIP_DISCLOSED_SEND)) return true;
+    return new Promise<boolean>((resolve) => setDisclose({ kind: 'send', resolve }));
+  }, []);
+
+  const attachChatPhoto = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      notify(
+        language === 'zh' ? '需要权限' : 'Permission needed',
+        language === 'zh' ? '请允许访问相册以添加截图。' : 'Allow photo access to attach a screenshot.',
+      );
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      base64: true,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const allowed = await disclosePhoto();
+    if (!allowed) return;
+    const asset = res.assets[0];
+    chatHomeRef.current?.applyPhotoAttached(asset.uri, {
+      base64: asset.base64 ?? '',
+      mime: asset.mimeType ?? 'image/jpeg',
+    });
+    const seen = await getMeta(ASK_PIP_ATTACH_HINT_KEY);
+    if (seen !== 'true') {
+      notify(t('askPipAttachHint'));
+      await setMeta(ASK_PIP_ATTACH_HINT_KEY, 'true');
+    }
+  }, [disclosePhoto, language, t]);
 
   useEffect(() => {
     if (screen !== 'home' && guidedExploreTaskId) {
@@ -543,6 +777,14 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     setScreen('add');
   };
 
+  const handleAddOrAttach = () => {
+    if (homeMode === 'chat' && screen === 'home') {
+      void attachChatPhoto();
+      return;
+    }
+    handleOpenAdd();
+  };
+
   // From a trip's own "Add expense" action: skip straight to manual entry (there's no reason to
   // scan a receipt hub first when the user already committed to logging one trip expense) with
   // the trip prefilled and shown in the title.
@@ -566,15 +808,26 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   // The single "go back" action for every screen — used by each screen's own back button below
   // and by the hardware/gesture back handler, so the two can never disagree about where back
-  // goes. Returns whether it actually navigated (false only on Home, which has nowhere back to
-  // go and falls through to the exit-confirm gate instead).
+  // goes. Returns whether it actually navigated (false only on dashboard Home, which has
+  // nowhere back to go and falls through to the exit-confirm gate instead). In chat-mode Home
+  // it pops the canvas, or leaves chat for the dashboard when already at resting suggestions.
   const goBack = (): boolean => {
+    if (screen === 'home' && homeMode === 'chat') {
+      if (chatHomeRef.current?.sheetOpen) return true;
+      if (chatHomeRef.current && !chatHomeRef.current.stackEmpty) {
+        chatHomeRef.current.pop();
+        return true;
+      }
+      persistHomeMode(parseHomeMode('dashboard'));
+      return true;
+    }
     const target = backTargetFor(screen, {
       owedOrigin,
       calendarOrigin,
       exportOrigin,
       commitmentsOrigin,
       currencyOrigin,
+      paywallOrigin,
       addOrigin,
       tripDetailOrigin,
     });
@@ -672,50 +925,103 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   }
 
   return (
-    <View style={[styles.fill, { backgroundColor: theme.bg }]}>
-      <View style={styles.fill}>
-      {screen === 'home' && (
-        <DashboardScreen
-          onScan={handleOpenAdd}
-          activeTourAnchor={activeAnchorId}
-          onGuideExploreTask={(task) => setGuidedExploreTaskId(task.id)}
-          onOpenAll={() => {
-            setTxnFilter(null);
-            setScreen('transactions');
-          }}
-          onOpenBreakdown={() => setScreen('breakdown')}
-          onOpenBudget={() => setScreen('budget')}
-          onOpenCategory={(id) => {
-            setCategoryDetailId(id);
-            setScreen('categoryDetail');
-          }}
-          onOpenRecap={(month, openStory) => {
-            setRecapStoryRequested(!!openStory);
-            setRecapMonth(month);
-            setScreen('recap');
-          }}
-          onOpenNetWorth={() => setScreen('networth')}
-          onOpenTrip={(id) => openTrip('home', id)}
-          onOpenOwed={() => {
-            setOwedOrigin('home');
-            setScreen('owed');
-          }}
-          onOpenCommitments={() => {
-            setCommitmentsOrigin('home');
-            setScreen('commitments');
-          }}
-          onOpenCalendar={() => {
-            setCalendarOrigin('home');
-            setCalendarMonth(undefined);
-            setScreen('calendar');
-          }}
-          onOpenCurrencySettings={() => {
-            setCurrencyOrigin('home');
-            setScreen('currencySettings');
-          }}
-          onOpenExport={() => openExport('home')}
-        />
-      )}
+    <PaywallProvider value={paywallContextValue}>
+      <View style={[styles.fill, { backgroundColor: theme.bg }]}>
+        <View style={styles.fill}>
+        {screen === 'home' && homeMode === 'chat' && (
+          <ChatModeHome
+            ref={chatHomeRef}
+            onToggleDashboard={() => {
+              if (chatHomeRef.current?.sheetOpen) return;
+              persistHomeMode(parseHomeMode('dashboard'));
+            }}
+            onAttach={() => {
+              void attachChatPhoto();
+            }}
+            onNeedKey={() => {
+              setAskPipKeyOpen(true);
+            }}
+            onDiscloseSend={discloseSend}
+            onDisclosePhoto={disclosePhoto}
+            hasKey={hasAskPipKey}
+            runModel={runChatModel}
+            onAskPipKeyChanged={refreshAskPipKey}
+            world={askPipWorld}
+            streak={streak}
+            week={streakWeek}
+            weekKinds={streakWeekKinds}
+            todayIndex={streakTodayIndex}
+            freezeAvailable={streakFreezeAvailable}
+            graduated={streakGraduated}
+            startLabel={streakStartLabel}
+            paused={streakPaused}
+            onNoSpendCheckIn={() => {
+              void checkInToday('no_spend');
+            }}
+            needsYou={needsYou}
+            hasOwed={openShares.length > 0}
+            tripName={featuredTrip?.trip.name ?? null}
+            tripId={featuredTrip?.trip.id ?? null}
+            hasHoldings={accounts.some(isHolding)}
+            onOpenCalendar={() => {
+              setCalendarOrigin('home');
+              setCalendarMonth(undefined);
+              setScreen('calendar');
+            }}
+            onOpenOwed={() => {
+              setOwedOrigin('home');
+              setScreen('owed');
+            }}
+            onOpenCommitments={() => {
+              setCommitmentsOrigin('home');
+              setScreen('commitments');
+            }}
+            onGuideExploreTask={(task) => setGuidedExploreTaskId(task.id)}
+          />
+        )}
+        {screen === 'home' && homeMode !== 'chat' && (
+          <DashboardScreen
+            onScan={handleOpenAdd}
+            onToggleChat={() => persistHomeMode('chat')}
+            activeTourAnchor={activeAnchorId}
+            onGuideExploreTask={(task) => setGuidedExploreTaskId(task.id)}
+            onOpenAll={() => {
+              setTxnFilter(null);
+              setScreen('transactions');
+            }}
+            onOpenBreakdown={() => setScreen('breakdown')}
+            onOpenBudget={() => setScreen('budget')}
+            onOpenCategory={(id) => {
+              setCategoryDetailId(id);
+              setScreen('categoryDetail');
+            }}
+            onOpenRecap={(month, openStory) => {
+              setRecapStoryRequested(openStory ?? false);
+              setRecapMonth(month);
+              setScreen('recap');
+            }}
+            onOpenNetWorth={() => setScreen('networth')}
+            onOpenTrip={(id) => openTrip('home', id)}
+            onOpenOwed={() => {
+              setOwedOrigin('home');
+              setScreen('owed');
+            }}
+            onOpenCommitments={() => {
+              setCommitmentsOrigin('home');
+              setScreen('commitments');
+            }}
+            onOpenCalendar={() => {
+              setCalendarOrigin('home');
+              setCalendarMonth(undefined);
+              setScreen('calendar');
+            }}
+            onOpenCurrencySettings={() => {
+              setCurrencyOrigin('home');
+              setScreen('currencySettings');
+            }}
+            onOpenExport={() => openExport('home')}
+          />
+        )}
       {screen === 'add' && (
         <AddFlow
           key={addTripId ? `add:trip:${addTripId}` : addInitialType ? `add:${addInitialType}` : 'add:default'}
@@ -758,14 +1064,26 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             setScreen('currencySettings');
           }}
           onOpenBackup={() => setScreen('backup')}
-          onOpenWidgetCustomizer={() => setScreen('widgetCustomizer')}
+          onOpenWidgetCustomizer={() => {
+            setScreen('widgetCustomizer');
+          }}
           taxRequestableCount={taxRequestableCount}
           onResetToOnboarding={() => setScreen('home')}
+          onAskPipKeyChanged={refreshAskPipKey}
         />
       )}
       {screen === 'advancedImport' && <AdvancedImportScreen onClose={goBack} />}
       {screen === 'backup' && <BackupScreen onBack={goBack} />}
-      {screen === 'widgetCustomizer' && <WidgetCustomizerScreen onBack={goBack} />}
+      {screen === 'widgetCustomizer' && (
+        <WidgetCustomizerScreen
+          initialDraft={widgetCustomizerDraft}
+          onDraftChange={setWidgetCustomizerDraft}
+          onBack={() => {
+            setWidgetCustomizerDraft(null);
+            goBack();
+          }}
+        />
+      )}
       {screen === 'export' && (
         <ExportScreen
           initialMonth={exportMonth}
@@ -849,7 +1167,13 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
       {screen === 'networth' && (
         <NetWorthScreen
           onBack={goBack}
-          onOpenHistory={() => setScreen('netWorthHistory')}
+          onOpenHistory={() => {
+            if (!isPro) {
+              openPaywall('networth_history', 'networth');
+              return;
+            }
+            setScreen('netWorthHistory');
+          }}
           onOpenOwed={() => {
             setOwedOrigin('networth');
             setScreen('owed');
@@ -857,6 +1181,14 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         />
       )}
       {screen === 'netWorthHistory' && <NetWorthHistoryScreen onBack={goBack} />}
+      {screen === 'paywall' && (
+        <PaywallScreen
+          trigger={paywallTrigger}
+          onClose={() => setScreen(paywallOrigin)}
+          t={translations}
+          locale={language === 'zh' ? 'zh-CN' : 'en-MY'}
+        />
+      )}
       {screen === 'breakdown' && (
         <BreakdownScreen
           onBack={goBack}
@@ -872,7 +1204,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         <BottomNav
           active={navTab}
           onNavigate={goTab}
-          onAdd={handleOpenAdd}
+          onAdd={handleAddOrAttach}
           activeTourAnchor={activeAnchorId}
         />
       )}
@@ -882,9 +1214,24 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
           if (guidedExploreTaskId) setGuidedExploreTaskId(null);
         }}
       />
+      <AskPipKeySheet
+        visible={askPipKeyOpen}
+        onClose={() => setAskPipKeyOpen(false)}
+        onSaved={() => {
+          refreshAskPipKey();
+          setAskPipKeyOpen(false);
+        }}
+      />
+      <AskPipDiscloseSheet
+        visible={disclose !== null}
+        kind={disclose?.kind ?? 'send'}
+        onContinue={() => finishDisclose(true)}
+        onCancel={() => finishDisclose(false)}
+      />
       <GlossaryModal />
       <AppAlertModal />
     </View>
+    </PaywallProvider>
   );
 }
 

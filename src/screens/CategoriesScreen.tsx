@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, type IconName } from '../components/Icon';
+import { Icon } from '../components/Icon';
 import { BtnLabel, Card, CatBadge, Eyebrow, PrimaryButton, TopBar } from '../components/ui';
 import { AddCategorySheet } from '../components/AddCategorySheet';
 import { DeleteCategorySheet } from '../components/DeleteCategorySheet';
@@ -17,9 +17,10 @@ import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
 import { radius, shadowToggle, uiFont } from '../theme';
+import { EXPENSE_ICONS, INCOME_ICONS, isCustomIcon } from '../lib/categoryIcons';
 
-export const EXPENSE_ICONS: IconName[] = ['home', 'cart', 'burger', 'utensils', 'car', 'phone', 'cash', 'signal', 'heart', 'book', 'bag', 'play', 'shield', 'receipt', 'dots'];
-export const INCOME_ICONS: IconName[] = ['wallet', 'cash', 'store', 'car', 'gift', 'trending', 'percent', 'sparkles', 'return', 'dots'];
+export { EXPENSE_ICONS, INCOME_ICONS, isCustomIcon } from '../lib/categoryIcons';
+
 const HUE_CHOICES = [12, 42, 70, 120, 162, 200, 248, 286, 330];
 
 /** Keep a hidden category's row intact while removing it from the visible management list. */
@@ -45,11 +46,6 @@ export function deletionImpact(
   return txns + bills;
 }
 
-/** Whether an icon value is a custom photo URI rather than a named icon. */
-export function isCustomIcon(icon: string): boolean {
-  return icon.startsWith('data:') || icon.startsWith('file:') || icon.startsWith('content:') || icon.startsWith('http') || icon.startsWith('/');
-}
-
 /** Keep reviewing linked recurring payments distinct from confirming the category hide. */
 export function recurringCategoryHideActions(
   reviewLabel: string,
@@ -62,7 +58,7 @@ export function recurringCategoryHideActions(
   };
 }
 
-export function CategoriesScreen({ onBack, onReviewCommitments }: { onBack: () => void; onReviewCommitments: () => void }) {
+export function CategoriesScreen({ onBack, onReviewCommitments, embedded }: { onBack: () => void; onReviewCommitments: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -229,9 +225,11 @@ export function CategoriesScreen({ onBack, onReviewCommitments }: { onBack: () =
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('categoriesTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('categoriesTitle')} onBack={onBack} />
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         {/* kind toggle */}

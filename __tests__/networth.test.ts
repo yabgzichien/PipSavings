@@ -97,9 +97,9 @@ describe('netWorthSeries', () => {
     ];
     const series = netWorthSeries(accounts, entries, ['2026-04', '2026-05', '2026-06']);
     expect(series).toEqual([
-      { monthKey: '2026-04', assets: 1000, liabilities: 500, net: 500 },
-      { monthKey: '2026-05', assets: 1000, liabilities: 500, net: 500 },
-      { monthKey: '2026-06', assets: 1200, liabilities: 300, net: 900 },
+      { monthKey: '2026-04', assets: 1000, liabilities: 500, net: 500, measured: true },
+      { monthKey: '2026-05', assets: 1000, liabilities: 500, net: 500, measured: false },
+      { monthKey: '2026-06', assets: 1200, liabilities: 300, net: 900, measured: true },
     ]);
   });
 
@@ -122,7 +122,10 @@ describe('netWorthSeries', () => {
       for (const a of accounts) {
         valueById[a.id] = accountValueAsOf(entries.filter((e) => e.accountId === a.id), `${mk}-31`);
       }
-      return { monthKey: mk, ...netWorth(accounts, valueById) };
+      const measured = entries.some(
+        (e) => e.asOf.slice(0, 7) === mk && (e.source ?? 'manual') === 'manual'
+      );
+      return { monthKey: mk, measured, ...netWorth(accounts, valueById) };
     });
     expect(netWorthSeries(accounts, entries, monthKeys)).toEqual(expected);
   });
@@ -144,8 +147,8 @@ describe('netWorthSeries', () => {
     const accounts = [acct({ id: 'cash1' })];
     const entries = [entry({ accountId: 'cash1', value: 500, asOf: '2026-09-01' })];
     expect(netWorthSeries(accounts, entries, ['2026-04', '2026-05'])).toEqual([
-      { monthKey: '2026-04', assets: 0, liabilities: 0, net: 0 },
-      { monthKey: '2026-05', assets: 0, liabilities: 0, net: 0 },
+      { monthKey: '2026-04', assets: 0, liabilities: 0, net: 0, measured: false },
+      { monthKey: '2026-05', assets: 0, liabilities: 0, net: 0, measured: false },
     ]);
   });
 });

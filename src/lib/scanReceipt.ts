@@ -1,22 +1,35 @@
 // src/lib/scanReceipt.ts
-// Shared receipt-reading call used by both the camera capture and the gallery pick, mirroring
-// ekyc/scan.ts. The photo is never stored: it is read once and the parsed lines are what the
-// itemiser works from.
-import { getLLM } from '../llm';
+// Shared receipt-reading call used by both the camera capture and the gallery pick.
+// Routes securely through the Cloudflare Worker proxy and enforces authoritative quota limits.
+import { submitReceiptScan } from '../billing/scanProxy';
 import { LLMError } from '../llm/types';
+import type { OcrOutcome } from './receiptOcr';
 import type { ScannedReceipt } from './parseReceipt';
 
-// On-device ML Kit OCR (src/lib/receiptOcr.ts) was tried as a cheaper front end for this call,
-// but a real-device benchmark against the 4 images in `images test/` (tools/mlkit_eval) showed
-// it badly garbling photographed receipts (0/19 items matched on the grocery receipt, at both
-// downsampled and full resolution) even though the text pipeline itself works fine  it tied
-// vision exactly on a clean e-wallet screenshot. So this stays vision-only for now; the OCR
-// module is left in place, tested, for whenever that's revisited (e.g. for screenshots, or with
-// image preprocessing).
-export async function scanReceiptImage(image: { uri: string; base64: string; mime: string }): Promise<ScannedReceipt> {
-  const llm = await getLLM();
-  if (!llm.can('extractReceipt')) {
-    throw new LLMError('no_key', "Reading receipts isn't available right now. You can still split the total by hand.");
+export async function scanReceiptImage(
+  image: { uri: string; base64: string; mime: string },
+  entitlement: 'free' | 'pro' = 'free',
+  prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>
+): Promise<ScannedReceipt> {
+  const res = await submitReceiptScan(
+    {
+      uri: image.uri,
+      imageBase64: image.base64,
+      mimeType: image.mime,
+      prefetchedOcr,
+    },
+    entitlement
+  );
+
+  if (res.quotaBlocked) {
+    const err = new LLMError('rate_limit', 'Scan limit reached');
+    (err as any).quotaBlocked = true;
+    throw err;
   }
-  return llm.extractReceipt({ parts: [{ kind: 'binary', base64: image.base64, mimeType: image.mime }] });
+
+  if (!res.ok || !res.receipt) {
+    throw new LLMError('unknown', res.error || 'Failed to read receipt');
+  }
+
+  return res.receipt;
 }

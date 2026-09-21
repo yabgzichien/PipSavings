@@ -20,6 +20,8 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { numFont, radius, shadowToggle, uiFont } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { InstitutionField } from './InstitutionField';
@@ -47,6 +49,9 @@ export function AddAccountModal({
   visible,
   preset,
   initialKind = 'asset',
+  initialClass,
+  initialName,
+  initialCurrency,
   onClose,
   onCreated,
 }: {
@@ -56,6 +61,11 @@ export function AddAccountModal({
   /** Which tab the sheet opens on. A caller that only wants one side — "add the loan this
    *  expense pays down" — shouldn't make the user re-answer a question its context settles. */
   initialKind?: AccountKind;
+  /** Pre-selects an account category when the caller already knows it, such as a DCA target. */
+  initialClass?: string;
+  /** Confirmation-first chat flows may propose a bank account without creating it. */
+  initialName?: string | null;
+  initialCurrency?: string | null;
   onClose: () => void;
   onCreated?: (accountId: string) => void;
 }) {
@@ -63,6 +73,8 @@ export function AddAccountModal({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
   const { addAccount, addHolding, markTaskDone } = useAppData();
 
   const [name, setName] = useState('');
@@ -88,9 +100,9 @@ export function AddAccountModal({
   const clsChoices = classesFor(kind);
 
   const reset = () => {
-    setName('');
+    setName(initialName ?? '');
     setKind(initialKind);
-    setCls(initialKind === 'liability' ? 'mortgage' : 'cash');
+    setCls(initialClass ?? (initialKind === 'liability' ? 'mortgage' : 'cash'));
     setHoldingMode(false);
     setCoin(null);
     setQtyText('');
@@ -101,7 +113,7 @@ export function AddAccountModal({
     setRateMode('depreciation');
     setValueText('');
     setCustomIcon(null);
-    setCurrency(BASE_CURRENCY);
+    setCurrency(initialCurrency ?? BASE_CURRENCY);
     setSearchOpen(false);
   };
   const close = () => {
@@ -114,6 +126,11 @@ export function AddAccountModal({
   useEffect(() => {
     if (!visible) return;
     if (preset) {
+      if (!isPro) {
+        openPaywall('live_holdings', 'networth');
+        close();
+        return;
+      }
       setKind('asset');
       setCls('investments');
       setHoldingMode(true);
@@ -133,7 +150,7 @@ export function AddAccountModal({
     getActiveCurrencies().then(setActiveCurrencies);
     // Defaults to the user's own entry currency, not ringgit, so a wallet the app bills in SGD
     // doesn't get created labelled "RM".
-    getEntryCurrency().then((c) => setCurrency(c ?? BASE_CURRENCY));
+    getEntryCurrency().then((c) => setCurrency(initialCurrency ?? c ?? BASE_CURRENCY));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
@@ -248,7 +265,7 @@ export function AddAccountModal({
     setKind(k);
     const firstCls = classesFor(k)[0]?.id ?? 'cash';
     setCls(firstCls);
-    setHoldingMode(firstCls === 'investments');
+    setHoldingMode(firstCls === 'investments' && isPro);
   };
 
   const pickCustomIcon = async () => {
@@ -265,6 +282,10 @@ export function AddAccountModal({
     if (!canSave || busy) return;
     setBusy(true);
     try {
+      if (isHoldingType && !isPro) {
+        openPaywall('live_holdings', 'networth');
+        return;
+      }
       const rateVal = rateText.trim() ? parseFloat(rateText.replace(/[^0-9.]/g, '')) || null : null;
       let id: string;
       if (isHoldingType && coin) {
@@ -371,7 +392,7 @@ export function AddAccountModal({
                     key={c.id}
                     onPress={() => {
                       setCls(c.id);
-                      if (c.id === 'investments') setHoldingMode(true);
+                      if (c.id === 'investments') setHoldingMode(isPro);
                     }}
                     style={[styles.classChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }, on && { borderColor: theme.accent, backgroundColor: theme.accentTint }]}
                   >
@@ -387,7 +408,14 @@ export function AddAccountModal({
                 {([[true, isZh ? '实时标的' : 'Live holding'], [false, isZh ? '手动账户' : 'Manual value']] as const).map(([m, label]) => {
                   const on = holdingMode === m;
                   return (
-                    <Pressable key={label} onPress={() => { setHoldingMode(m); setCoin(null); }} style={[styles.toggleBtn, on && styles.toggleBtnOn, on && { backgroundColor: colorTheme.surface }]}>
+                    <Pressable key={label} onPress={() => {
+                      if (m && !isPro) {
+                        openPaywall('live_holdings', 'networth');
+                        return;
+                      }
+                      setHoldingMode(m);
+                      setCoin(null);
+                    }} style={[styles.toggleBtn, on && styles.toggleBtnOn, on && { backgroundColor: colorTheme.surface }]}>
                       <Text style={[styles.toggleText, { color: colorTheme.ink2 }, on && { color: colorTheme.ink }]}>{label}</Text>
                     </Pressable>
                   );

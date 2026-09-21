@@ -27,6 +27,15 @@ const CHOPSTICK = '#D8A96A';
 const CHOPSTICK_LINE = '#8A5A16';
 const NARUTO_PINK = '#EE6E8E';
 const SCALLION = '#4FAF6D';
+const ROPE = '#D8A96A';
+const ROPE_LINE = '#8A5A16';
+const CLAW_METAL = '#8A96A3';
+const CLAW_DARK = '#3C4650';
+const CLAW_GLOW = '#22B8BE';
+const WAND = '#E8C878';
+const WAND_LINE = '#8A5A16';
+const WAND_STAR = '#FFD34D';
+const WAND_STAR_LINE = '#C48A14';
 
 export const HOLDING_PARTS: Record<string, MascotPart> = {
   none: { id: 'none', slot: 'holding', layers: [] },
@@ -224,6 +233,78 @@ export const HOLDING_PARTS: Record<string, MascotPart> = {
     </g>
     <line x1="80" y1="41" x2="72.8" y2="31.4" stroke="${GUARD_GOLD}" stroke-width="3.6" stroke-linecap="round" />
     <line x1="80" y1="41" x2="72.8" y2="31.4" stroke="${GUARD_GOLD_DARK}" stroke-width="1" stroke-linecap="round" opacity="0.6" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** A rope loop beside the face, coiled into the same small fist the lollipop uses. */
+  lasso: {
+    id: 'lasso',
+    slot: 'holding',
+    layers: [
+      {
+        z: Z.FRONT,
+        svg: `<g data-part="lasso">
+    <ellipse cx="82" cy="40" rx="13.5" ry="17.5" fill="none" stroke="${ROPE_LINE}" stroke-width="4.4" />
+    <ellipse cx="82" cy="40" rx="13.5" ry="17.5" fill="none" stroke="${ROPE}" stroke-width="2.6" />
+    <path d="M75 52 Q72 48 74 43" fill="none" stroke="${ROPE_LINE}" stroke-width="2.2" stroke-linecap="round" opacity="0.7" />
+    <path d="M82 57.4 Q79 64 83 71" fill="none" stroke="${ROPE_LINE}" stroke-width="3.6" stroke-linecap="round" />
+    <path d="M82 57.4 Q79 64 83 71" fill="none" stroke="${ROPE}" stroke-width="2" stroke-linecap="round" />
+    <rect x="76" y="66.5" width="12.4" height="11" rx="5" fill="${HAND_FILL}" stroke="${HAND_LINE}" stroke-width="2" />
+    <g stroke="${HAND_LINE}" stroke-width="1.3" stroke-linecap="round" opacity="0.75">
+      <line x1="79.4" y1="70.2" x2="85" y2="70.2" />
+      <line x1="79.4" y1="73.8" x2="85" y2="73.8" />
+    </g>
+  </g>`,
+      },
+    ],
+  },
+
+  /** A three-finger mechanical claw on the right, cyan joint so it belongs with the scanner eye. */
+  claw: {
+    id: 'claw',
+    slot: 'holding',
+    layers: [
+      {
+        z: Z.FRONT,
+        svg: `<g data-part="claw">
+    <line x1="88" y1="84" x2="86" y2="62" stroke="${CLAW_DARK}" stroke-width="8.2" stroke-linecap="round" />
+    <line x1="88" y1="84" x2="86" y2="62" stroke="${CLAW_METAL}" stroke-width="5.4" stroke-linecap="round" />
+    <circle cx="85.4" cy="59.5" r="4.6" fill="${CLAW_GLOW}" stroke="${CLAW_DARK}" stroke-width="1.4" />
+    <path d="M85.4 59.5 Q93 48 97.5 38" fill="none" stroke="${CLAW_DARK}" stroke-width="4.4" stroke-linecap="round" />
+    <path d="M85.4 59.5 Q93 48 97.5 38" fill="none" stroke="${CLAW_METAL}" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M85.4 59.5 Q96 62 102 54" fill="none" stroke="${CLAW_DARK}" stroke-width="4.4" stroke-linecap="round" />
+    <path d="M85.4 59.5 Q96 62 102 54" fill="none" stroke="${CLAW_METAL}" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M97.5 38 Q99 34.5 95.4 33.6" fill="none" stroke="${CLAW_DARK}" stroke-width="3.2" stroke-linecap="round" />
+    <path d="M102 54 Q105 52 103.4 48.4" fill="none" stroke="${CLAW_DARK}" stroke-width="3.2" stroke-linecap="round" />
+    <rect x="80.4" y="70.5" width="12.8" height="11" rx="5" fill="${HAND_FILL}" stroke="${HAND_LINE}" stroke-width="2" />
+  </g>`,
+      },
+    ],
+  },
+
+  /** Star-tipped wand with a few sparkles, held like the lollipop. */
+  wand: {
+    id: 'wand',
+    slot: 'holding',
+    layers: [
+      {
+        z: Z.FRONT,
+        svg: `<g data-part="wand">
+    <line x1="82" y1="78" x2="71" y2="24" stroke="${WAND_LINE}" stroke-width="3.4" stroke-linecap="round" />
+    <line x1="82" y1="78" x2="71" y2="24" stroke="${WAND}" stroke-width="1.8" stroke-linecap="round" />
+    <path d="M71 12.4 L73.2 19.2 L80.4 19.6 L74.8 24.2 L76.4 31.2 L71 27.4 L65.6 31.2 L67.2 24.2 L61.6 19.6 L68.8 19.2 Z" fill="${WAND_STAR}" stroke="${WAND_STAR_LINE}" stroke-width="1.1" stroke-linejoin="round" />
+    <g fill="none" stroke="${WAND_STAR}" stroke-width="1.5" stroke-linecap="round">
+      <path d="M84 16 L84 22 M81 19 L87 19" />
+      <path d="M60 28 L60 33 M57.6 30.5 L62.4 30.5" />
+      <path d="M88 32 L88 36.4 M85.8 34.2 L90.2 34.2" />
+    </g>
+    <rect x="76" y="67.5" width="12.4" height="11" rx="5" fill="${HAND_FILL}" stroke="${HAND_LINE}" stroke-width="2" />
+    <g stroke="${HAND_LINE}" stroke-width="1.3" stroke-linecap="round" opacity="0.75">
+      <line x1="79.4" y1="71.2" x2="85" y2="71.2" />
+      <line x1="79.4" y1="74.8" x2="85" y2="74.8" />
+    </g>
   </g>`,
       },
     ],

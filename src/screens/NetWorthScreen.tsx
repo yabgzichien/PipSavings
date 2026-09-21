@@ -2,12 +2,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddAccountModal } from '../components/AddAccountModal';
+import { MoveFundsSheet } from '../components/MoveFundsSheet';
 import { AddDebtModal } from '../components/AddDebtModal';
 import { SettleSheet } from '../components/SettleSheet';
 import { Icon, type IconName } from '../components/Icon';
+import { ProBadge } from '../components/ProUi';
 import { CalcBadge } from '../components/CalcBadge';
 import { InstitutionBadge } from '../components/InstitutionBadge';
 import { BrandBadge } from '../components/BrandBadge';
@@ -28,7 +32,9 @@ import { currencyPrefix, fmt, fmtMoney, formatCurrencyBreakdown } from '../lib/f
 import { rateFor, ratesFromCache, isStale, staleLabel } from '../lib/fx';
 import { matchInstitution } from '../lib/institutions';
 import { tap } from '../lib/haptics';
+import { useModalHandoff } from '../lib/modalHandoff';
 import { confirmAction } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { shareSplitMessage } from '../lib/shareText';
 import { buildBillReminder } from '../lib/splitMessage';
 import type { OpenShare } from '../lib/split';
@@ -44,6 +50,7 @@ import {
   toMyrValues,
   type ClassGroup,
 } from '../lib/networth';
+import { canMoveCash, isCashAccount } from '../lib/moveFunds';
 import { netWorthFreshness, rankClassMovers, type ClassMover } from '../lib/netWorthPresentation';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
 import { groupHoldings, holdingProfit, isHolding, subFromType, toQuantityUnitPrice, typeFromSub, type HoldingGroup, type TickerResult } from '../lib/prices';
@@ -54,6 +61,7 @@ import { useAppData } from '../state/store';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
 import { numFont, radius, shadowToggle, spacing, uiFont } from '../theme';
 
 const RED2 = '#c5402f';
@@ -113,21 +121,30 @@ function lastMonths(n: number): string[] {
 export function NetWorthScreen({
   onOpenHistory,
   onOpenOwed,
+  embedded,
+  onSheetOpenChange,
 }: {
   onBack: () => void;
   onOpenHistory: () => void;
   onOpenOwed?: () => void;
+  embedded?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { t, isZh } = useLanguage();
+  const { isPro } = useEntitlement();
   const { accounts, balanceEntries, accountValues, prices, pricesAsOf, refreshPrices, openShares, deleteDirectDebt, settleShare } = useAppData();
+  const { request: requestMoveSheet, onDismiss: onAccountSheetDismissed } = useModalHandoff();
   const [adding, setAdding] = useState(false);
   const [addingDebt, setAddingDebt] = useState(false);
   const [settlingDebt, setSettlingDebt] = useState<OpenShare | null>(null);
   const [presetCoin, setPresetCoin] = useState<TickerResult | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(settlingDebt, editingId), onSheetOpenChange);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveFromId, setMoveFromId] = useState<string | null>(null);
   const [groupSymbol, setGroupSymbol] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -293,9 +310,11 @@ export function NetWorthScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
-        <Title>{t('netWorthTitle')}</Title>
-      </View>
+      {!embedded && (
+        <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
+          <Title>{t('netWorthTitle')}</Title>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}
@@ -334,7 +353,9 @@ export function NetWorthScreen({
               values={series}
               months={monthShorts}
               hasTrend={hasTrend}
+              isPro={isPro}
               onOpenHistory={onOpenHistory}
+              dc={dc}
             />
 
             {hasTrend && movers.length > 0 && (
@@ -358,6 +379,11 @@ export function NetWorthScreen({
                       dc={dc}
                       onPress={() => toggleClass(g.cls)}
                       debtsCount={g.cls === RECEIVABLE_CLS ? debtPeopleCount : undefined}
+                      onMove={g.cls === 'cash' && canMoveCash(accounts) ? () => {
+                        tap();
+                        setMoveFromId(null);
+                        setMoveOpen(true);
+                      } : undefined}
                     />
                     {expanded && g.kind === 'asset' && (
                       g.cls === RECEIVABLE_CLS ? (
@@ -435,7 +461,25 @@ export function NetWorthScreen({
           setSettlingDebt(null);
         }}
       />
-      <AccountSheet account={editing} dc={dc} onClose={() => setEditingId(null)} onOpenOwed={onOpenOwed} />
+      <AccountSheet
+        account={editing}
+        dc={dc}
+        onClose={() => setEditingId(null)}
+        onOpenOwed={onOpenOwed}
+        onDismiss={onAccountSheetDismissed}
+        onMove={canMoveCash(accounts) ? (accountId) => {
+          setEditingId(null);
+          requestMoveSheet(() => {
+            setMoveFromId(accountId);
+            setMoveOpen(true);
+          });
+        } : undefined}
+      />
+      <MoveFundsSheet
+        visible={moveOpen}
+        initialFromId={moveFromId}
+        onClose={() => setMoveOpen(false)}
+      />
       <HoldingGroupSheet
         lots={groupLots}
         accountValues={accountValues}
@@ -568,29 +612,76 @@ function TrendSection({
   values,
   months,
   hasTrend,
+  isPro,
   onOpenHistory,
+  dc,
 }: {
   values: number[];
   months: string[];
   hasTrend: boolean;
+  isPro: boolean;
   onOpenHistory: () => void;
+  dc: DisplayCurrency;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const [selectedIndex, setSelectedIndex] = useState(() => Math.max(0, values.length - 1));
+
+  useEffect(() => {
+    if (values.length === 0) return;
+    setSelectedIndex(values.length - 1);
+  }, [values.length]);
+
+  const selected = values.length > 0 ? Math.min(selectedIndex, values.length - 1) : -1;
+  const selectedValue = selected >= 0 ? values[selected] : null;
+  const selectedMonth = selected >= 0 ? months[selected] : null;
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Body weight={700} style={styles.sectionTitle}>{isZh ? '六个月趋势' : 'Your 6-month trend'}</Body>
-        <Pressable onPress={onOpenHistory} hitSlop={8} accessibilityRole="button" accessibilityLabel={isZh ? '查看净资产历史' : 'View net worth history'}>
+        <Pressable onPress={onOpenHistory} hitSlop={8} accessibilityRole="button" accessibilityLabel={isZh ? '查看净资产历史' : 'View net worth history'} style={styles.proInlineAction}>
           <Label color={theme.accent}>{isZh ? '历史记录' : 'View history'}</Label>
+          {!isPro ? <ProBadge locked /> : null}
         </Pressable>
       </View>
       {hasTrend ? (
         <View style={[styles.trendSurface, { backgroundColor: colorTheme.surface2 }]}>
-          <JournalTrendChart values={values} lineColor={theme.accent} />
+          {selectedValue != null && selectedMonth != null && (
+            <Caption
+              color={selectedValue < 0 ? colorTheme.red : colorTheme.ink2}
+              style={styles.trendReadout}
+            >
+              {selectedMonth} · {fmtMoney(dc.convert(selectedValue), dc.code)}
+            </Caption>
+          )}
+          <JournalTrendChart
+            values={values}
+            lineColor={theme.accent}
+            ink3={colorTheme.ink3}
+            selectedIndex={selected}
+            onSelectIndex={setSelectedIndex}
+          />
           <View style={styles.trendMonths}>
-            {months.map((month, index) => <Caption key={`${month}-${index}`} color={colorTheme.ink2} style={styles.trendMonth}>{month}</Caption>)}
+            {months.map((month, index) => (
+              <Pressable
+                key={`${month}-${index}`}
+                onPress={() => setSelectedIndex(index)}
+                hitSlop={6}
+                style={styles.trendMonthHit}
+                accessibilityRole="button"
+                accessibilityState={{ selected: index === selected }}
+                accessibilityLabel={`${month} net worth`}
+              >
+                <Caption
+                  color={index === selected ? theme.accent : colorTheme.ink2}
+                  style={[styles.trendMonth, index === selected && styles.trendMonthSelected]}
+                >
+                  {month}
+                </Caption>
+              </Pressable>
+            ))}
           </View>
         </View>
       ) : (
@@ -602,7 +693,19 @@ function TrendSection({
   );
 }
 
-function JournalTrendChart({ values, lineColor }: { values: number[]; lineColor: string }) {
+function JournalTrendChart({
+  values,
+  lineColor,
+  ink3,
+  selectedIndex,
+  onSelectIndex,
+}: {
+  values: number[];
+  lineColor: string;
+  ink3: string;
+  selectedIndex: number;
+  onSelectIndex: (index: number) => void;
+}) {
   const [layoutWidth, setLayoutWidth] = useState(0);
   const height = 76;
   const verticalPadding = 10;
@@ -619,26 +722,68 @@ function JournalTrendChart({ values, lineColor }: { values: number[]; lineColor:
   const first = points[0];
   const last = points[points.length - 1];
   const area = `${line} L ${last[0].toFixed(1)} ${height} L ${first[0].toFixed(1)} ${height} Z`;
+  const selected = points[Math.min(Math.max(selectedIndex, 0), points.length - 1)] ?? last;
+
+  const selectAtX = (x: number) => {
+    if (points.length === 0) return;
+    let best = 0;
+    let bestDist = Math.abs(points[0][0] - x);
+    for (let i = 1; i < points.length; i++) {
+      const d = Math.abs(points[i][0] - x);
+      if (d < bestDist) {
+        best = i;
+        bestDist = d;
+      }
+    }
+    if (best !== selectedIndex) onSelectIndex(best);
+  };
+
+  const pan = Gesture.Pan()
+    .onBegin((e) => {
+      runOnJS(selectAtX)(e.x);
+    })
+    .onUpdate((e) => {
+      runOnJS(selectAtX)(e.x);
+    });
+  const tap = Gesture.Tap().onEnd((e) => {
+    runOnJS(selectAtX)(e.x);
+  });
+  const gesture = Gesture.Race(pan, tap);
+
   return (
-    <View
-      style={styles.trendChart}
-      onLayout={(event) => {
-        const nextWidth = event.nativeEvent.layout.width;
-        if (nextWidth > 0 && nextWidth !== layoutWidth) setLayoutWidth(nextWidth);
-      }}
-    >
-      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id="journalTrend" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={lineColor} stopOpacity={0.24} />
-            <Stop offset="1" stopColor={lineColor} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Path d={area} fill="url(#journalTrend)" />
-        <Path d={line} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx={last[0]} cy={last[1]} r={4} fill={lineColor} />
-      </Svg>
-    </View>
+    <GestureDetector gesture={gesture}>
+      <View
+        style={styles.trendChart}
+        onLayout={(event) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (nextWidth > 0 && nextWidth !== layoutWidth) setLayoutWidth(nextWidth);
+        }}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Six-month net worth trend"
+      >
+        <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="journalTrend" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={lineColor} stopOpacity={0.24} />
+              <Stop offset="1" stopColor={lineColor} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Path d={area} fill="url(#journalTrend)" />
+          <Path d={line} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          <Line
+            x1={selected[0]}
+            x2={selected[0]}
+            y1={verticalPadding / 2}
+            y2={height}
+            stroke={ink3}
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            opacity={0.55}
+          />
+          <Circle cx={selected[0]} cy={selected[1]} r={4} fill={lineColor} stroke="#fff" strokeWidth={1.5} />
+        </Svg>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -698,6 +843,7 @@ function AccountClassSummary({
   dc,
   onPress,
   debtsCount,
+  onMove,
 }: {
   group: ClassGroup;
   label: string;
@@ -707,6 +853,7 @@ function AccountClassSummary({
   dc: DisplayCurrency;
   onPress: () => void;
   debtsCount?: number;
+  onMove?: () => void;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -715,36 +862,49 @@ function AccountClassSummary({
   const isReceivable = group.cls === RECEIVABLE_CLS;
   const count = isReceivable && debtsCount !== undefined ? debtsCount : group.accounts.length;
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.classSummary, showDivider && { borderTopColor: colorTheme.line, borderTopWidth: 1 }]}
-      accessibilityRole="button"
-      accessibilityLabel={isZh
-        ? `${expanded ? '收起' : '展开'}${label}账户`
-        : `${expanded ? 'Collapse' : 'Expand'} ${label} accounts`}
-      accessibilityState={{ expanded }}
-    >
-      <View style={[styles.classSummaryIcon, { backgroundColor: group.kind === 'liability' ? colorTheme.redTint : theme.accentTint }]}>
-        <Icon name={icon} size={17} color={group.kind === 'liability' ? colorTheme.red : theme.accent} />
-      </View>
-      <View style={styles.classSummaryCopy}>
-        <Body weight={700}>{label}</Body>
-        <Caption color={staleCount > 0 ? colorTheme.amber : colorTheme.ink2} style={styles.classSummaryMeta}>
-          {staleCount > 0
-            ? (isZh ? `${staleCount} 个需更新` : `${staleCount} need${staleCount === 1 ? 's' : ''} update`)
-            : isReceivable
-              ? (isZh ? `${count} 位欠款人` : `${count} ${count === 1 ? 'person' : 'people'}`)
-              : (isZh ? `${count} 个账户` : `${count} account${count === 1 ? '' : 's'}`)}
-        </Caption>
-      </View>
-      <Amount
-        value={group.kind === 'liability' ? -group.total : group.total}
-        currency={dc.code}
-        size={14}
-        color={group.kind === 'liability' && group.total > 0 ? colorTheme.red : colorTheme.ink}
-      />
-      <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={16} color={colorTheme.ink3} />
-    </Pressable>
+    <View style={[styles.classSummary, showDivider && { borderTopColor: colorTheme.line, borderTopWidth: 1 }]}>
+      <Pressable
+        onPress={onPress}
+        style={styles.classSummaryMain}
+        accessibilityRole="button"
+        accessibilityLabel={isZh
+          ? `${expanded ? '收起' : '展开'}${label}账户`
+          : `${expanded ? 'Collapse' : 'Expand'} ${label} accounts`}
+        accessibilityState={{ expanded }}
+      >
+        <View style={[styles.classSummaryIcon, { backgroundColor: group.kind === 'liability' ? colorTheme.redTint : theme.accentTint }]}>
+          <Icon name={icon} size={17} color={group.kind === 'liability' ? colorTheme.red : theme.accent} />
+        </View>
+        <View style={styles.classSummaryCopy}>
+          <Body weight={700}>{label}</Body>
+          <Caption color={staleCount > 0 ? colorTheme.amber : colorTheme.ink2} style={styles.classSummaryMeta}>
+            {staleCount > 0
+              ? (isZh ? `${staleCount} 个需更新` : `${staleCount} need${staleCount === 1 ? 's' : ''} update`)
+              : isReceivable
+                ? (isZh ? `${count} 位欠款人` : `${count} ${count === 1 ? 'person' : 'people'}`)
+                : (isZh ? `${count} 个账户` : `${count} account${count === 1 ? '' : 's'}`)}
+          </Caption>
+        </View>
+        <Amount
+          value={group.kind === 'liability' ? -group.total : group.total}
+          currency={dc.code}
+          size={14}
+          color={group.kind === 'liability' && group.total > 0 ? colorTheme.red : colorTheme.ink}
+        />
+        <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={16} color={colorTheme.ink3} />
+      </Pressable>
+      {onMove ? (
+        <Pressable
+          onPress={onMove}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={isZh ? '划转' : 'Move'}
+          style={styles.classMove}
+        >
+          <Label color={theme.accent}>{isZh ? '划转' : 'Move'}</Label>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -1424,11 +1584,15 @@ function AccountSheet({
   dc,
   onClose,
   onOpenOwed,
+  onMove,
+  onDismiss,
 }: {
   account: Account | null;
   dc: DisplayCurrency;
   onClose: () => void;
   onOpenOwed?: () => void;
+  onMove?: (accountId: string) => void;
+  onDismiss?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -1745,7 +1909,7 @@ function AccountSheet({
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" onRequestClose={onClose} onDismiss={onDismiss}>
       <Pressable style={styles.backdrop} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1871,6 +2035,22 @@ function AccountSheet({
                     </Text>
                   )}
                   <Text style={[styles.hint, { color: colorTheme.ink2 }]}>{isZh ? '保存新金额将记录为今天的最新余额。' : 'Saving a new value records it as of today.'}</Text>
+                  {onMove && isCashAccount(account) && canMoveCash(accounts) ? (
+                    <Pressable
+                      onPress={() => {
+                        tap();
+                        onMove(account.id);
+                      }}
+                      hitSlop={6}
+                      style={{ marginTop: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={isZh ? '转到另一账户' : 'Move to another account'}
+                    >
+                      <Text style={{ fontFamily: uiFont(700), fontSize: 13, color: theme.accent }}>
+                        {isZh ? '转到另一账户' : 'Move to another account'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </>
               )}
 
@@ -2406,11 +2586,15 @@ const styles = StyleSheet.create({
   updateButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.base, borderRadius: radius.sm },
   section: { marginHorizontal: spacing.lg, marginBottom: spacing.lg },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.md },
+  proInlineAction: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   sectionTitle: { flex: 1 },
   trendSurface: { borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  trendReadout: { marginBottom: spacing.xs, fontFamily: numFont(600) },
   trendChart: { width: '100%', height: 76 },
   trendMonths: { flexDirection: 'row', marginTop: spacing.xs },
-  trendMonth: { flex: 1, textAlign: 'center' },
+  trendMonthHit: { flex: 1 },
+  trendMonth: { textAlign: 'center' },
+  trendMonthSelected: { fontFamily: uiFont(700) },
   trendEmpty: { minHeight: 76, borderTopWidth: 1, borderBottomWidth: 1, justifyContent: 'center', paddingVertical: spacing.base },
   moversList: { borderTopWidth: 1 },
   moverRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
@@ -2418,7 +2602,9 @@ const styles = StyleSheet.create({
   totalItem: { flex: 1, gap: spacing.xs },
   totalItemEnd: { borderLeftWidth: 1, paddingLeft: spacing.base },
   accountGroups: { marginHorizontal: spacing.base, borderRadius: radius.sm, overflow: 'hidden' },
-  classSummary: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  classSummary: { minHeight: 68, flexDirection: 'row', alignItems: 'center' },
+  classSummaryMain: { flex: 1, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  classMove: { paddingRight: spacing.base, paddingVertical: spacing.md },
   classSummaryIcon: { width: 36, height: 36, borderRadius: spacing.md, alignItems: 'center', justifyContent: 'center' },
   classSummaryCopy: { flex: 1, minWidth: 0 },
   classSummaryMeta: { marginTop: spacing.xs },

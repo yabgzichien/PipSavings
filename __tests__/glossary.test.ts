@@ -66,6 +66,25 @@ describe('GLOSSARY', () => {
     expect(entry.steps?.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('contains tax_relief as a Malaysia-only tracker that does not file or advise', () => {
+    const entry = GLOSSARY['tax_relief'];
+    expect(entry).toBeDefined();
+    expect(entry.term).toBe('Tax relief');
+    expect(entry.short).toMatch(/Malaysian/i);
+    expect(entry.short).toMatch(/not tax advice/i);
+    expect(entry.short).toMatch(/never files/i);
+    expect(entry.body).toContain('LHDN');
+    expect(entry.body).toContain('MyTax');
+    expect(entry.body).toContain('hasil.gov.my');
+    expect(entry.body).toMatch(/on this device/i);
+    expect(entry.steps).toBeDefined();
+    expect(entry.steps?.length).toBe(5);
+    expect(entry.steps?.[0].title).toMatch(/logging/i);
+    expect(entry.steps?.[4].desc).toMatch(/does not submit/i);
+    const blob = [entry.term, entry.short, entry.body, ...(entry.steps ?? []).flatMap((s) => [s.title, s.desc, s.badge ?? ''])].join('\n');
+    expect(blob).not.toMatch(/[—–]/);
+  });
+
   it('validates all steps when defined have non-empty titles and descriptions', () => {
     for (const [key, entry] of Object.entries(GLOSSARY)) {
       if (entry.steps) {

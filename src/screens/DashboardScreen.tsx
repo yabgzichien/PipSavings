@@ -11,19 +11,22 @@ import { Pip } from '../components/Pip';
 import { TripBadge } from '../components/TripBadge';
 import { RecapEntry } from '../components/recap/RecapEntry';
 import { TaskListSheet } from '../components/TaskListSheet';
+import { HomeMascotButton } from '../components/HomeMascotButton';
 import { TourAnchor } from '../components/TourAnchor';
 import { Body, BtnLabel, Caption, Card, Display, Eyebrow, Label, PrimaryButton, Title } from '../components/ui';
 import { catColorsForHue } from '../lib/catColors';
 import { allocatedTotal, currentMonthKey, txnMonthKey } from '../lib/budget';
 import { formatRangeLabel } from '../lib/dateRange';
-import { daysLeftInMonth, greeting, longDate, monthName } from '../lib/dates';
+import { daysLeftInMonth, greeting, longDate, monthName, monthProgressPct } from '../lib/dates';
 import { currencyPrefix, fmt, fmtCompact, fmtMoney } from '../lib/format';
+import { MONTH_PROGRESS_SEEN_KEY, monthProgressCaption } from '../lib/timeProgress';
 import { netWorth, netWorthSeries } from '../lib/networth';
 import type { Screen } from '../lib/screenNav';
 import { lastActiveDay, localDayNumber } from '../lib/streak';
 import { computeExploreTaskStatus, type ExploreTask } from '../lib/tasks';
-import { AGING_DAYS, daysBetween } from '../lib/split';
+import { pickNeedsYou } from '../lib/askPip/needsYou';
 import * as haptics from '../lib/haptics';
+import { payoff as playChime } from '../lib/sound';
 import { computeTripTotals, featuredTripForDate } from '../lib/trips';
 import type { FeaturedTrip } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
@@ -34,6 +37,15 @@ import { useAccent } from '../state/accent';
 import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
+import { UPSELL_STATE_KEY, shouldShowUpsell, pickLine, type UpsellState } from '../billing/upsellCadence';
+import { fireOnce, getMomentLine, reliefThresholdCrossed, type UpsellMoment } from '../billing/moments';
+import { PipUpsellCard, upsellLines } from '../components/PipUpsellCard';
+import { ProSummaryHeader } from '../components/ProUi';
+import { TimeProgressBar } from '../components/TimeProgressBar';
+import { getMeta, setMeta } from '../db/metaRepo';
+import { listReliefTags } from '../db/reliefRepo';
 import { shadowCard, spacing, uiFont } from '../theme';
 import { duration as motionDuration } from '../theme/motion';
 
@@ -68,6 +80,7 @@ export function DashboardScreen({
   onOpenBudget = () => {},
   onOpenCategory = () => {},
   onOpenRecap = () => {},
+  onToggleChat = () => {},
   onOpenNetWorth = () => {},
   onOpenTrip = () => {},
   onOpenOwed = () => {},
@@ -85,6 +98,7 @@ export function DashboardScreen({
   /** Tapping a category row on the budget card (not "Manage"). */
   onOpenCategory?: (id: string) => void;
   onOpenRecap?: (month?: string, openStory?: boolean) => void;
+  onToggleChat?: () => void;
   onOpenNetWorth?: () => void;
   onOpenTrip?: (tripId: string) => void;
   onOpenOwed?: () => void;
@@ -134,6 +148,62 @@ export function DashboardScreen({
   } = useAppData();
   const taskStatus = useMemo(() => computeExploreTaskStatus(tasksDone), [tasksDone]);
   const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
+  const [upsell, setUpsell] = useState<{ line: string; index: number } | null>(null);
+  const [proCardMoment, setProCardMoment] = useState<UpsellMoment | null>(null);
+  const [reliefAmount, setReliefAmount] = useState<string>('1,000');
+
+  useEffect(() => {
+    if (isPro) return;
+    void (async () => {
+      try {
+        const raw = await getMeta(UPSELL_STATE_KEY);
+        const state = raw ? (JSON.parse(raw) as UpsellState) : null;
+        if (!shouldShowUpsell(state, Date.now())) return;
+        const lines = upsellLines(t);
+        const index = pickLine(lines, state?.lastIndex ?? 0);
+        setUpsell({ line: lines[index], index });
+        await setMeta(UPSELL_STATE_KEY, JSON.stringify({ lastShownAt: Date.now(), lastIndex: index }));
+      } catch {
+        // Non-critical, ignore
+      }
+    })();
+  }, [isPro, t]);
+
+  useEffect(() => {
+    if (isPro) return;
+    if (streak >= 7) {
+      void (async () => {
+        try {
+          if (await fireOnce('streak_7')) {
+            setProCardMoment('streak_7');
+          }
+        } catch {
+          // Non-critical, ignore
+        }
+      })();
+    }
+  }, [isPro, streak]);
+
+  useEffect(() => {
+    if (isPro) return;
+    void (async () => {
+      try {
+        const currentYear = new Date().getFullYear();
+        const tags = await listReliefTags(currentYear);
+        const total = tags.reduce((sum, tag) => sum + tag.amount, 0);
+        if (reliefThresholdCrossed(total)) {
+          if (await fireOnce('relief_threshold')) {
+            setReliefAmount(total.toLocaleString());
+            setProCardMoment('relief_threshold');
+          }
+        }
+      } catch {
+        // Non-critical, ignore
+      }
+    })();
+  }, [isPro]);
 
   // A task completed elsewhere (e.g. exporting a report, or turning on a currency) surfaces its
   // one-shot toast here, the first time Home renders after it: pendingTaskCelebrations is a
@@ -219,88 +289,56 @@ export function DashboardScreen({
       .sort((a, b) => b.amt - a.amt);
   }, [monthExpenses]);
 
-  // A debt this old has stopped being a favour and started being a thing you have to chase, so
-  // the "needs you" row switches from a neutral total to naming who is sitting on it.
-  const owed = useMemo(() => {
-    const today = dayKey(new Date());
-    let oldestDays = 0;
-    let oldestName = '';
-    for (const share of openShares) {
-      const age = daysBetween(share.billDate, today) ?? 0;
-      if (age > oldestDays) {
-        oldestDays = age;
-        oldestName = share.personName;
-      }
-    }
-    return {
-      total: openShares.reduce((s, x) => s + x.outstanding, 0),
-      count: openShares.length,
-      oldestDays,
-      oldestName,
-      overdue: oldestDays >= AGING_DAYS,
-    };
-  }, [openShares]);
-
-  // Anything still unpaid: overdue rows regardless of month, plus this month's scheduled ones.
-  const commitmentsDue = useMemo(() => {
-    const cur = currentMonthKey();
-    const today = dayKey(new Date());
-    const unpaid = commitmentOccurrences.filter(
-      (o) => o.status === 'scheduled' && (o.dueDate < today || o.month === cur)
-    );
-    return {
-      count: unpaid.length,
-      total: unpaid.reduce((s, o) => s + o.amount, 0),
-      overdue: unpaid.some((o) => o.dueDate < today),
-    };
-  }, [commitmentOccurrences]);
-
   // One slot, priority-ordered, so at most one thing is ever asking for attention at a time:
   // an overdue commitment outranks an aged debt outranks a due-but-not-overdue commitment
-  // outranks an open (not yet aged) debt.
+  // outranks an open (not yet aged) debt. Dashboard keeps formatting and onPress wiring.
   const needsYou = useMemo(() => {
-    if (commitmentsDue.overdue) {
+    const slot = pickNeedsYou({
+      shares: openShares,
+      occurrences: commitmentOccurrences,
+      today,
+      currentMonth: today.slice(0, 7),
+    });
+    if (!slot) return null;
+    if (slot.kind === 'commitments_overdue') {
       return {
         icon: 'clock' as IconName,
         title: isZh
-          ? `${commitmentsDue.count} 笔账单 · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`
-          : `${commitmentsDue.count} ${commitmentsDue.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`,
+          ? `${slot.count} 笔账单 · ${fmtMoney(dc.convert(slot.total), dc.code)}`
+          : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(slot.total), dc.code)}`,
         sub: isZh ? '有账单已逾期。点击前往处理。' : 'Something is overdue. Tap to catch up.',
         onPress: onOpenCommitments,
       };
     }
-    if (owed.overdue) {
+    if (slot.kind === 'owed_overdue') {
       return {
         icon: 'gift' as IconName,
-        title: isZh ? `待收回 ${fmtMoney(dc.convert(owed.total), dc.code)}` : `${fmtMoney(dc.convert(owed.total), dc.code)} owed to you`,
+        title: isZh ? `待收回 ${fmtMoney(dc.convert(slot.total), dc.code)}` : `${fmtMoney(dc.convert(slot.total), dc.code)} owed to you`,
         sub: isZh
-          ? `${owed.oldestName} 已欠款 ${owed.oldestDays} 天。建议提醒一下。`
-          : `${owed.oldestName} has owed you for ${owed.oldestDays} days. Worth a nudge.`,
+          ? `${slot.oldestName} 已欠款 ${slot.oldestDays} 天。建议提醒一下。`
+          : `${slot.oldestName} has owed you for ${slot.oldestDays} days. Worth a nudge.`,
         onPress: onOpenOwed,
       };
     }
-    if (commitmentsDue.count > 0) {
+    if (slot.kind === 'commitments_due') {
       return {
         icon: 'clock' as IconName,
         title: isZh
-          ? `${commitmentsDue.count} 笔账单 · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`
-          : `${commitmentsDue.count} ${commitmentsDue.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(commitmentsDue.total), dc.code)}`,
+          ? `${slot.count} 笔账单 · ${fmtMoney(dc.convert(slot.total), dc.code)}`
+          : `${slot.count} ${slot.count === 1 ? 'bill' : 'bills'} · ${fmtMoney(dc.convert(slot.total), dc.code)}`,
         sub: isZh ? '本月待付。点击前往打勾。' : 'Due this month. Tap to tick off.',
         onPress: onOpenCommitments,
       };
     }
-    if (owed.total > 0) {
-      return {
-        icon: 'gift' as IconName,
-        title: isZh ? `待收回 ${fmtMoney(dc.convert(owed.total), dc.code)}` : `${fmtMoney(dc.convert(owed.total), dc.code)} owed to you`,
-        sub: isZh
-          ? `来自 ${owed.count} 笔分摊账单。点击前往结清。`
-          : `From ${owed.count} shared ${owed.count === 1 ? 'bill' : 'bills'}. Tap to settle up.`,
-        onPress: onOpenOwed,
-      };
-    }
-    return null;
-  }, [commitmentsDue, owed, onOpenCommitments, onOpenOwed, dc.code, dc.rates, isZh]);
+    return {
+      icon: 'gift' as IconName,
+      title: isZh ? `待收回 ${fmtMoney(dc.convert(slot.total), dc.code)}` : `${fmtMoney(dc.convert(slot.total), dc.code)} owed to you`,
+      sub: isZh
+        ? `来自 ${slot.count} 笔分摊账单。点击前往结清。`
+        : `From ${slot.count} shared ${slot.count === 1 ? 'bill' : 'bills'}. Tap to settle up.`,
+      onPress: onOpenOwed,
+    };
+  }, [openShares, commitmentOccurrences, today, onOpenCommitments, onOpenOwed, dc.code, dc.rates, isZh]);
 
   const empty = transactions.length === 0 && !featuredTrip;
 
@@ -356,29 +394,40 @@ export function DashboardScreen({
               <HeaderIcon name="chart" onPress={() => onOpenRecap()} accessibilityLabel={t('monthlyRecap')} />
             </TourAnchor>
             <View ref={mascotRef} style={styles.mascotWrap}>
-              <Pressable
-                onPress={() => {
-                  haptics.tap();
-                  setTasksSheetOpen(true);
-                }}
-                style={({ pressed }) => [styles.pipBubble, { backgroundColor: theme.accentTint }, pressed && { transform: [{ scale: 0.94 }] }]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  taskStatus.pendingCount > 0
-                    ? `${taskStatus.pendingCount} ${t('exploreTasksBadgeLabel')}`
-                    : t('exploreTasksSheetTitle')
-                }
-              >
-                {sleepy ? <Pip size={44} expr="sleepy" /> : <Pip size={49} expr="idle" float />}
-                {taskStatus.pendingCount > 0 && (
-                  <View style={[styles.mascotBadge, { backgroundColor: colorTheme.red, borderColor: colorTheme.bg }]}>
-                    <Text style={styles.mascotBadgeText}>{taskStatus.pendingCount > 9 ? '9+' : taskStatus.pendingCount}</Text>
-                  </View>
-                )}
-              </Pressable>
+              <HomeMascotButton
+                sleepy={sleepy}
+                pendingCount={taskStatus.pendingCount}
+                isPro={isPro}
+                onPress={() => setTasksSheetOpen(true)}
+              />
             </View>
+            <HeaderIcon name="robot" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
           </View>
         </View>
+
+        {proCardMoment ? (
+          <PipUpsellCard
+            line={getMomentLine(proCardMoment, isZh, { reliefAmount })}
+            t={t}
+            onDismiss={() => setProCardMoment(null)}
+            onPress={() => {
+              if (proCardMoment === 'streak_7') {
+                openPaywall('report_export', 'home');
+              } else if (proCardMoment === 'relief_threshold') {
+                openPaywall('tax_export', 'home');
+              } else {
+                openPaywall('scan_quota', 'home');
+              }
+            }}
+          />
+        ) : upsell ? (
+          <PipUpsellCard
+            line={upsell.line}
+            t={t}
+            onDismiss={() => setUpsell(null)}
+            onPress={() => openPaywall('scan_quota', 'home')}
+          />
+        ) : null}
 
         {empty ? (
           <EmptyState />
@@ -400,6 +449,7 @@ export function DashboardScreen({
                   onPress={onOpenCalendar}
                   onNoSpendCheckIn={async () => {
                     await checkInToday('no_spend');
+                    playChime();
                   }}
                 />
                 {celebrating && <StreakCelebration onDone={() => setCelebrating(false)} />}
@@ -411,6 +461,7 @@ export function DashboardScreen({
                 first-run or pre-payday user is never greeted by a red negative. */}
             <TourAnchor id="tour_breakdown_card" activeId={activeTourAnchor}>
               <SummaryCard
+                isPro={isPro}
                 net={net}
                 received={received}
                 spent={spent}
@@ -428,6 +479,7 @@ export function DashboardScreen({
                 featuredTrip={featuredTrip}
                 transactions={transactions}
                 onOpenTrip={onOpenTrip}
+                onOpenCalendar={onOpenCalendar}
               />
             </TourAnchor>
 
@@ -715,7 +767,7 @@ function StreakCard({
           {graduated && startLabel ? (
             <>
               <Label weight={700} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{startLabel}</Label>
-              <Caption color={colorTheme.ink2}>{paused ? t('paused') : (isZh ? `连续 ${streak} 天` : `${streak}-day run`)}</Caption>
+              <Caption color={colorTheme.ink2}>{paused ? t('paused') : (isZh ? `连续 ${streak} 天` : `${streak} days`)}</Caption>
             </>
           ) : (
             <>
@@ -742,29 +794,33 @@ function StreakCard({
             return (
               <View
                 key={i}
-                style={[
-                  styles.dot,
-                  done
-                    ? [styles.dotDone, { backgroundColor: theme.accent }]
-                    : i === todayIndex
-                      ? styles.dotToday
-                      : [styles.dotTodo, { borderColor: colorTheme.ink3 }],
-                ]}
+                style={styles.dotCell}
               >
-                {done ? (
-                  kind === 'checkin' ? (
-                    <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-                      <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
-                    </Svg>
-                  ) : (
-                    <Svg width={10} height={8} viewBox="0 0 10 8" fill="none">
-                      <Path d="M1 4l2.8 3L9 1" stroke="#fff" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  )
-                ) : i === todayIndex ? (
-                  <TodayDotSpinner color={theme.accent} trackColor={theme.accentSoft} />
-                ) : null}
+                <View
+                  style={[
+                    styles.dot,
+                    done
+                      ? [styles.dotDone, { backgroundColor: theme.accent }]
+                      : i === todayIndex
+                        ? styles.dotToday
+                        : [styles.dotTodo, { borderColor: colorTheme.ink3 }],
+                  ]}
+                >
+                  {done ? (
+                    kind === 'checkin' ? (
+                      <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                        <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+                        <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                      </Svg>
+                    ) : (
+                      <Svg width={10} height={8} viewBox="0 0 10 8" fill="none">
+                        <Path d="M1 4l2.8 3L9 1" stroke="#fff" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    )
+                  ) : i === todayIndex ? (
+                    <TodayDotSpinner color={theme.accent} trackColor={theme.accentSoft} />
+                  ) : null}
+                </View>
               </View>
             );
           })}
@@ -1049,6 +1105,7 @@ export function adaptivePanel(hasAnyIncome: boolean, hasBudget: boolean, hasCurr
 /* ── Summary card: a swipeable hero carousel (Net cash flow / Total spent / Left to spend /
    Net worth). ── */
 function SummaryCard({
+  isPro,
   net,
   received,
   spent,
@@ -1066,7 +1123,9 @@ function SummaryCard({
   featuredTrip,
   transactions,
   onOpenTrip,
+  onOpenCalendar,
 }: {
+  isPro: boolean;
   net: number;
   received: number;
   spent: number;
@@ -1084,10 +1143,13 @@ function SummaryCard({
   featuredTrip: FeaturedTrip | null;
   transactions: Transaction[];
   onOpenTrip: (tripId: string) => void;
+  onOpenCalendar: () => void;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const dc = useDisplayCurrency();
+  const { isZh } = useLanguage();
+  const now = useNow();
   const hasFeaturedTrip = !!featuredTrip;
   const hasCurrentTrip = featuredTrip?.timing === 'current';
   const panels = useMemo(() => heroPanels(hasBudget, hasFeaturedTrip), [hasBudget, hasFeaturedTrip]);
@@ -1101,6 +1163,9 @@ function SummaryCard({
   const scrollRef = useRef<ScrollView>(null);
   const measureRef = useRef<View>(null);
   const didInitialScroll = useRef(false);
+
+  const monthPct = monthProgressPct(now);
+  const monthDaysLeft = daysLeftInMonth(now);
 
   // `onLayout` alone (React Native Web's ResizeObserver-based implementation) can miss the
   // first paint if the surface isn't yet compositing, so also measure directly on mount.
@@ -1122,8 +1187,9 @@ function SummaryCard({
 
   const currentPanel = panels[index] ?? panels[0];
 
-  return (
-    <Card style={styles.cashCard}>
+  const content = (
+    <>
+      {isPro ? <ProSummaryHeader /> : null}
       <View ref={measureRef} onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}>
       {cardWidth > 0 && (
         <ScrollView
@@ -1162,6 +1228,16 @@ function SummaryCard({
         </ScrollView>
       )}
 
+      <View style={styles.monthProgressWrap}>
+        <TimeProgressBar
+          percent={monthPct}
+          storageKey={MONTH_PROGRESS_SEEN_KEY}
+          captionFor={(pct) => monthProgressCaption(monthDaysLeft, pct, isZh)}
+          onPress={onOpenCalendar}
+          accessibilityLabel={isZh ? '本月进度，打开日历' : 'Month progress, open calendar'}
+        />
+      </View>
+
       {panels.length > 1 && (
         <View style={styles.heroDotsRow}>
           {panels.map((panel, i) => (
@@ -1173,7 +1249,11 @@ function SummaryCard({
         </View>
       )}
       </View>
-    </Card>
+    </>
+  );
+
+  return (
+    <Card style={styles.cashCard}>{content}</Card>
   );
 }
 
@@ -1217,7 +1297,7 @@ function CashFlowView({
       ? (isZh ? '本月总支出' : 'Total expenses this month')
       : panel === 'cashflow'
         ? (isZh ? '收入 − 支出 · 本月' : 'Income − Expenses · this month')
-        : (isZh ? `${monthName()} 还剩 ${daysLeftInMonth()} 天` : `${daysLeftInMonth()} days left in ${monthName()}`);
+        : (isZh ? '本月预算剩余' : "Remaining of this month's budget");
   const heroValue = panel === 'spent' ? spent : panel === 'cashflow' ? net : budgetLeft;
   const heroNegative = heroValue < 0;
   const heroAmount = `${currencyPrefix(dc.code)} ${fmtCompact(Math.abs(dc.convert(heroValue)))}`;
@@ -1466,7 +1546,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.base, paddingTop: spacing.xs, paddingBottom: spacing.md },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerIcon: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', ...shadowCard },
-  mascotWrap: { position: 'relative' },
+  mascotWrap: { position: 'relative', overflow: 'visible', alignItems: 'center' },
   // zIndex has to be set here, on the overlay itself, not just on its taskCelebrationAnchor
   // child: a child's zIndex only ranks it among ITS OWN siblings, and this overlay has none  it
   // competes against the ScrollView (its actual sibling) as a peer, where both defaulted to
@@ -1489,6 +1569,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   mascotBadgeText: { color: '#fff', fontSize: 10.5, fontFamily: uiFont(800), lineHeight: 13 },
+  mascotTierMarker: { alignItems: 'center', marginTop: 2 },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
@@ -1497,10 +1578,10 @@ const styles = StyleSheet.create({
   needsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.base, marginTop: spacing.md, padding: spacing.md, borderRadius: 16, borderWidth: 1 },
 
   /* streak */
-  streakCard: { marginHorizontal: spacing.base, marginTop: spacing.xs, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  streakLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  streakCard: { marginHorizontal: spacing.base, marginTop: spacing.xs, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  streakLeft: { width: 130, flexGrow: 0, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   streakCopy: { flex: 1, minWidth: 0 },
-  flameTile: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(217,138,0,0.10)', alignItems: 'center', justifyContent: 'center' },
+  flameTile: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(217,138,0,0.10)', alignItems: 'center', justifyContent: 'center' },
   streakDivider: { width: 1, height: 38, flexShrink: 0 },
   streakShield: {
     position: 'absolute',
@@ -1515,11 +1596,12 @@ const styles = StyleSheet.create({
     ...shadowCard,
   },
   weekLabelsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  weekColumn: { flex: 1, minWidth: 152 },
+  weekColumn: { flex: 1, minWidth: 0 },
   weekLabelCell: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   weekLabelText: { fontSize: 9.5, fontFamily: uiFont(700) },
-  dotsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dot: { width: 23, height: 23, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  dotsRow: { flexDirection: 'row' },
+  dotCell: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 18, height: 18, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   dotDone: {},
   dotToday: {},
   dotTodo: { borderWidth: 2, borderStyle: 'dashed' },
@@ -1570,6 +1652,7 @@ const styles = StyleSheet.create({
 
   /* summary hero carousel */
   heroDotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: spacing.sm },
+  monthProgressWrap: { marginTop: spacing.sm },
   heroDot: { width: 6, height: 6, borderRadius: 3 },
 
   /* cash flow */

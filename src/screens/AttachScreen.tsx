@@ -77,11 +77,11 @@ export function AttachScreen({
   const handleResult = (res: ImagePicker.ImagePickerResult) => {
     if (res.canceled || !res.assets?.length) return;
     const a = res.assets[0];
-    if (!a.base64) {
+    if (!a.uri && !a.base64) {
       notify('Hmm', isZh ? '无法读取该图片，请尝试其他图片。' : "That image couldn't be read. Try another one.");
       return;
     }
-    onPicked({ uri: a.uri, base64: a.base64, mime: a.mimeType ?? 'image/jpeg' });
+    onPicked({ uri: a.uri, base64: a.base64 || '', mime: a.mimeType ?? 'image/jpeg' });
   };
 
   const pickFromLibrary = async () => {
@@ -95,8 +95,7 @@ export function AttachScreen({
       }
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        base64: true,
-        quality: 0.55,
+        quality: 0.85,
       });
       handleResult(res);
     } finally {
@@ -126,7 +125,7 @@ export function AttachScreen({
         notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相机以拍摄小票。' : 'Allow camera access to snap a receipt.');
         return;
       }
-      const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.55 });
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
       handleResult(res);
     } finally {
       setBusy(false);

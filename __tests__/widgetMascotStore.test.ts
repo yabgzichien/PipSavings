@@ -45,7 +45,7 @@ describe('restoreBackupAndRefresh', () => {
     const refresh = jest.fn().mockResolvedValue(undefined);
     await restoreBackupAndRefresh(new Uint8Array([1]), refresh);
 
-    expect(restoreFromBackupZip).toHaveBeenCalledWith(new Uint8Array([1]));
+    expect(restoreFromBackupZip).toHaveBeenCalledWith(new Uint8Array([1]), false);
     expect(refresh).toHaveBeenCalled();
     expect(syncAllWidgets).toHaveBeenCalled();
     expect(refresh.mock.invocationCallOrder[0]).toBeLessThan(

@@ -12,6 +12,7 @@
 //   transactions.amount: NEGATIVE = expense/debit, POSITIVE = income/credit
 //   accounts.balance: always POSITIVE (outstanding amount for liabilities too)
 
+import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import React, { useMemo, useRef, useState } from 'react';
@@ -48,7 +49,8 @@ import { findOrCreatePerson, importParsedSplit, listPeople } from '../db/splitRe
 import { upsertMemory } from '../db/memoryRepo';
 import { addTransactions } from '../db/txnRepo';
 import { listFxRates } from '../db/fxRepo';
-import { activateCurrency, getEntryCurrency } from '../db/currencyRepo';
+import { addActiveCurrencies, ensureFxRate, getActiveCurrencies, getEntryCurrency } from '../db/currencyRepo';
+import { pickCurrenciesToActivate } from '../billing/currencyEntitlements';
 import { DROP, type Account, type ExtractedTxn } from '../lib/types';
 import { BASE_CURRENCY, deriveNative, round2 } from '../lib/currency';
 import { fmtMoney } from '../lib/format';
@@ -81,6 +83,8 @@ import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useBackHandler } from '../state/useBackHandler';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { radius, uiFont } from '../theme';
 import { ImportReviewScreen } from './ImportReviewScreen';
 
@@ -95,6 +99,14 @@ const LLM_LINKS = [
   { label: 'ChatGPT', url: 'https://chatgpt.com', emoji: '✿' },
   { label: 'Gemini', url: 'https://gemini.google.com', emoji: '✧' },
 ];
+
+async function prepareImportedCurrencies(foreignCodes: Set<string>, isPro: boolean): Promise<void> {
+  const codes = Array.from(foreignCodes);
+  if (codes.length === 0) return;
+  await Promise.all(codes.map((code) => ensureFxRate(code)));
+  const active = await getActiveCurrencies();
+  await addActiveCurrencies(pickCurrenciesToActivate(active, codes, isPro));
+}
 
 function LLMChip({ label, url, emoji }: { label: string; url: string; emoji: string }) {
   const colorTheme = useThemeColors();
@@ -219,6 +231,8 @@ function LiveTrackingReview({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const { isPro } = useEntitlement();
+  const { openPaywall } = usePaywall();
 
   const candidateIndices = useMemo<number[]>(() => {
     return accounts
@@ -231,7 +245,7 @@ function LiveTrackingReview({
     for (const idx of candidateIndices) {
       const a = accounts[idx];
       init[idx] = {
-        enabled: true,
+        enabled: isPro,
         symbol: a.symbol ?? a.ticker ?? '',
         ticker: a.ticker ?? a.symbol ?? '',
         sub: (a.sub as any) ?? 'stock',
@@ -307,7 +321,7 @@ function LiveTrackingReview({
         [idx]: curr
           ? { ...curr, searchQuery: text, searching: true }
           : {
-              enabled: true,
+              enabled: isPro,
               symbol: '',
               ticker: text,
               sub: 'stock',
@@ -365,7 +379,7 @@ function LiveTrackingReview({
         ...prev,
         [idx]: {
           ...(current ?? {
-            enabled: true,
+            enabled: isPro,
             symbol: sym,
             ticker: res.ticker,
             sub,
@@ -390,7 +404,7 @@ function LiveTrackingReview({
   const handleApply = () => {
     const updated = accounts.map((a, i) => {
       const st = holdingStates[i];
-      if (!st || !st.enabled || !st.symbol) return a;
+      if (!st || !st.enabled || !st.symbol || !isPro) return a;
       const numQty = parseFloat(st.quantity);
       if (!Number.isFinite(numQty) || numQty <= 0) return a;
       return {
@@ -423,7 +437,7 @@ function LiveTrackingReview({
         const a = accounts[idx];
         if (!a) return null;
         const st = holdingStates[idx] ?? {
-          enabled: true,
+          enabled: isPro,
           symbol: a.symbol ?? a.ticker ?? '',
           ticker: a.ticker ?? a.symbol ?? '',
           sub: (a.sub as any) ?? 'stock',
@@ -446,13 +460,19 @@ function LiveTrackingReview({
               </View>
 
               <Pressable
-                onPress={() => setHoldingStates((prev) => {
-                  const curr = prev[idx] ?? st;
-                  return {
-                    ...prev,
-                    [idx]: { ...curr, enabled: !curr.enabled },
-                  };
-                })}
+                onPress={() => {
+                  if (!st.enabled && !isPro) {
+                    openPaywall('live_holdings', 'advancedImport');
+                    return;
+                  }
+                  setHoldingStates((prev) => {
+                    const curr = prev[idx] ?? st;
+                    return {
+                      ...prev,
+                      [idx]: { ...curr, enabled: !curr.enabled },
+                    };
+                  });
+                }}
                 style={[
                   styles.toggleChip,
                   { backgroundColor: st.enabled ? theme.accentTint : colorTheme.surface2, borderColor: st.enabled ? theme.accent : colorTheme.line },
@@ -599,15 +619,18 @@ export function AdvancedImportScreen({
   onClose,
   onSuccess,
   isWizard = false,
+  embedded,
 }: {
   onClose: () => void;
   onSuccess?: () => void;
   isWizard?: boolean;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { t, isZh } = useLanguage();
+  const { isPro } = useEntitlement();
   const { commitCategorized, recordBalanceLink, refreshAll, setHoldingCost, updateHoldingQuantity, importParsedCommitments } = useAppData();
 
   const [phase, setPhase] = useState<Phase>('guide');
@@ -692,7 +715,7 @@ export function AdvancedImportScreen({
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 2500);
     } catch {
-      // Non-fatal: user can long-press-select the preview text.
+      // Non-fatal: Share/clipboard can fail on some devices; user can try again.
     }
   };
 
@@ -717,6 +740,18 @@ export function AdvancedImportScreen({
       setPhase('error');
     } finally {
       setPickingFile(false);
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      setJsonText(text);
+      setPhase('pasting');
+      handlePasteImport(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('advImportErrPasteFirst'));
+      setPhase('error');
     }
   };
 
@@ -774,7 +809,7 @@ export function AdvancedImportScreen({
       setParsedMerchantMemory(pMemory ?? {});
       setParsedPreferences(pPrefs ?? null);
 
-      // Auto-activate all foreign currencies in the background so their FX rates are fetched/cached
+      // Cache FX for every imported currency; only fill remaining picker slots on Free.
       const foreignCodes = new Set<string>();
       for (const a of accounts) if (a.currency !== BASE_CURRENCY) foreignCodes.add(a.currency);
       for (const t of transactions) if (t.currency && t.currency !== BASE_CURRENCY) foreignCodes.add(t.currency);
@@ -783,9 +818,7 @@ export function AdvancedImportScreen({
       if (pPrefs?.activeCurrencies) {
         for (const code of pPrefs.activeCurrencies) if (code !== BASE_CURRENCY) foreignCodes.add(code);
       }
-      for (const code of foreignCodes) {
-        void activateCurrency(code);
-      }
+      void prepareImportedCurrencies(foreignCodes, isPro);
 
       // If there are accounts to review, show that step first.
       if (accounts.length > 0) {
@@ -819,7 +852,7 @@ export function AdvancedImportScreen({
         for (const code of parsedPreferences.activeCurrencies) if (code !== BASE_CURRENCY) foreignCodes.add(code);
       }
       if (foreignCodes.size > 0) {
-        await Promise.all(Array.from(foreignCodes).map((code) => activateCurrency(code)));
+        await prepareImportedCurrencies(foreignCodes, isPro);
       }
 
       // 0. Commit custom categories if any
@@ -1153,9 +1186,11 @@ export function AdvancedImportScreen({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('importAdvancedTitle')} onBack={handleBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('importAdvancedTitle')} onBack={handleBack} />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -1415,41 +1450,6 @@ export function AdvancedImportScreen({
                   {t('advImportThinkingModeTip', { thinkingMode: t('advImportThinkingModeBold') })}
                 </Text>
               </View>
-
-              {/* What gets imported summary */}
-              <View style={[styles.coversBox, { backgroundColor: colorTheme.surface2 }]}>
-                <Text style={[styles.coversTitle, { color: colorTheme.ink2 }]}>{t('advImportCoversTitle')}</Text>
-                {[
-                  t('advImportCoversTxns'),
-                  t('advImportCoversBalances'),
-                  t('advImportCoversInvestments'),
-                  t('advImportCoversLiabilities'),
-                ].map((line) => (
-                  <View key={line} style={styles.coversRow}>
-                    <Text style={[styles.coversDot, { color: theme.accent }]}>✓</Text>
-                    <Text style={[styles.coversText, { color: colorTheme.ink2 }]}>{line}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Prompt preview */}
-              <View>
-                <Eyebrow style={{ marginBottom: 8 }}>{t('advImportPromptPreview')}</Eyebrow>
-                <View style={[styles.promptBox, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
-                  <TextInput
-                    multiline
-                    editable={false}
-                    selectTextOnFocus
-                    value={prompt}
-                    style={[styles.promptText, { color: colorTheme.ink2 }]}
-                    scrollEnabled={false}
-                    accessibilityLabel={t('advImportPromptA11y')}
-                  />
-                </View>
-                <Text style={[styles.promptNote, { color: colorTheme.ink3 }]}>
-                  {t('advImportLongPressHint')}
-                </Text>
-              </View>
             </Card>
 
             {/* Arrow */}
@@ -1471,6 +1471,7 @@ export function AdvancedImportScreen({
               </Text>
 
               <Pressable
+                testID="adv-import-upload"
                 onPress={pickJsonFile}
                 disabled={pickingFile}
                 style={({ pressed }) => [
@@ -1497,30 +1498,22 @@ export function AdvancedImportScreen({
                 <View style={[styles.arrowLine, { backgroundColor: colorTheme.line }]} />
               </View>
 
-              <TextInput
-                multiline
-                value={jsonText}
-                onChangeText={(txt) => {
-                  setJsonText(txt);
-                  setPhase((prev) => (prev === 'guide' ? 'pasting' : prev));
-                }}
-                placeholder={'{\n  "transactions": [ … ],\n  "accounts": [ … ]\n}'}
-                placeholderTextColor={colorTheme.ink3}
-                style={[
-                  styles.jsonInput,
-                  { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line, color: colorTheme.ink },
+              <Pressable
+                testID="adv-import-paste-clipboard"
+                onPress={() => void pasteFromClipboard()}
+                style={({ pressed }) => [
+                  styles.copyBtn,
+                  { backgroundColor: theme.accentTint, borderColor: theme.accentSoft },
+                  pressed && { opacity: 0.88 },
                 ]}
-                textAlignVertical="top"
-                autoCorrect={false}
-                autoCapitalize="none"
-                spellCheck={false}
-                accessibilityLabel={t('advImportPasteJsonA11y')}
-              />
-
-              <PrimaryButton onPress={() => handlePasteImport()}>
-                <Icon name="check" size={18} color="#fff" stroke={2.4} />
-                <BtnLabel>{t('advImportParseReview')}</BtnLabel>
-              </PrimaryButton>
+                accessibilityRole="button"
+                accessibilityLabel={t('advImportPasteClipboardBtn')}
+              >
+                <Icon name="copy" size={17} color={theme.accent} />
+                <Text style={[styles.copyBtnText, { color: theme.accent }]}>
+                  {t('advImportPasteClipboardBtn')}
+                </Text>
+              </Pressable>
             </Card>
           </>
         )}
@@ -1560,26 +1553,10 @@ const styles = StyleSheet.create({
   tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, borderRadius: radius.sm, padding: 11 },
   tipText: { fontFamily: uiFont(500), fontSize: 12.5, flex: 1, lineHeight: 18 },
 
-  coversBox: { borderRadius: radius.sm, padding: 12, gap: 6 },
-  coversTitle: { fontFamily: uiFont(700), fontSize: 12, marginBottom: 4 },
-  coversRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  coversDot: { fontFamily: uiFont(700), fontSize: 12, width: 14 },
-  coversText: { fontFamily: uiFont(500), fontSize: 12.5, flex: 1 },
-
-  promptBox: { borderWidth: 1, borderRadius: radius.sm, padding: 12, maxHeight: 180, overflow: 'hidden' },
-  promptText: { fontFamily: uiFont(400), fontSize: 11, lineHeight: 16 },
-  promptNote: { fontFamily: uiFont(500), fontSize: 11.5, marginTop: 6, textAlign: 'center' },
-
   arrowRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 6, paddingHorizontal: 24 },
   arrowLine: { flex: 1, height: 1 },
   arrowIcon: { fontFamily: uiFont(400), fontSize: 18 },
   orText: { fontFamily: uiFont(600), fontSize: 11.5, textTransform: 'uppercase', letterSpacing: 0.4 },
-
-  jsonInput: {
-    borderWidth: 1.5,
-    borderRadius: radius.sm, padding: 12, height: 160,
-    fontFamily: uiFont(400), fontSize: 12, lineHeight: 18,
-  },
 
   // Account review
   accRow: {

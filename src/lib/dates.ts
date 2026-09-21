@@ -132,14 +132,64 @@ export function daysLeftInMonth(now: Date = new Date()): number {
   return lastDay - now.getDate() + 1;
 }
 
-/** A 'YYYY-MM' key as a readable label, e.g. "June 2026" (full=false → "Jun '26"). */
+/** Number of days in the calendar month of `now`. */
+export function daysInMonth(now: Date = new Date()): number {
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+}
+
+/**
+ * How far through the current calendar month we are, as an integer 0–100.
+ * Uses day-of-month / days-in-month (today counts as elapsed). Last day is always 100,
+ * matching "no days left after today" completeness even though `daysLeftInMonth` is still 1.
+ */
+export function monthProgressPct(now: Date = new Date()): number {
+  const total = daysInMonth(now);
+  const day = now.getDate();
+  if (day >= total || daysLeftInMonth(now) <= 0) return 100;
+  return Math.max(0, Math.min(100, Math.round((day / total) * 100)));
+}
+
+/** True if `year` is a Gregorian leap year. */
+export function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/** Days in the calendar year of `now` (365 or 366). */
+export function daysInYear(now: Date = new Date()): number {
+  return isLeapYear(now.getFullYear()) ? 366 : 365;
+}
+
+/** 1-based day of year for `now` (Jan 1 → 1). */
+export function dayOfYear(now: Date = new Date()): number {
+  const start = Date.UTC(now.getFullYear(), 0, 1);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((today - start) / 86400000) + 1;
+}
+
+/** Days remaining in the calendar year, today counted as remaining (1..366). */
+export function daysLeftInYear(now: Date = new Date()): number {
+  return daysInYear(now) - dayOfYear(now) + 1;
+}
+
+/**
+ * How far through the current calendar year we are, as an integer 0–100.
+ * Same inclusive-today rule as `monthProgressPct`; Dec 31 is always 100.
+ */
+export function yearProgressPct(now: Date = new Date()): number {
+  const total = daysInYear(now);
+  const day = dayOfYear(now);
+  if (day >= total || daysLeftInYear(now) <= 0) return 100;
+  return Math.max(0, Math.min(100, Math.round((day / total) * 100)));
+}
+
+/** A 'YYYY-MM' key as a readable label, e.g. "June 2026" (full=false → "Jun 2026"). */
 export function monthLabel(monthKey: string, full = true): string {
   const m = monthKey.match(/^(\d{4})-(\d{2})$/);
   if (!m) return monthKey;
   const year = m[1];
   const idx = parseInt(m[2], 10) - 1;
   if (idx < 0 || idx > 11) return monthKey;
-  return full ? `${MONTHS[idx]} ${year}` : `${MONTHS_SHORT[idx]} '${year.slice(2)}`;
+  return full ? `${MONTHS[idx]} ${year}` : `${MONTHS_SHORT[idx]} ${year}`;
 }
 
 /** Add `months` calendar months to an ISO 'YYYY-MM-DD' date, clamping to the target month's
@@ -183,4 +233,3 @@ export function formatTimelineDateHeader(dueDate: string, today: string, isZh = 
   if (diffDays === -1) return `Yesterday ${monthShort} ${d}`;
   return `${WEEKDAYS[dayOfWeek]} ${monthShort} ${d}`;
 }
-

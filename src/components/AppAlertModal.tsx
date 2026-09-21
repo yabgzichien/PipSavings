@@ -13,7 +13,7 @@ import { colors, radius, shadowCard, uiFont } from '../theme';
 import { Icon } from './Icon';
 
 export function AppAlertModal() {
-  const { request, dismiss } = useAlertHost();
+  const { request, dismiss, dismissIf } = useAlertHost();
   const [busy, setBusy] = React.useState(false);
   const [busyAction, setBusyAction] = React.useState<'confirm' | 'neutral' | null>(null);
   // Guards a fast double-tap on the confirm button from running onConfirm twice (same class of
@@ -28,22 +28,25 @@ export function AppAlertModal() {
 
   const handleConfirm = async () => {
     if (request.kind !== 'confirm' || confirmingRef.current) return;
+    const active = request;
     confirmingRef.current = true;
     setBusy(true);
     setBusyAction('confirm');
     try {
-      await request.onConfirm();
+      await active.onConfirm();
     } finally {
       confirmingRef.current = false;
       setBusy(false);
       setBusyAction(null);
-      dismiss();
+      // Keep a follow-up alert if onConfirm dispatched one (e.g. restore purchases ask).
+      dismissIf(active);
     }
   };
 
   const handleNeutral = async () => {
     if (request.kind !== 'confirm' || !request.neutralAction || confirmingRef.current) return;
-    const action = request.neutralAction.onPress;
+    const active = request;
+    const action = active.neutralAction!.onPress;
     confirmingRef.current = true;
     setBusy(true);
     setBusyAction('neutral');
@@ -53,7 +56,7 @@ export function AppAlertModal() {
       confirmingRef.current = false;
       setBusy(false);
       setBusyAction(null);
-      dismiss();
+      dismissIf(active);
     }
   };
 

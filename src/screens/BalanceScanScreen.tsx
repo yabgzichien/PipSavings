@@ -16,11 +16,15 @@ import { BASE_CURRENCY } from '../lib/currency';
 import { getEntryCurrency } from '../db/currencyRepo';
 import { notify } from '../lib/platformAlert';
 import { searchCrypto, resolveCryptoTickers } from '../prices';
-import type { TickerResult } from '../lib/prices';
+import type { TickerResult, ScannedHolding } from '../lib/prices';
 import type { Account, AccountKind } from '../lib/types';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
 import { useLanguage } from '../i18n';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
+import { submitSnapshotScan } from '../billing/scanProxy';
+import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useReducedMotion } from '../state/useReducedMotion';
@@ -38,14 +42,36 @@ interface HoldingRow {
 
 const parseAmount = (s: string): number => Math.max(0, parseFloat(s.replace(/[^0-9.]/g, '')) || 0);
 
-export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
+export function BalanceScanScreen({
+  onClose,
+  embedded,
+  initialAmount,
+  initialHoldings,
+}: {
+  onClose: () => void;
+  embedded?: boolean;
+  initialAmount?: number | null;
+  initialHoldings?: ScannedHolding[] | null;
+}) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { isZh } = useLanguage();
+  const { isZh, t } = useLanguage();
   const { accounts, accountValues, addAccount, addHolding, setBalance } = useAppData();
+  const {
+    isPro,
+    canScan,
+    scansRemaining,
+    scansLimit,
+    dailyScansRemaining,
+    dailyScansLimit,
+    refreshAllowance,
+  } = useEntitlement();
+  const { openPaywall } = usePaywall();
   const reducedMotion = useReducedMotion();
-  const [phase, setPhase] = useState<Phase>('pick');
+  const [phase, setPhase] = useState<Phase>(
+    initialHoldings ? 'scanning' : initialAmount !== undefined ? 'balance' : 'pick',
+  );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [doneMsg, setDoneMsg] = useState('');
@@ -66,7 +92,9 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
   const [institution, setInstitution] = useState<Institution | null>(null);
   const [rawProvider, setRawProvider] = useState<string | null>(null);
   const [detectedKind, setDetectedKind] = useState<AccountKind>('asset');
-  const [amountText, setAmountText] = useState('');
+  const [amountText, setAmountText] = useState(
+    initialAmount != null ? String(initialAmount) : '',
+  );
   const [matches, setMatches] = useState<Account[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [forceCreate, setForceCreate] = useState(false);
@@ -81,27 +109,55 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
     void getEntryCurrency().then(setEntryCurrency);
   }, []);
 
+  useEffect(() => {
+    if (!initialHoldings) return;
+    let alive = true;
+    (async () => {
+      try {
+        const resolved = await resolveCryptoTickers(initialHoldings);
+        if (!alive) return;
+        setRows(resolved.map((r, i) => ({ key: i, ticker: r.ticker, qty: String(r.quantity), coin: r.coin })));
+        setPhase('holdings');
+      } catch (e) {
+        if (!alive) return;
+        setError(llmErrorMessage(e));
+        setPhase('error');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [initialHoldings]);
+
   const handle = async (res: ImagePicker.ImagePickerResult) => {
     if (res.canceled || !res.assets?.length) return;
     const a = res.assets[0];
-    if (!a.base64) { notify('Hmm', isZh ? '无法读取该图片。' : "That image couldn't be read."); return; }
-    await run(a.base64, a.mimeType ?? 'image/jpeg');
+    if (!a.uri && !a.base64) { notify('Hmm', isZh ? '无法读取该图片。' : "That image couldn't be read."); return; }
+    await run(a.uri, a.base64 || undefined, a.mimeType ?? 'image/jpeg');
   };
 
   const pickGallery = async () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'networth');
+      return;
+    }
     if (busy) return; setBusy(true);
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相册以选取截图。' : 'Allow photo access to pick a screenshot.'); return; }
-      await handle(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], base64: true, quality: 0.7 }));
+      await handle(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 }));
     } finally { setBusy(false); }
   };
   const takePhoto = async () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'networth');
+      return;
+    }
     if (busy) return; setBusy(true);
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) { notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相机以拍摄截图。' : 'Allow camera access to snap a screenshot.'); return; }
-      await handle(await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 }));
+      await handle(await ImagePicker.launchCameraAsync({ quality: 0.85 }));
     } finally { setBusy(false); }
   };
 
@@ -110,14 +166,32 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
     setMatches([]); setSelectedMatchId(null); setForceCreate(false); setNewName(''); setNewCls('cash');
   };
 
-  const run = async (base64: string, mime: string) => {
+  const run = async (uri: string, base64?: string, mime: string = 'image/jpeg') => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'networth');
+      return;
+    }
     setPhase('scanning');
     setError('');
     resetBalanceState();
     try {
-      const llm = await getLLM();
-      if (!llm.can('extractSnapshot')) { setPhase('needprovider'); return; }
-      const snap = await llm.extractSnapshot({ parts: [{ kind: 'binary', base64, mimeType: mime }] });
+      const res = await submitSnapshotScan(
+        { uri, imageBase64: base64, mimeType: mime },
+        isPro ? 'pro' : 'free'
+      );
+      if (res.quotaBlocked) {
+        openPaywall('scan_quota', 'networth');
+        setError(res.error || 'Scan limit reached');
+        setPhase('error');
+        return;
+      }
+      if (!res.ok || !res.snapshot) {
+        setError(res.error || (isZh ? '无法识别该截图内容。' : "I couldn't read that screenshot."));
+        setPhase('error');
+        return;
+      }
+      const snap = res.snapshot;
+      void refreshAllowance();
 
       if (snap.kind === 'unknown') {
         setError(
@@ -130,6 +204,12 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
       }
 
       if (snap.kind === 'holdings') {
+        if (!isPro) {
+          openPaywall('live_holdings', 'networth');
+          setError(isZh ? '实时持仓属于 Pro。' : 'Live holdings are a Pro feature.');
+          setPhase('error');
+          return;
+        }
         if (snap.holdings.length === 0) {
           setError(isZh ? '在该截图中未能找到任何持仓币种。' : "I couldn't find any coin holdings in that screenshot.");
           setPhase('error');
@@ -165,6 +245,10 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
   const remove = (key: number) => setRows((prev) => prev.filter((r) => r.key !== key));
   const importable = rows.filter((r) => r.coin && parseFloat(r.qty.replace(/[^0-9.]/g, '')) > 0);
   const confirmHoldings = async () => {
+    if (!isPro) {
+      openPaywall('live_holdings', 'networth');
+      return;
+    }
     let n = 0;
     for (const r of importable) {
       const q = Math.round(parseFloat(r.qty.replace(/[^0-9.]/g, '')) * 1e8) / 1e8;
@@ -223,9 +307,24 @@ export function BalanceScanScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={isZh ? '扫描余额' : 'Scan Balance'} onBack={onClose} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={isZh ? '扫描余额' : 'Scan Balance'} onBack={onClose} />
+        </View>
+      )}
+      {!embedded && !isPro && (
+        <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
+          <ScanQuotaBadge
+            quota={{
+              monthRemaining: scansRemaining,
+              monthTotal: scansLimit,
+              dayRemaining: dailyScansRemaining,
+              dayTotal: dailyScansLimit,
+            }}
+            t={t}
+          />
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 110 }} keyboardShouldPersistTaps="handled">
         {phase === 'pick' && (

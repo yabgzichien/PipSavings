@@ -13,6 +13,9 @@ import { Icon } from '../components/Icon';
 import { InfoButton } from '../components/InfoButton';
 import { ReceiptItemModal } from '../components/ReceiptItemModal';
 import { B, BtnLabel, BubbleText, Card, PipSays, PrimaryButton, TopBar } from '../components/ui';
+import { canActivateCurrency } from '../billing/currencyEntitlements';
+import { useEntitlement } from '../billing/entitlement';
+import { usePaywall } from '../billing/paywallContext';
 import { activateCurrency, getActiveCurrencies } from '../db/currencyRepo';
 import { BASE_CURRENCY } from '../lib/currency';
 import { scanDocument } from '../lib/documentScanner';
@@ -21,12 +24,14 @@ import { llmErrorMessage } from '../llm';
 import { derivedSurcharges, type ScannedReceipt } from '../lib/parseReceipt';
 import { notify } from '../lib/platformAlert';
 import { saveReceiptImage } from '../lib/receiptStorage';
+import type { OcrOutcome } from '../lib/receiptOcr';
 import { scanReceiptImage } from '../lib/scanReceipt';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
 import { computeBillTotal, computeItemized, SELF, type Discount, type ReceiptLine, type Surcharges } from '../lib/split';
 import type { SplitDraft } from '../lib/types';
 import { useLanguage } from '../i18n';
+import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import { useAppData } from '../state/store';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -82,17 +87,21 @@ const PREVIEW_H = 280;
 
 export function ReceiptScanScreen({
   initialImage,
+  prefetchedOcr,
   cachedReceipt,
   initialDraft,
   onScanned,
   onBack,
   onDone,
   onManualInstead,
+  embedded,
 }: {
   /** The image the add hub already captured, handed over once the user confirmed on
    *  ScanKindScreen that it was a receipt. When set, this screen skips straight to reading it;
    *  its own capture screen stays reachable as the retry surface if that read fails. */
   initialImage?: PickedImage;
+  /** OCR started on ScanKind for `initialImage` — skip a second ML Kit pass on first read. */
+  prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
   /** A previous read of this same image, handed back in when the user backed out to the kind
    *  question and returned. Lets the screen skip straight to 'assign' instead of paying for
    *  another LLM round-trip (and the "reading" loading beat) to re-read a receipt already read. */
@@ -107,13 +116,24 @@ export function ReceiptScanScreen({
   onDone: (result: ReceiptSplitResult) => void;
   /** Escape hatch: split a typed total instead of a photographed receipt. */
   onManualInstead: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { isZh } = useLanguage();
+  const { isZh, t } = useLanguage();
   const { people, addPerson } = useAppData();
   const reducedMotion = useReducedMotion();
+  const {
+    isPro,
+    canScan,
+    scansRemaining,
+    scansLimit,
+    dailyScansRemaining,
+    dailyScansLimit,
+    refreshAllowance,
+  } = useEntitlement();
+  const { openPaywall } = usePaywall();
 
   const [phase, setPhase] = useState<Phase>(cachedReceipt ? 'assign' : initialImage ? 'reading' : 'capture');
   const [error, setError] = useState('');
@@ -216,16 +236,27 @@ export function ReceiptScanScreen({
     setChargedText((scanned.total ?? fallbackTotal).toFixed(2));
   };
 
-  const read = async (image: PickedImage) => {
+  const read = async (image: PickedImage, ocr?: OcrOutcome | Promise<OcrOutcome>) => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      return;
+    }
     setPickedImage(image);
     setPhase('reading');
     setError('');
     try {
-      const scanned = await scanReceiptImage(image);
+      const scanned = await scanReceiptImage(image, isPro ? 'pro' : 'free', ocr);
       applyScan(scanned);
       onScanned?.(scanned);
+      void refreshAllowance();
       setPhase('assign');
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.quotaBlocked) {
+        openPaywall('scan_quota', 'add');
+        setError(e.message || 'Scan limit reached');
+        setPhase('capture');
+        return;
+      }
       // A read failure (network, auth, or a reply nothing usable could be parsed from) still
       // leaves a real photo the user took. Falling through to 'assign' with a blank receipt lets
       // them type the total by hand and save it, instead of dead-ending at 'capture' with only
@@ -250,21 +281,25 @@ export function ReceiptScanScreen({
       else applyScan(cachedReceipt);
       return;
     }
-    if (initialImage) read(initialImage);
+    if (initialImage) read(initialImage, prefetchedOcr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleResult = (res: ImagePicker.ImagePickerResult) => {
     if (res.canceled || !res.assets?.length) return;
     const a = res.assets[0];
-    if (!a.base64) {
+    if (!a.uri && !a.base64) {
       notify('Hmm', isZh ? '无法读取该照片，请尝试其他照片。' : "That photo couldn't be read. Try another one.");
       return;
     }
-    read({ uri: a.uri, base64: a.base64, mime: a.mimeType ?? 'image/jpeg' });
+    read({ uri: a.uri, base64: a.base64 || '', mime: a.mimeType ?? 'image/jpeg' });
   };
 
   const takePhoto = async () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      return;
+    }
     if (busy) return;
     setBusy(true);
     try {
@@ -283,13 +318,17 @@ export function ReceiptScanScreen({
         notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相机以拍摄小票。' : 'Allow camera access to photograph the receipt.');
         return;
       }
-      handleResult(await ImagePicker.launchCameraAsync({ base64: true, quality: 0.7 }));
+      handleResult(await ImagePicker.launchCameraAsync({ quality: 0.85 }));
     } finally {
       setBusy(false);
     }
   };
 
   const pickFromLibrary = async () => {
+    if (!canScan) {
+      openPaywall('scan_quota', 'add');
+      return;
+    }
     if (busy) return;
     setBusy(true);
     try {
@@ -298,7 +337,7 @@ export function ReceiptScanScreen({
         notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相册以选取小票。' : 'Allow photo access to pick the receipt.');
         return;
       }
-      handleResult(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], base64: true, quality: 0.7 }));
+      handleResult(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 }));
     } finally {
       setBusy(false);
     }
@@ -403,12 +442,14 @@ export function ReceiptScanScreen({
     const translateY = scan.interpolate({ inputRange: [0, 1], outputRange: [0, PREVIEW_H - 28] });
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar
-            title={isZh ? '正在识别小票…' : 'Reading receipt…'}
-            onBack={() => (initialImage ? onBack() : setPhase('capture'))}
-          />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar
+              title={isZh ? '正在识别小票…' : 'Reading receipt…'}
+              onBack={() => (initialImage ? onBack() : setPhase('capture'))}
+            />
+          </View>
+        )}
         <ScrollView
           contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 30 }}
           showsVerticalScrollIndicator={false}
@@ -463,9 +504,24 @@ export function ReceiptScanScreen({
   if (phase === 'capture') {
     return (
       <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-        <View style={{ paddingTop: insets.top + 4 }}>
-          <TopBar title={isZh ? '扫描消费小票' : 'Scan a receipt'} onBack={onBack} />
-        </View>
+        {!embedded && (
+          <View style={{ paddingTop: insets.top + 4 }}>
+            <TopBar title={isZh ? '扫描消费小票' : 'Scan a receipt'} onBack={onBack} />
+          </View>
+        )}
+        {!isPro && (
+          <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
+            <ScanQuotaBadge
+              quota={{
+                monthRemaining: scansRemaining,
+                monthTotal: scansLimit,
+                dayRemaining: dailyScansRemaining,
+                dayTotal: dailyScansLimit,
+              }}
+              t={t}
+            />
+          </View>
+        )}
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 30 }}>
           <PipSays expr="curious">
             <BubbleText>
@@ -505,14 +561,16 @@ export function ReceiptScanScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        {/* Back means "this wasn't a receipt after all" when the hub supplied the image, so it
-            returns to the kind question rather than to a capture screen the user never used. */}
-        <TopBar
-          title={receipt?.merchant ?? (isZh ? '分配明细' : 'Assign the items')}
-          onBack={() => (initialImage ? onBack() : setPhase('capture'))}
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          {/* Back means "this wasn't a receipt after all" when the hub supplied the image, so it
+              returns to the kind question rather than to a capture screen the user never used. */}
+          <TopBar
+            title={receipt?.merchant ?? (isZh ? '分配明细' : 'Assign the items')}
+            onBack={() => (initialImage ? onBack() : setPhase('capture'))}
+          />
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -650,6 +708,10 @@ export function ReceiptScanScreen({
             <Pressable
               onPress={async () => {
                 if (activatingCode) return;
+                if (!canActivateCurrency(activeCurrencies, receipt.currency, isPro)) {
+                  openPaywall('multi_currency');
+                  return;
+                }
                 setActivatingCode(receipt.currency);
                 try {
                   const ok = await activateCurrency(receipt.currency);

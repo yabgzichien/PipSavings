@@ -20,6 +20,12 @@ describe('Settings Search', () => {
   });
 
   describe('English search queries and synonyms', () => {
+    it('includes Ask Pip and finds its API key settings', () => {
+      expect(SETTING_DEFINITIONS.some((d) => d.key === 'ask_pip')).toBe(true);
+      expect(filterSettings('api key').matchingKeys.has('ask_pip')).toBe(true);
+      expect(filterSettings('Ask Pip').matchingKeys.has('ask_pip')).toBe(true);
+    });
+
     it('finds theme settings by name and mode keywords', () => {
       expect(filterSettings('theme').matchingKeys.has('theme')).toBe(true);
       expect(filterSettings('dark').matchingKeys.has('theme')).toBe(true);
@@ -56,10 +62,17 @@ describe('Settings Search', () => {
       expect(filterSettings('mute').matchingKeys.has('sounds')).toBe(true);
     });
 
-    it('finds streak settings', () => {
-      expect(filterSettings('streak').matchingKeys.has('streak')).toBe(true);
-      expect(filterSettings('pause').matchingKeys.has('streak')).toBe(true);
-      expect(filterSettings('freeze').matchingKeys.has('streak')).toBe(true);
+    it('finds glossary settings under Appearance', () => {
+      expect(filterSettings('glossary').matchingKeys.has('glossary')).toBe(true);
+      expect(filterSettings('info').matchingKeys.has('glossary')).toBe(true);
+      expect(filterSettings('词汇').matchingKeys.has('glossary')).toBe(true);
+      expect(filterSettings('glossary').matchingSections.has('appearance')).toBe(true);
+    });
+
+    it('does not expose a streak pause setting', () => {
+      const streakKey = 'streak' as SettingItemKey;
+      expect(SETTING_DEFINITIONS.some((d) => d.key === streakKey)).toBe(false);
+      expect(filterSettings('streak').matchingKeys.has(streakKey)).toBe(false);
     });
 
     it('finds reminder settings', () => {
@@ -111,10 +124,22 @@ describe('Settings Search', () => {
       expect(filterSettings('exchange rate').matchingKeys.has('data_currencies')).toBe(true);
     });
 
-    it('finds tutorial replay settings', () => {
-      expect(filterSettings('tutorial').matchingKeys.has('data_tutorial')).toBe(true);
-      expect(filterSettings('replay').matchingKeys.has('data_tutorial')).toBe(true);
-      expect(filterSettings('onboarding').matchingKeys.has('data_tutorial')).toBe(true);
+    it('finds tutorial replay settings under About', () => {
+      expect(filterSettings('tutorial').matchingKeys.has('about_tutorial')).toBe(true);
+      expect(filterSettings('replay').matchingKeys.has('about_tutorial')).toBe(true);
+      expect(filterSettings('onboarding').matchingKeys.has('about_tutorial')).toBe(true);
+      expect(filterSettings('tutorial').matchingSections.has('about')).toBe(true);
+    });
+
+    it('finds About rows by manage, instagram, and bug report', () => {
+      expect(filterSettings('manage').matchingKeys.has('about_manage')).toBe(true);
+      expect(filterSettings('cancel').matchingKeys.has('about_manage')).toBe(true);
+      expect(filterSettings('instagram').matchingKeys.has('about_connect')).toBe(true);
+      expect(filterSettings('privacy').matchingKeys.has('about_privacy')).toBe(true);
+      expect(filterSettings('terms').matchingKeys.has('about_terms')).toBe(true);
+      expect(filterSettings('bug').matchingKeys.has('about_bug')).toBe(true);
+      expect(filterSettings('version').matchingKeys.has('about_version')).toBe(true);
+      expect(filterSettings('about').matchingSections.has('about')).toBe(true);
     });
 
     it('finds danger zone reset settings', () => {
@@ -144,8 +169,6 @@ describe('Settings Search', () => {
       expect(filterSettings('动画').matchingKeys.has('motion')).toBe(true);
       expect(filterSettings('触感').matchingKeys.has('motion')).toBe(true);
       expect(filterSettings('音效').matchingKeys.has('sounds')).toBe(true);
-      expect(filterSettings('连续记账').matchingKeys.has('streak')).toBe(true);
-      expect(filterSettings('打卡').matchingKeys.has('streak')).toBe(true);
       expect(filterSettings('提醒').matchingSections.has('reminders')).toBe(true);
       expect(filterSettings('记账提醒').matchingKeys.has('reminder_spending')).toBe(true);
       expect(filterSettings('催款').matchingKeys.has('reminder_owed')).toBe(true);
@@ -158,7 +181,12 @@ describe('Settings Search', () => {
       expect(filterSettings('货币').matchingKeys.has('data_currencies')).toBe(true);
       expect(filterSettings('汇率').matchingKeys.has('data_currencies')).toBe(true);
       expect(filterSettings('分类').matchingKeys.has('data_categories')).toBe(true);
-      expect(filterSettings('教程').matchingKeys.has('data_tutorial')).toBe(true);
+      expect(filterSettings('教程').matchingKeys.has('about_tutorial')).toBe(true);
+      expect(filterSettings('关于').matchingSections.has('about')).toBe(true);
+      expect(filterSettings('隐私政策').matchingKeys.has('about_privacy')).toBe(true);
+      expect(filterSettings('使用条款').matchingKeys.has('about_terms')).toBe(true);
+      expect(filterSettings('报告问题').matchingKeys.has('about_bug')).toBe(true);
+      expect(filterSettings('管理订阅').matchingKeys.has('about_manage')).toBe(true);
       expect(filterSettings('重置').matchingKeys.has('danger_reset_all')).toBe(true);
       expect(filterSettings('清空').matchingKeys.has('danger_reset_all')).toBe(true);
       expect(filterSettings('预算').matchingKeys.has('budget')).toBe(true);

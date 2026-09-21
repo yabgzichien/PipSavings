@@ -8,7 +8,6 @@
 // throws under Expo Go (no such module compiled in) and doesn't exist at all on web. Deferring
 // the import to call time, inside a try/catch, means every OTHER screen keeps working under
 // Expo Go: only this specific button needs a dev-client build, not the whole app.
-import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 import type { PickedImage } from '../screens/AttachScreen';
 
@@ -47,6 +46,5 @@ export async function scanDocument(): Promise<ScanOutcome> {
   }
 
   const uri = normalizeFileUri(scannedImages[0]);
-  const base64 = await new File(uri).base64();
-  return { status: 'picked', image: { uri, base64, mime: 'image/jpeg' } };
+  return { status: 'picked', image: { uri, base64: '', mime: 'image/jpeg' } };
 }

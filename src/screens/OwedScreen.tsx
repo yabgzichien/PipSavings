@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
@@ -14,6 +14,7 @@ import { currencyPrefix, fmtMoney } from '../lib/format';
 import { tap } from '../lib/haptics';
 import { RECEIVABLE_CLS } from '../lib/networth';
 import { confirmAction, notify } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { AGING_DAYS, groupOpenSharesByPerson, type OpenShare, type PersonDebt } from '../lib/split';
 import { generateDeterministicReceipt, generateReceiptCanvasHtml, formatWorkingsCalculation } from '../lib/receiptGenerator';
 import { base64ToUint8Array, saveReceiptPng } from '../lib/receiptImage';
@@ -45,7 +46,17 @@ function billLabel(share: OpenShare, catLabel: string | undefined, isZh: boolean
  * Nothing here writes an income row. Settling moves cash against the receivable, and a write-off
  * turns what never came back into the expense it always really was.
  */
-export function OwedScreen({ onBack }: { onBack: () => void }) {
+export function OwedScreen({
+  onBack,
+  embedded,
+  initialSettleShareId,
+  onSheetOpenChange,
+}: {
+  onBack: () => void;
+  embedded?: boolean;
+  initialSettleShareId?: string;
+  onSheetOpenChange?: (open: boolean) => void;
+}) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -60,6 +71,7 @@ export function OwedScreen({ onBack }: { onBack: () => void }) {
   const [collapsedInSearch, setCollapsedInSearch] = useState<Set<string>>(new Set());
   const [reminding, setReminding] = useState<PersonDebt | null>(null);
   const [settling, setSettling] = useState<OpenShare | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(settling), onSheetOpenChange);
   const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
   const [sendingShareId, setSendingShareId] = useState<string | null>(null);
   const [directCanvasHtml, setDirectCanvasHtml] = useState<string | null>(null);
@@ -67,6 +79,17 @@ export function OwedScreen({ onBack }: { onBack: () => void }) {
   const directGeneratedUris = useRef<Record<string, string>>({});
 
   const displayShares = allOwedShares ?? openShares;
+  const openedInitialSettle = useRef(false);
+
+  useEffect(() => {
+    if (!initialSettleShareId || openedInitialSettle.current) return;
+    const share = displayShares.find((s) => s.shareId === initialSettleShareId);
+    if (!share) return;
+    openedInitialSettle.current = true;
+    if (share.status !== 'settled') {
+      setSettling(share);
+    }
+  }, [initialSettleShareId, displayShares]);
 
   const byPerson = useMemo<PersonDebt[]>(
     () => groupOpenSharesByPerson(displayShares, today),
@@ -364,12 +387,14 @@ export function OwedScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar
-          title={isZh ? '待收应收款' : 'Owed to you'}
-          onBack={onBack}
-          right={<IconButton name="plus" onPress={() => setAddingDebt(true)} accessibilityLabel={isZh ? '添加借款' : 'Add debt'} />}
-        />
+      <View style={{ paddingTop: embedded ? 0 : insets.top + 4 }}>
+        {!embedded && (
+          <TopBar
+            title={isZh ? '待收应收款' : 'Owed to you'}
+            onBack={onBack}
+            right={<IconButton name="plus" onPress={() => setAddingDebt(true)} accessibilityLabel={isZh ? '添加借款' : 'Add debt'} />}
+          />
+        )}
         {byPerson.length > 0 && (
           <View style={[styles.searchContainer, { borderBottomColor: colorTheme.line2 }]}>
             <View style={[styles.searchRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>

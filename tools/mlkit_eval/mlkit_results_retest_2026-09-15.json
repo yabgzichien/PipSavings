@@ -1,0 +1,4556 @@
+{
+  "1000105419.jpg": {
+    "file": "1000105419.jpg",
+    "width": 1771,
+    "height": 3195,
+    "latency_ms": 2527.947912,
+    "raw_text": "け1北A、EL AN0R\nTABLE\nCAS\nRLEFDATE\nTOTAL\nCASH\nCHANG\nUP\n14 00\n23\/08\/20. 6\n1317 0O\nAMOUNT\n1?0C\n0 00\nCS,|!AマETRETURNABLE\n(.00\n26.00\n26.00\n0.00",
+    "spatial_text": "け1北A、EL AN0R\nTABLE\nCAS\nRLEFDATE    23\/08\/20. 6\n1317 0O\nUP    AMOUNT\n1?0C\n14 00\n0 00\n(.00\nTOTAL    26.00\nCASH    26.00\nCHANG    0.00\nCS,|!AマETRETURNABLE",
+    "blocks": [
+      {
+        "text": "け1北A、EL AN0R",
+        "box": {
+          "left": 365,
+          "top": 492,
+          "right": 1347,
+          "bottom": 598
+        },
+        "lines": [
+          {
+            "text": "け1北A、EL AN0R",
+            "box": {
+              "left": 365,
+              "top": 492,
+              "right": 1347,
+              "bottom": 598
+            }
+          }
+        ]
+      },
+      {
+        "text": "TABLE\nCAS",
+        "box": {
+          "left": 74,
+          "top": 779,
+          "right": 481,
+          "bottom": 976
+        },
+        "lines": [
+          {
+            "text": "TABLE",
+            "box": {
+              "left": 74,
+              "top": 779,
+              "right": 481,
+              "bottom": 873
+            }
+          },
+          {
+            "text": "CAS",
+            "box": {
+              "left": 96,
+              "top": 907,
+              "right": 251,
+              "bottom": 976
+            }
+          }
+        ]
+      },
+      {
+        "text": "RLEFDATE",
+        "box": {
+          "left": 75,
+          "top": 987,
+          "right": 1227,
+          "bottom": 1086
+        },
+        "lines": [
+          {
+            "text": "RLEFDATE",
+            "box": {
+              "left": 75,
+              "top": 987,
+              "right": 1227,
+              "bottom": 1086
+            }
+          }
+        ]
+      },
+      {
+        "text": "TOTAL\nCASH",
+        "box": {
+          "left": 332,
+          "top": 2464,
+          "right": 639,
+          "bottom": 2644
+        },
+        "lines": [
+          {
+            "text": "TOTAL",
+            "box": {
+              "left": 352,
+              "top": 2464,
+              "right": 639,
+              "bottom": 2533
+            }
+          },
+          {
+            "text": "CASH",
+            "box": {
+              "left": 332,
+              "top": 2573,
+              "right": 600,
+              "bottom": 2644
+            }
+          }
+        ]
+      },
+      {
+        "text": "CHANG",
+        "box": {
+          "left": 346,
+          "top": 2695,
+          "right": 683,
+          "bottom": 2770
+        },
+        "lines": [
+          {
+            "text": "CHANG",
+            "box": {
+              "left": 346,
+              "top": 2695,
+              "right": 683,
+              "bottom": 2770
+            }
+          }
+        ]
+      },
+      {
+        "text": "UP",
+        "box": {
+          "left": 1116,
+          "top": 1331,
+          "right": 1228,
+          "bottom": 1381
+        },
+        "lines": [
+          {
+            "text": "UP",
+            "box": {
+              "left": 1116,
+              "top": 1331,
+              "right": 1228,
+              "bottom": 1381
+            }
+          }
+        ]
+      },
+      {
+        "text": "14 00",
+        "box": {
+          "left": 1079,
+          "top": 1608,
+          "right": 1229,
+          "bottom": 1678
+        },
+        "lines": [
+          {
+            "text": "14 00",
+            "box": {
+              "left": 1079,
+              "top": 1608,
+              "right": 1229,
+              "bottom": 1678
+            }
+          }
+        ]
+      },
+      {
+        "text": "23\/08\/20. 6",
+        "box": {
+          "left": 1353,
+          "top": 989,
+          "right": 1689,
+          "bottom": 1053
+        },
+        "lines": [
+          {
+            "text": "23\/08\/20. 6",
+            "box": {
+              "left": 1353,
+              "top": 989,
+              "right": 1689,
+              "bottom": 1053
+            }
+          }
+        ]
+      },
+      {
+        "text": "1317 0O",
+        "box": {
+          "left": 1341,
+          "top": 1086,
+          "right": 1615,
+          "bottom": 1148
+        },
+        "lines": [
+          {
+            "text": "1317 0O",
+            "box": {
+              "left": 1341,
+              "top": 1086,
+              "right": 1615,
+              "bottom": 1148
+            }
+          }
+        ]
+      },
+      {
+        "text": "AMOUNT",
+        "box": {
+          "left": 1405,
+          "top": 1317,
+          "right": 1706,
+          "bottom": 1379
+        },
+        "lines": [
+          {
+            "text": "AMOUNT",
+            "box": {
+              "left": 1405,
+              "top": 1317,
+              "right": 1706,
+              "bottom": 1379
+            }
+          }
+        ]
+      },
+      {
+        "text": "1?0C",
+        "box": {
+          "left": 1548,
+          "top": 1416,
+          "right": 1708,
+          "bottom": 1476
+        },
+        "lines": [
+          {
+            "text": "1?0C",
+            "box": {
+              "left": 1548,
+              "top": 1416,
+              "right": 1708,
+              "bottom": 1476
+            }
+          }
+        ]
+      },
+      {
+        "text": "0 00",
+        "box": {
+          "left": 1604,
+          "top": 2093,
+          "right": 1706,
+          "bottom": 2149
+        },
+        "lines": [
+          {
+            "text": "0 00",
+            "box": {
+              "left": 1604,
+              "top": 2093,
+              "right": 1706,
+              "bottom": 2149
+            }
+          }
+        ]
+      },
+      {
+        "text": "CS,|!AマETRETURNABLE",
+        "box": {
+          "left": 283,
+          "top": 2824,
+          "right": 1508,
+          "bottom": 2900
+        },
+        "lines": [
+          {
+            "text": "CS,|!AマETRETURNABLE",
+            "box": {
+              "left": 283,
+              "top": 2824,
+              "right": 1508,
+              "bottom": 2900
+            }
+          }
+        ]
+      },
+      {
+        "text": "(.00",
+        "box": {
+          "left": 1572,
+          "top": 2325,
+          "right": 1711,
+          "bottom": 2378
+        },
+        "lines": [
+          {
+            "text": "(.00",
+            "box": {
+              "left": 1572,
+              "top": 2325,
+              "right": 1711,
+              "bottom": 2378
+            }
+          }
+        ]
+      },
+      {
+        "text": "26.00",
+        "box": {
+          "left": 1463,
+          "top": 2442,
+          "right": 1687,
+          "bottom": 2516
+        },
+        "lines": [
+          {
+            "text": "26.00",
+            "box": {
+              "left": 1463,
+              "top": 2442,
+              "right": 1687,
+              "bottom": 2516
+            }
+          }
+        ]
+      },
+      {
+        "text": "26.00",
+        "box": {
+          "left": 1466,
+          "top": 2550,
+          "right": 1689,
+          "bottom": 2625
+        },
+        "lines": [
+          {
+            "text": "26.00",
+            "box": {
+              "left": 1466,
+              "top": 2550,
+              "right": 1689,
+              "bottom": 2625
+            }
+          }
+        ]
+      },
+      {
+        "text": "0.00",
+        "box": {
+          "left": 1522,
+          "top": 2679,
+          "right": 1700,
+          "bottom": 2751
+        },
+        "lines": [
+          {
+            "text": "0.00",
+            "box": {
+              "left": 1522,
+              "top": 2679,
+              "right": 1700,
+              "bottom": 2751
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "1000105421.jpg": {
+    "file": "1000105421.jpg",
+    "width": 1236,
+    "height": 2945,
+    "latency_ms": 1524.730679,
+    "raw_text": "票据号: S\nTHE ML KITCHEN (\nSEPANG) SDN. BHD\n.20240103498\n559348-H)\nd间: 2026-08-23\n操作员:吴狙\n订单号:178748371930616\n麻辣烫 Mala Soup\n名称 重\/数量(kg)单价 小计\n白饭 Rice\n总数\n自饭 Rice 1\n原价\n优惠\n0.59\n应收\n19: 15:59\n1\n(1\n55 32.4\n2.59\n36.\n-1.82\n34.58\n女付宝i记账34.5\nTHE ML KITCHEN (SEPANG) SDN BHC\n202401013498(1559348-H)\nR-G-38, BELL AVENUE,\n900. SEPANG, SELANGOR\nJAL AN SUNSURIA, BANDAR SUNSURIA",
+    "spatial_text": "票据号: S\nTHE ML KITCHEN (\nSEPANG) SDN. BHD\n.20240103498    (1\n559348-H)\nd间: 2026-08-23    19: 15:59\n操作员:吴狙\n订单号:178748371930616\n名称 重\/数量(kg)单价 小计\n麻辣烫 Mala Soup\n0.59    55 32.4\n白饭 Rice    1\n自饭 Rice 1\n总数    2.59\n原价    36.\n优惠    -1.82\n应收    34.58\n女付宝i记账34.5\nTHE ML KITCHEN (SEPANG) SDN BHC\n202401013498(1559348-H)\nJAL AN SUNSURIA, BANDAR SUNSURIA    R-G-38, BELL AVENUE,\n900. SEPANG, SELANGOR",
+    "blocks": [
+      {
+        "text": "票据号: S",
+        "box": {
+          "left": 314,
+          "top": 149,
+          "right": 966,
+          "bottom": 314
+        },
+        "lines": [
+          {
+            "text": "票据号: S",
+            "box": {
+              "left": 314,
+              "top": 149,
+              "right": 966,
+              "bottom": 314
+            }
+          }
+        ]
+      },
+      {
+        "text": "THE ML KITCHEN (",
+        "box": {
+          "left": 100,
+          "top": 321,
+          "right": 1169,
+          "bottom": 462
+        },
+        "lines": [
+          {
+            "text": "THE ML KITCHEN (",
+            "box": {
+              "left": 100,
+              "top": 321,
+              "right": 1169,
+              "bottom": 462
+            }
+          }
+        ]
+      },
+      {
+        "text": "SEPANG) SDN. BHD\n.20240103498",
+        "box": {
+          "left": 151,
+          "top": 468,
+          "right": 1192,
+          "bottom": 803
+        },
+        "lines": [
+          {
+            "text": "SEPANG) SDN. BHD",
+            "box": {
+              "left": 152,
+              "top": 474,
+              "right": 1192,
+              "bottom": 644
+            }
+          },
+          {
+            "text": ".20240103498",
+            "box": {
+              "left": 157,
+              "top": 626,
+              "right": 1022,
+              "bottom": 803
+            }
+          }
+        ]
+      },
+      {
+        "text": "559348-H)",
+        "box": {
+          "left": 123,
+          "top": 807,
+          "right": 734,
+          "bottom": 954
+        },
+        "lines": [
+          {
+            "text": "559348-H)",
+            "box": {
+              "left": 123,
+              "top": 807,
+              "right": 734,
+              "bottom": 954
+            }
+          }
+        ]
+      },
+      {
+        "text": "d间: 2026-08-23\n操作员:吴狙",
+        "box": {
+          "left": 82,
+          "top": 931,
+          "right": 647,
+          "bottom": 1116
+        },
+        "lines": [
+          {
+            "text": "d间: 2026-08-23",
+            "box": {
+              "left": 83,
+              "top": 937,
+              "right": 643,
+              "bottom": 1034
+            }
+          },
+          {
+            "text": "操作员:吴狙",
+            "box": {
+              "left": 111,
+              "top": 1026,
+              "right": 481,
+              "bottom": 1115
+            }
+          }
+        ]
+      },
+      {
+        "text": "订单号:178748371930616",
+        "box": {
+          "left": 112,
+          "top": 1089,
+          "right": 883,
+          "bottom": 1193
+        },
+        "lines": [
+          {
+            "text": "订单号:178748371930616",
+            "box": {
+              "left": 112,
+              "top": 1089,
+              "right": 883,
+              "bottom": 1193
+            }
+          }
+        ]
+      },
+      {
+        "text": "麻辣烫 Mala Soup",
+        "box": {
+          "left": 83,
+          "top": 1444,
+          "right": 665,
+          "bottom": 1539
+        },
+        "lines": [
+          {
+            "text": "麻辣烫 Mala Soup",
+            "box": {
+              "left": 83,
+              "top": 1444,
+              "right": 665,
+              "bottom": 1539
+            }
+          }
+        ]
+      },
+      {
+        "text": "名称 重\/数量(kg)单价 小计",
+        "box": {
+          "left": 94,
+          "top": 1261,
+          "right": 1197,
+          "bottom": 1363
+        },
+        "lines": [
+          {
+            "text": "名称 重\/数量(kg)单价 小计",
+            "box": {
+              "left": 94,
+              "top": 1261,
+              "right": 1197,
+              "bottom": 1363
+            }
+          }
+        ]
+      },
+      {
+        "text": "白饭 Rice",
+        "box": {
+          "left": 80,
+          "top": 1627,
+          "right": 416,
+          "bottom": 1718
+        },
+        "lines": [
+          {
+            "text": "白饭 Rice",
+            "box": {
+              "left": 80,
+              "top": 1627,
+              "right": 416,
+              "bottom": 1718
+            }
+          }
+        ]
+      },
+      {
+        "text": "总数",
+        "box": {
+          "left": 105,
+          "top": 1904,
+          "right": 371,
+          "bottom": 1993
+        },
+        "lines": [
+          {
+            "text": "总数",
+            "box": {
+              "left": 105,
+              "top": 1904,
+              "right": 371,
+              "bottom": 1993
+            }
+          }
+        ]
+      },
+      {
+        "text": "自饭 Rice 1",
+        "box": {
+          "left": 63,
+          "top": 1714,
+          "right": 556,
+          "bottom": 1805
+        },
+        "lines": [
+          {
+            "text": "自饭 Rice 1",
+            "box": {
+              "left": 63,
+              "top": 1714,
+              "right": 556,
+              "bottom": 1805
+            }
+          }
+        ]
+      },
+      {
+        "text": "原价",
+        "box": {
+          "left": 114,
+          "top": 2009,
+          "right": 376,
+          "bottom": 2084
+        },
+        "lines": [
+          {
+            "text": "原价",
+            "box": {
+              "left": 114,
+              "top": 2009,
+              "right": 376,
+              "bottom": 2084
+            }
+          }
+        ]
+      },
+      {
+        "text": "优惠",
+        "box": {
+          "left": 108,
+          "top": 2102,
+          "right": 369,
+          "bottom": 2183
+        },
+        "lines": [
+          {
+            "text": "优惠",
+            "box": {
+              "left": 108,
+              "top": 2102,
+              "right": 369,
+              "bottom": 2183
+            }
+          }
+        ]
+      },
+      {
+        "text": "0.59",
+        "box": {
+          "left": 532,
+          "top": 1535,
+          "right": 671,
+          "bottom": 1610
+        },
+        "lines": [
+          {
+            "text": "0.59",
+            "box": {
+              "left": 532,
+              "top": 1535,
+              "right": 671,
+              "bottom": 1610
+            }
+          }
+        ]
+      },
+      {
+        "text": "应收",
+        "box": {
+          "left": 114,
+          "top": 2190,
+          "right": 378,
+          "bottom": 2280
+        },
+        "lines": [
+          {
+            "text": "应收",
+            "box": {
+              "left": 114,
+              "top": 2190,
+              "right": 378,
+              "bottom": 2280
+            }
+          }
+        ]
+      },
+      {
+        "text": "19: 15:59",
+        "box": {
+          "left": 681,
+          "top": 929,
+          "right": 956,
+          "bottom": 1019
+        },
+        "lines": [
+          {
+            "text": "19: 15:59",
+            "box": {
+              "left": 681,
+              "top": 929,
+              "right": 956,
+              "bottom": 1019
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 540,
+          "top": 1625,
+          "right": 554,
+          "bottom": 1711
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 540,
+              "top": 1625,
+              "right": 554,
+              "bottom": 1711
+            }
+          }
+        ]
+      },
+      {
+        "text": "(1",
+        "box": {
+          "left": 1115,
+          "top": 624,
+          "right": 1216,
+          "bottom": 793
+        },
+        "lines": [
+          {
+            "text": "(1",
+            "box": {
+              "left": 1115,
+              "top": 624,
+              "right": 1216,
+              "bottom": 793
+            }
+          }
+        ]
+      },
+      {
+        "text": "55 32.4",
+        "box": {
+          "left": 891,
+          "top": 1512,
+          "right": 1234,
+          "bottom": 1617
+        },
+        "lines": [
+          {
+            "text": "55 32.4",
+            "box": {
+              "left": 891,
+              "top": 1512,
+              "right": 1234,
+              "bottom": 1617
+            }
+          }
+        ]
+      },
+      {
+        "text": "2.59\n36.",
+        "box": {
+          "left": 1005,
+          "top": 1888,
+          "right": 1267,
+          "bottom": 2089
+        },
+        "lines": [
+          {
+            "text": "2.59",
+            "box": {
+              "left": 1005,
+              "top": 1888,
+              "right": 1267,
+              "bottom": 1996
+            }
+          },
+          {
+            "text": "36.",
+            "box": {
+              "left": 1038,
+              "top": 1995,
+              "right": 1205,
+              "bottom": 2088
+            }
+          }
+        ]
+      },
+      {
+        "text": "-1.82\n34.58",
+        "box": {
+          "left": 953,
+          "top": 2091,
+          "right": 1264,
+          "bottom": 2287
+        },
+        "lines": [
+          {
+            "text": "-1.82",
+            "box": {
+              "left": 955,
+              "top": 2093,
+              "right": 1238,
+              "bottom": 2185
+            }
+          },
+          {
+            "text": "34.58",
+            "box": {
+              "left": 970,
+              "top": 2188,
+              "right": 1263,
+              "bottom": 2287
+            }
+          }
+        ]
+      },
+      {
+        "text": "女付宝i记账34.5",
+        "box": {
+          "left": 129,
+          "top": 2283,
+          "right": 1206,
+          "bottom": 2378
+        },
+        "lines": [
+          {
+            "text": "女付宝i记账34.5",
+            "box": {
+              "left": 129,
+              "top": 2283,
+              "right": 1206,
+              "bottom": 2378
+            }
+          }
+        ]
+      },
+      {
+        "text": "THE ML KITCHEN (SEPANG) SDN BHC\n202401013498(1559348-H)",
+        "box": {
+          "left": 116,
+          "top": 2437,
+          "right": 1258,
+          "bottom": 2621
+        },
+        "lines": [
+          {
+            "text": "THE ML KITCHEN (SEPANG) SDN BHC",
+            "box": {
+              "left": 118,
+              "top": 2439,
+              "right": 1258,
+              "bottom": 2543
+            }
+          },
+          {
+            "text": "202401013498(1559348-H)",
+            "box": {
+              "left": 262,
+              "top": 2518,
+              "right": 1093,
+              "bottom": 2617
+            }
+          }
+        ]
+      },
+      {
+        "text": "R-G-38, BELL AVENUE,",
+        "box": {
+          "left": 351,
+          "top": 2615,
+          "right": 1056,
+          "bottom": 2700
+        },
+        "lines": [
+          {
+            "text": "R-G-38, BELL AVENUE,",
+            "box": {
+              "left": 351,
+              "top": 2615,
+              "right": 1056,
+              "bottom": 2700
+            }
+          }
+        ]
+      },
+      {
+        "text": "900. SEPANG, SELANGOR",
+        "box": {
+          "left": 266,
+          "top": 2779,
+          "right": 1000,
+          "bottom": 2873
+        },
+        "lines": [
+          {
+            "text": "900. SEPANG, SELANGOR",
+            "box": {
+              "left": 266,
+              "top": 2779,
+              "right": 1000,
+              "bottom": 2873
+            }
+          }
+        ]
+      },
+      {
+        "text": "JAL AN SUNSURIA, BANDAR SUNSURIA",
+        "box": {
+          "left": 160,
+          "top": 2604,
+          "right": 1264,
+          "bottom": 2942
+        },
+        "lines": [
+          {
+            "text": "JAL AN SUNSURIA, BANDAR SUNSURIA",
+            "box": {
+              "left": 160,
+              "top": 2604,
+              "right": 1264,
+              "bottom": 2942
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "1000105423.jpg": {
+    "file": "1000105423.jpg",
+    "width": 643,
+    "height": 2228,
+    "latency_ms": 5432.880154,
+    "raw_text": "「EC\nRecei\nKpens\n73\nVour\nher E\nAa以A.11AAK MIu\nonalll\nAPNAII N1AWAR心AN KIP NIRA\nAOAWARISAN SLPANQ,43900 PARO\n1a0 to、8SRIIATIOCA\n3t00298 19 37\nCashe d0\/082 IHAMARAI\nDescnpton\nHEM0B050000J00\nI1EM#95556426200373\nDEIFISHH SMALL FRI\nITEM #644546188333\nCKMCHAM (+100G)\nTEM #6944546161I331\nC KIMCHAM (+100G)\nEM#6944546168333\nCKIMCHAM (+-100G)\nITEM # 9555501478342\nSHRIMP PASTE\nITEM # 9415007016908\nANCHOR CHEDDAR CHE\nITEM # 95560467 00127\nKNIFE CLAS LIGHTS\nITEM #9555995800209\nLACT BIYOG SBRRY\nITEM #9556001307729\nNR 3IN1 ORI 14X28G\nITEM # 8998868810889\n(PS) MI SEDAAP GOR\nITEM # 8998866606196\nMS INS SOTO 5X75G\nITEM #9556001004559\nMILO 400G\nITEM # 9556231111110\nGARDENIA ORI CLAS\nITEM # 955657031 2131\n100PLUS1.5L\nITEM # 2045520000300\nT\/MORAH POTONG\nITEM # 9555348700866\nPLASTIC BAG\nITEM #9555348700966\nPLASTIC BAG\nITEM # 9555348700866\nPLASTIC BAG\nPayinant\nROUNDING ADJ\nSUBTOTAL\nPayment :\nSUBTOTAL\nROUNDING ADJ.\nTOTAL\nDUITNOW QR\nMID: 11340\nTotal\nTOTAL:\nOly Ant(RM)\n1\n1\n1\n1\n1\nTxn Ref 11340-03 1788176301237-\n073820-bt\n0.99\n9.90\n945\n5.80\n4.79\n890\n4.45 4\n5.20 4\n9.80\n2.85\n2 89\n442\n0.20\n0 20\n0 20\n76.24\n\/6 25\n76 24\n)01\n76.25\n76.25\n7625\nSPG\nhcomi\nbelow\nEnter\nTrave",
+    "spatial_text": "Aa以A.11AAK MIu\n「EC    APNAII N1AWAR心AN KIP NIRA    SPG\nAOAWARISAN SLPANQ,43900 PARO\n3t00298 19 37\nCashe d0\/082 IHAMARAI\nRecei    Descnpton    Oly Ant(RM)\nHEM0B050000J00\n1a0 to、8SRIIATIOCA\nI1EM#95556426200373\nDEIFISHH SMALL FRI\nITEM #644546188333\nCKMCHAM (+100G)\nTEM #6944546161I331\nKpens    C KIMCHAM (+100G)    hcomi\nEM#6944546168333\n0.99\nCKIMCHAM (+-100G)\nITEM # 9555501478342\n9.90\nSHRIMP PASTE\nITEM # 9415007016908    1    945\nANCHOR CHEDDAR CHE\nITEM # 95560467 00127    1    5.80\nKNIFE CLAS LIGHTS\n73    ITEM #9555995800209\n4.79\nLACT BIYOG SBRRY\nITEM #9556001307729\n890\nNR 3IN1 ORI 14X28G\nVour    ITEM # 8998868810889    below\n4.45 4\n(PS) MI SEDAAP GOR\nITEM # 8998866606196\n5.20 4\nMS INS SOTO 5X75G\nITEM #9556001004559    1    9.80\nMILO 400G\nITEM # 9556231111110\nGARDENIA ORI CLAS    2.85\nITEM # 955657031 2131\n2 89\n100PLUS1.5L    Enter\nITEM # 2045520000300    1    442\nT\/MORAH POTONG\nITEM # 9555348700866    0.20\nPLASTIC BAG\nITEM #9555348700966    0 20\nPLASTIC BAG\nher E    ITEM # 9555348700866    1    0 20    Trave\nPLASTIC BAG\nSUBTOTAL    76.24\nROUNDING ADJ\nTOTAL    \/6 25\nPayinant\nSUBTOTAL    76 24\nROUNDING ADJ.    )01\nTOTAL:    76.25\nonalll    Payment :\nDUITNOW QR    76.25\nMID: 11340\nTxn Ref 11340-03 1788176301237-\n073820-bt\nTotal    7625",
+    "blocks": [
+      {
+        "text": "「EC",
+        "box": {
+          "left": -11,
+          "top": 191,
+          "right": 114,
+          "bottom": 241
+        },
+        "lines": [
+          {
+            "text": "「EC",
+            "box": {
+              "left": -11,
+              "top": 191,
+              "right": 114,
+              "bottom": 241
+            }
+          }
+        ]
+      },
+      {
+        "text": "Recei",
+        "box": {
+          "left": 12,
+          "top": 381,
+          "right": 105,
+          "bottom": 417
+        },
+        "lines": [
+          {
+            "text": "Recei",
+            "box": {
+              "left": 12,
+              "top": 381,
+              "right": 105,
+              "bottom": 417
+            }
+          }
+        ]
+      },
+      {
+        "text": "Kpens",
+        "box": {
+          "left": 2,
+          "top": 661,
+          "right": 112,
+          "bottom": 701
+        },
+        "lines": [
+          {
+            "text": "Kpens",
+            "box": {
+              "left": 2,
+              "top": 661,
+              "right": 112,
+              "bottom": 701
+            }
+          }
+        ]
+      },
+      {
+        "text": "73",
+        "box": {
+          "left": 16,
+          "top": 962,
+          "right": 76,
+          "bottom": 1017
+        },
+        "lines": [
+          {
+            "text": "73",
+            "box": {
+              "left": 16,
+              "top": 962,
+              "right": 76,
+              "bottom": 1017
+            }
+          }
+        ]
+      },
+      {
+        "text": "Vour",
+        "box": {
+          "left": 7,
+          "top": 1113,
+          "right": 76,
+          "bottom": 1135
+        },
+        "lines": [
+          {
+            "text": "Vour",
+            "box": {
+              "left": 7,
+              "top": 1113,
+              "right": 76,
+              "bottom": 1135
+            }
+          }
+        ]
+      },
+      {
+        "text": "her E",
+        "box": {
+          "left": 17,
+          "top": 1635,
+          "right": 117,
+          "bottom": 1674
+        },
+        "lines": [
+          {
+            "text": "her E",
+            "box": {
+              "left": 17,
+              "top": 1635,
+              "right": 117,
+              "bottom": 1674
+            }
+          }
+        ]
+      },
+      {
+        "text": "Aa以A.11AAK MIu",
+        "box": {
+          "left": 174,
+          "top": 158,
+          "right": 472,
+          "bottom": 182
+        },
+        "lines": [
+          {
+            "text": "Aa以A.11AAK MIu",
+            "box": {
+              "left": 174,
+              "top": 158,
+              "right": 472,
+              "bottom": 182
+            }
+          }
+        ]
+      },
+      {
+        "text": "onalll",
+        "box": {
+          "left": 18,
+          "top": 1957,
+          "right": 106,
+          "bottom": 1992
+        },
+        "lines": [
+          {
+            "text": "onalll",
+            "box": {
+              "left": 18,
+              "top": 1957,
+              "right": 106,
+              "bottom": 1992
+            }
+          }
+        ]
+      },
+      {
+        "text": "APNAII N1AWAR心AN KIP NIRA\nAOAWARISAN SLPANQ,43900 PARO",
+        "box": {
+          "left": 139,
+          "top": 187,
+          "right": 497,
+          "bottom": 239
+        },
+        "lines": [
+          {
+            "text": "APNAII N1AWAR心AN KIP NIRA",
+            "box": {
+              "left": 140,
+              "top": 189,
+              "right": 491,
+              "bottom": 212
+            }
+          },
+          {
+            "text": "AOAWARISAN SLPANQ,43900 PARO",
+            "box": {
+              "left": 142,
+              "top": 216,
+              "right": 497,
+              "bottom": 239
+            }
+          }
+        ]
+      },
+      {
+        "text": "1a0 to、8SRIIATIOCA",
+        "box": {
+          "left": -3,
+          "top": 447,
+          "right": 322,
+          "bottom": 477
+        },
+        "lines": [
+          {
+            "text": "1a0 to、8SRIIATIOCA",
+            "box": {
+              "left": -3,
+              "top": 447,
+              "right": 322,
+              "bottom": 477
+            }
+          }
+        ]
+      },
+      {
+        "text": "3t00298 19 37",
+        "box": {
+          "left": 235,
+          "top": 316,
+          "right": 375,
+          "bottom": 335
+        },
+        "lines": [
+          {
+            "text": "3t00298 19 37",
+            "box": {
+              "left": 235,
+              "top": 316,
+              "right": 375,
+              "bottom": 335
+            }
+          }
+        ]
+      },
+      {
+        "text": "Cashe d0\/082 IHAMARAI",
+        "box": {
+          "left": 148,
+          "top": 351,
+          "right": 422,
+          "bottom": 373
+        },
+        "lines": [
+          {
+            "text": "Cashe d0\/082 IHAMARAI",
+            "box": {
+              "left": 148,
+              "top": 351,
+              "right": 422,
+              "bottom": 373
+            }
+          }
+        ]
+      },
+      {
+        "text": "Descnpton",
+        "box": {
+          "left": 160,
+          "top": 386,
+          "right": 247,
+          "bottom": 407
+        },
+        "lines": [
+          {
+            "text": "Descnpton",
+            "box": {
+              "left": 160,
+              "top": 386,
+              "right": 247,
+              "bottom": 407
+            }
+          }
+        ]
+      },
+      {
+        "text": "HEM0B050000J00",
+        "box": {
+          "left": 148,
+          "top": 423,
+          "right": 332,
+          "bottom": 444
+        },
+        "lines": [
+          {
+            "text": "HEM0B050000J00",
+            "box": {
+              "left": 148,
+              "top": 423,
+              "right": 332,
+              "bottom": 444
+            }
+          }
+        ]
+      },
+      {
+        "text": "I1EM#95556426200373\nDEIFISHH SMALL FRI",
+        "box": {
+          "left": 139,
+          "top": 495,
+          "right": 332,
+          "bottom": 547
+        },
+        "lines": [
+          {
+            "text": "I1EM#95556426200373",
+            "box": {
+              "left": 140,
+              "top": 495,
+              "right": 332,
+              "bottom": 517
+            }
+          },
+          {
+            "text": "DEIFISHH SMALL FRI",
+            "box": {
+              "left": 140,
+              "top": 522,
+              "right": 319,
+              "bottom": 547
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM #644546188333\nCKMCHAM (+100G)",
+        "box": {
+          "left": 140,
+          "top": 565,
+          "right": 332,
+          "bottom": 621
+        },
+        "lines": [
+          {
+            "text": "ITEM #644546188333",
+            "box": {
+              "left": 141,
+              "top": 565,
+              "right": 332,
+              "bottom": 589
+            }
+          },
+          {
+            "text": "CKMCHAM (+100G)",
+            "box": {
+              "left": 147,
+              "top": 594,
+              "right": 320,
+              "bottom": 620
+            }
+          }
+        ]
+      },
+      {
+        "text": "TEM #6944546161I331\nC KIMCHAM (+100G)",
+        "box": {
+          "left": 142,
+          "top": 634,
+          "right": 336,
+          "bottom": 691
+        },
+        "lines": [
+          {
+            "text": "TEM #6944546161I331",
+            "box": {
+              "left": 152,
+              "top": 634,
+              "right": 336,
+              "bottom": 660
+            }
+          },
+          {
+            "text": "C KIMCHAM (+100G)",
+            "box": {
+              "left": 142,
+              "top": 663,
+              "right": 319,
+              "bottom": 691
+            }
+          }
+        ]
+      },
+      {
+        "text": "EM#6944546168333\nCKIMCHAM (+-100G)",
+        "box": {
+          "left": 141,
+          "top": 705,
+          "right": 333,
+          "bottom": 761
+        },
+        "lines": [
+          {
+            "text": "EM#6944546168333",
+            "box": {
+              "left": 158,
+              "top": 706,
+              "right": 333,
+              "bottom": 729
+            }
+          },
+          {
+            "text": "CKIMCHAM (+-100G)",
+            "box": {
+              "left": 141,
+              "top": 734,
+              "right": 322,
+              "bottom": 761
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 9555501478342\nSHRIMP PASTE",
+        "box": {
+          "left": 141,
+          "top": 776,
+          "right": 333,
+          "bottom": 829
+        },
+        "lines": [
+          {
+            "text": "ITEM # 9555501478342",
+            "box": {
+              "left": 142,
+              "top": 776,
+              "right": 333,
+              "bottom": 801
+            }
+          },
+          {
+            "text": "SHRIMP PASTE",
+            "box": {
+              "left": 142,
+              "top": 805,
+              "right": 271,
+              "bottom": 826
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 9415007016908\nANCHOR CHEDDAR CHE",
+        "box": {
+          "left": 141,
+          "top": 844,
+          "right": 348,
+          "bottom": 902
+        },
+        "lines": [
+          {
+            "text": "ITEM # 9415007016908",
+            "box": {
+              "left": 142,
+              "top": 844,
+              "right": 334,
+              "bottom": 872
+            }
+          },
+          {
+            "text": "ANCHOR CHEDDAR CHE",
+            "box": {
+              "left": 144,
+              "top": 874,
+              "right": 347,
+              "bottom": 902
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 95560467 00127\nKNIFE CLAS LIGHTS",
+        "box": {
+          "left": 143,
+          "top": 912,
+          "right": 336,
+          "bottom": 972
+        },
+        "lines": [
+          {
+            "text": "ITEM # 95560467 00127",
+            "box": {
+              "left": 144,
+              "top": 912,
+              "right": 336,
+              "bottom": 946
+            }
+          },
+          {
+            "text": "KNIFE CLAS LIGHTS",
+            "box": {
+              "left": 151,
+              "top": 943,
+              "right": 319,
+              "bottom": 970
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM #9555995800209\nLACT BIYOG SBRRY",
+        "box": {
+          "left": 146,
+          "top": 986,
+          "right": 334,
+          "bottom": 1040
+        },
+        "lines": [
+          {
+            "text": "ITEM #9555995800209",
+            "box": {
+              "left": 148,
+              "top": 986,
+              "right": 334,
+              "bottom": 1013
+            }
+          },
+          {
+            "text": "LACT BIYOG SBRRY",
+            "box": {
+              "left": 149,
+              "top": 1014,
+              "right": 318,
+              "bottom": 1039
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM #9556001307729\nNR 3IN1 ORI 14X28G",
+        "box": {
+          "left": 147,
+          "top": 1052,
+          "right": 335,
+          "bottom": 1106
+        },
+        "lines": [
+          {
+            "text": "ITEM #9556001307729",
+            "box": {
+              "left": 149,
+              "top": 1052,
+              "right": 335,
+              "bottom": 1079
+            }
+          },
+          {
+            "text": "NR 3IN1 ORI 14X28G",
+            "box": {
+              "left": 149,
+              "top": 1081,
+              "right": 317,
+              "bottom": 1106
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 8998868810889\n(PS) MI SEDAAP GOR",
+        "box": {
+          "left": 148,
+          "top": 1120,
+          "right": 336,
+          "bottom": 1173
+        },
+        "lines": [
+          {
+            "text": "ITEM # 8998868810889",
+            "box": {
+              "left": 150,
+              "top": 1120,
+              "right": 336,
+              "bottom": 1146
+            }
+          },
+          {
+            "text": "(PS) MI SEDAAP GOR",
+            "box": {
+              "left": 151,
+              "top": 1148,
+              "right": 330,
+              "bottom": 1173
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 8998866606196",
+        "box": {
+          "left": 151,
+          "top": 1188,
+          "right": 336,
+          "bottom": 1213
+        },
+        "lines": [
+          {
+            "text": "ITEM # 8998866606196",
+            "box": {
+              "left": 151,
+              "top": 1188,
+              "right": 336,
+              "bottom": 1213
+            }
+          }
+        ]
+      },
+      {
+        "text": "MS INS SOTO 5X75G",
+        "box": {
+          "left": 152,
+          "top": 1215,
+          "right": 325,
+          "bottom": 1241
+        },
+        "lines": [
+          {
+            "text": "MS INS SOTO 5X75G",
+            "box": {
+              "left": 152,
+              "top": 1215,
+              "right": 325,
+              "bottom": 1241
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM #9556001004559\nMILO 400G",
+        "box": {
+          "left": 152,
+          "top": 1253,
+          "right": 338,
+          "bottom": 1304
+        },
+        "lines": [
+          {
+            "text": "ITEM #9556001004559",
+            "box": {
+              "left": 153,
+              "top": 1254,
+              "right": 338,
+              "bottom": 1277
+            }
+          },
+          {
+            "text": "MILO 400G",
+            "box": {
+              "left": 153,
+              "top": 1280,
+              "right": 244,
+              "bottom": 1300
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 9556231111110\nGARDENIA ORI CLAS",
+        "box": {
+          "left": 152,
+          "top": 1315,
+          "right": 341,
+          "bottom": 1369
+        },
+        "lines": [
+          {
+            "text": "ITEM # 9556231111110",
+            "box": {
+              "left": 154,
+              "top": 1316,
+              "right": 341,
+              "bottom": 1344
+            }
+          },
+          {
+            "text": "GARDENIA ORI CLAS",
+            "box": {
+              "left": 155,
+              "top": 1343,
+              "right": 327,
+              "bottom": 1368
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 955657031 2131\n100PLUS1.5L",
+        "box": {
+          "left": 154,
+          "top": 1382,
+          "right": 339,
+          "bottom": 1433
+        },
+        "lines": [
+          {
+            "text": "ITEM # 955657031 2131",
+            "box": {
+              "left": 156,
+              "top": 1382,
+              "right": 339,
+              "bottom": 1407
+            }
+          },
+          {
+            "text": "100PLUS1.5L",
+            "box": {
+              "left": 157,
+              "top": 1409,
+              "right": 263,
+              "bottom": 1429
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 2045520000300\nT\/MORAH POTONG",
+        "box": {
+          "left": 156,
+          "top": 1446,
+          "right": 341,
+          "bottom": 1495
+        },
+        "lines": [
+          {
+            "text": "ITEM # 2045520000300",
+            "box": {
+              "left": 157,
+              "top": 1447,
+              "right": 341,
+              "bottom": 1470
+            }
+          },
+          {
+            "text": "T\/MORAH POTONG",
+            "box": {
+              "left": 157,
+              "top": 1474,
+              "right": 315,
+              "bottom": 1495
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 9555348700866\nPLASTIC BAG",
+        "box": {
+          "left": 157,
+          "top": 1513,
+          "right": 341,
+          "bottom": 1560
+        },
+        "lines": [
+          {
+            "text": "ITEM # 9555348700866",
+            "box": {
+              "left": 158,
+              "top": 1513,
+              "right": 341,
+              "bottom": 1534
+            }
+          },
+          {
+            "text": "PLASTIC BAG",
+            "box": {
+              "left": 157,
+              "top": 1539,
+              "right": 269,
+              "bottom": 1558
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM #9555348700966",
+        "box": {
+          "left": 157,
+          "top": 1578,
+          "right": 341,
+          "bottom": 1597
+        },
+        "lines": [
+          {
+            "text": "ITEM #9555348700966",
+            "box": {
+              "left": 157,
+              "top": 1578,
+              "right": 341,
+              "bottom": 1597
+            }
+          }
+        ]
+      },
+      {
+        "text": "PLASTIC BAG",
+        "box": {
+          "left": 157,
+          "top": 1604,
+          "right": 269,
+          "bottom": 1622
+        },
+        "lines": [
+          {
+            "text": "PLASTIC BAG",
+            "box": {
+              "left": 157,
+              "top": 1604,
+              "right": 269,
+              "bottom": 1622
+            }
+          }
+        ]
+      },
+      {
+        "text": "ITEM # 9555348700866",
+        "box": {
+          "left": 158,
+          "top": 1641,
+          "right": 342,
+          "bottom": 1662
+        },
+        "lines": [
+          {
+            "text": "ITEM # 9555348700866",
+            "box": {
+              "left": 158,
+              "top": 1641,
+              "right": 342,
+              "bottom": 1662
+            }
+          }
+        ]
+      },
+      {
+        "text": "PLASTIC BAG",
+        "box": {
+          "left": 159,
+          "top": 1668,
+          "right": 269,
+          "bottom": 1687
+        },
+        "lines": [
+          {
+            "text": "PLASTIC BAG",
+            "box": {
+              "left": 159,
+              "top": 1668,
+              "right": 269,
+              "bottom": 1687
+            }
+          }
+        ]
+      },
+      {
+        "text": "Payinant",
+        "box": {
+          "left": 161,
+          "top": 1817,
+          "right": 231,
+          "bottom": 1831
+        },
+        "lines": [
+          {
+            "text": "Payinant",
+            "box": {
+              "left": 161,
+              "top": 1817,
+              "right": 231,
+              "bottom": 1831
+            }
+          }
+        ]
+      },
+      {
+        "text": "ROUNDING ADJ",
+        "box": {
+          "left": 207,
+          "top": 1746,
+          "right": 332,
+          "bottom": 1768
+        },
+        "lines": [
+          {
+            "text": "ROUNDING ADJ",
+            "box": {
+              "left": 207,
+              "top": 1746,
+              "right": 332,
+              "bottom": 1768
+            }
+          }
+        ]
+      },
+      {
+        "text": "SUBTOTAL",
+        "box": {
+          "left": 246,
+          "top": 1709,
+          "right": 331,
+          "bottom": 1728
+        },
+        "lines": [
+          {
+            "text": "SUBTOTAL",
+            "box": {
+              "left": 246,
+              "top": 1709,
+              "right": 331,
+              "bottom": 1728
+            }
+          }
+        ]
+      },
+      {
+        "text": "Payment :",
+        "box": {
+          "left": 158,
+          "top": 1957,
+          "right": 242,
+          "bottom": 1981
+        },
+        "lines": [
+          {
+            "text": "Payment :",
+            "box": {
+              "left": 158,
+              "top": 1957,
+              "right": 242,
+              "bottom": 1981
+            }
+          }
+        ]
+      },
+      {
+        "text": "SUBTOTAL",
+        "box": {
+          "left": 245,
+          "top": 1849,
+          "right": 330,
+          "bottom": 1868
+        },
+        "lines": [
+          {
+            "text": "SUBTOTAL",
+            "box": {
+              "left": 245,
+              "top": 1849,
+              "right": 330,
+              "bottom": 1868
+            }
+          }
+        ]
+      },
+      {
+        "text": "ROUNDING ADJ.",
+        "box": {
+          "left": 206,
+          "top": 1886,
+          "right": 344,
+          "bottom": 1908
+        },
+        "lines": [
+          {
+            "text": "ROUNDING ADJ.",
+            "box": {
+              "left": 206,
+              "top": 1886,
+              "right": 344,
+              "bottom": 1908
+            }
+          }
+        ]
+      },
+      {
+        "text": "TOTAL",
+        "box": {
+          "left": 281,
+          "top": 1779,
+          "right": 334,
+          "bottom": 1796
+        },
+        "lines": [
+          {
+            "text": "TOTAL",
+            "box": {
+              "left": 281,
+              "top": 1779,
+              "right": 334,
+              "bottom": 1796
+            }
+          }
+        ]
+      },
+      {
+        "text": "DUITNOW QR\nMID: 11340",
+        "box": {
+          "left": 158,
+          "top": 1997,
+          "right": 268,
+          "bottom": 2043
+        },
+        "lines": [
+          {
+            "text": "DUITNOW QR",
+            "box": {
+              "left": 158,
+              "top": 1997,
+              "right": 268,
+              "bottom": 2016
+            }
+          },
+          {
+            "text": "MID: 11340",
+            "box": {
+              "left": 158,
+              "top": 2024,
+              "right": 252,
+              "bottom": 2043
+            }
+          }
+        ]
+      },
+      {
+        "text": "Total",
+        "box": {
+          "left": 228,
+          "top": 2135,
+          "right": 262,
+          "bottom": 2151
+        },
+        "lines": [
+          {
+            "text": "Total",
+            "box": {
+              "left": 228,
+              "top": 2135,
+              "right": 262,
+              "bottom": 2151
+            }
+          }
+        ]
+      },
+      {
+        "text": "TOTAL:",
+        "box": {
+          "left": 280,
+          "top": 1918,
+          "right": 344,
+          "bottom": 1935
+        },
+        "lines": [
+          {
+            "text": "TOTAL:",
+            "box": {
+              "left": 280,
+              "top": 1918,
+              "right": 344,
+              "bottom": 1935
+            }
+          }
+        ]
+      },
+      {
+        "text": "Oly Ant(RM)",
+        "box": {
+          "left": 365,
+          "top": 389,
+          "right": 479,
+          "bottom": 411
+        },
+        "lines": [
+          {
+            "text": "Oly Ant(RM)",
+            "box": {
+              "left": 365,
+              "top": 389,
+              "right": 479,
+              "bottom": 411
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 386,
+          "top": 858,
+          "right": 391,
+          "bottom": 872
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 386,
+              "top": 858,
+              "right": 391,
+              "bottom": 872
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 387,
+          "top": 930,
+          "right": 391,
+          "bottom": 944
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 387,
+              "top": 930,
+              "right": 391,
+              "bottom": 944
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 390,
+          "top": 1266,
+          "right": 395,
+          "bottom": 1280
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 390,
+              "top": 1266,
+              "right": 395,
+              "bottom": 1280
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 393,
+          "top": 1458,
+          "right": 397,
+          "bottom": 1472
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 393,
+              "top": 1458,
+              "right": 397,
+              "bottom": 1472
+            }
+          }
+        ]
+      },
+      {
+        "text": "1",
+        "box": {
+          "left": 392,
+          "top": 1649,
+          "right": 397,
+          "bottom": 1663
+        },
+        "lines": [
+          {
+            "text": "1",
+            "box": {
+              "left": 392,
+              "top": 1649,
+              "right": 397,
+              "bottom": 1663
+            }
+          }
+        ]
+      },
+      {
+        "text": "Txn Ref 11340-03 1788176301237-\n073820-bt",
+        "box": {
+          "left": 157,
+          "top": 2044,
+          "right": 434,
+          "bottom": 2090
+        },
+        "lines": [
+          {
+            "text": "Txn Ref 11340-03 1788176301237-",
+            "box": {
+              "left": 157,
+              "top": 2044,
+              "right": 434,
+              "bottom": 2071
+            }
+          },
+          {
+            "text": "073820-bt",
+            "box": {
+              "left": 157,
+              "top": 2074,
+              "right": 242,
+              "bottom": 2090
+            }
+          }
+        ]
+      },
+      {
+        "text": "0.99",
+        "box": {
+          "left": 456,
+          "top": 722,
+          "right": 479,
+          "bottom": 737
+        },
+        "lines": [
+          {
+            "text": "0.99",
+            "box": {
+              "left": 456,
+              "top": 722,
+              "right": 479,
+              "bottom": 737
+            }
+          }
+        ]
+      },
+      {
+        "text": "9.90",
+        "box": {
+          "left": 445,
+          "top": 792,
+          "right": 479,
+          "bottom": 808
+        },
+        "lines": [
+          {
+            "text": "9.90",
+            "box": {
+              "left": 445,
+              "top": 792,
+              "right": 479,
+              "bottom": 808
+            }
+          }
+        ]
+      },
+      {
+        "text": "945",
+        "box": {
+          "left": 444,
+          "top": 861,
+          "right": 479,
+          "bottom": 877
+        },
+        "lines": [
+          {
+            "text": "945",
+            "box": {
+              "left": 444,
+              "top": 861,
+              "right": 479,
+              "bottom": 877
+            }
+          }
+        ]
+      },
+      {
+        "text": "5.80",
+        "box": {
+          "left": 445,
+          "top": 929,
+          "right": 477,
+          "bottom": 950
+        },
+        "lines": [
+          {
+            "text": "5.80",
+            "box": {
+              "left": 445,
+              "top": 929,
+              "right": 477,
+              "bottom": 950
+            }
+          }
+        ]
+      },
+      {
+        "text": "4.79",
+        "box": {
+          "left": 443,
+          "top": 1002,
+          "right": 478,
+          "bottom": 1018
+        },
+        "lines": [
+          {
+            "text": "4.79",
+            "box": {
+              "left": 443,
+              "top": 1002,
+              "right": 478,
+              "bottom": 1018
+            }
+          }
+        ]
+      },
+      {
+        "text": "890",
+        "box": {
+          "left": 445,
+          "top": 1069,
+          "right": 479,
+          "bottom": 1086
+        },
+        "lines": [
+          {
+            "text": "890",
+            "box": {
+              "left": 445,
+              "top": 1069,
+              "right": 479,
+              "bottom": 1086
+            }
+          }
+        ]
+      },
+      {
+        "text": "4.45 4",
+        "box": {
+          "left": 444,
+          "top": 1138,
+          "right": 489,
+          "bottom": 1153
+        },
+        "lines": [
+          {
+            "text": "4.45 4",
+            "box": {
+              "left": 444,
+              "top": 1138,
+              "right": 489,
+              "bottom": 1153
+            }
+          }
+        ]
+      },
+      {
+        "text": "5.20 4",
+        "box": {
+          "left": 446,
+          "top": 1204,
+          "right": 487,
+          "bottom": 1220
+        },
+        "lines": [
+          {
+            "text": "5.20 4",
+            "box": {
+              "left": 446,
+              "top": 1204,
+              "right": 487,
+              "bottom": 1220
+            }
+          }
+        ]
+      },
+      {
+        "text": "9.80",
+        "box": {
+          "left": 447,
+          "top": 1269,
+          "right": 479,
+          "bottom": 1285
+        },
+        "lines": [
+          {
+            "text": "9.80",
+            "box": {
+              "left": 447,
+              "top": 1269,
+              "right": 479,
+              "bottom": 1285
+            }
+          }
+        ]
+      },
+      {
+        "text": "2.85",
+        "box": {
+          "left": 447,
+          "top": 1335,
+          "right": 479,
+          "bottom": 1350
+        },
+        "lines": [
+          {
+            "text": "2.85",
+            "box": {
+              "left": 447,
+              "top": 1335,
+              "right": 479,
+              "bottom": 1350
+            }
+          }
+        ]
+      },
+      {
+        "text": "2 89",
+        "box": {
+          "left": 448,
+          "top": 1399,
+          "right": 480,
+          "bottom": 1414
+        },
+        "lines": [
+          {
+            "text": "2 89",
+            "box": {
+              "left": 448,
+              "top": 1399,
+              "right": 480,
+              "bottom": 1414
+            }
+          }
+        ]
+      },
+      {
+        "text": "442",
+        "box": {
+          "left": 447,
+          "top": 1460,
+          "right": 479,
+          "bottom": 1475
+        },
+        "lines": [
+          {
+            "text": "442",
+            "box": {
+              "left": 447,
+              "top": 1460,
+              "right": 479,
+              "bottom": 1475
+            }
+          }
+        ]
+      },
+      {
+        "text": "0.20",
+        "box": {
+          "left": 447,
+          "top": 1524,
+          "right": 479,
+          "bottom": 1539
+        },
+        "lines": [
+          {
+            "text": "0.20",
+            "box": {
+              "left": 447,
+              "top": 1524,
+              "right": 479,
+              "bottom": 1539
+            }
+          }
+        ]
+      },
+      {
+        "text": "0 20",
+        "box": {
+          "left": 446,
+          "top": 1587,
+          "right": 479,
+          "bottom": 1602
+        },
+        "lines": [
+          {
+            "text": "0 20",
+            "box": {
+              "left": 446,
+              "top": 1587,
+              "right": 479,
+              "bottom": 1602
+            }
+          }
+        ]
+      },
+      {
+        "text": "0 20",
+        "box": {
+          "left": 446,
+          "top": 1651,
+          "right": 478,
+          "bottom": 1665
+        },
+        "lines": [
+          {
+            "text": "0 20",
+            "box": {
+              "left": 446,
+              "top": 1651,
+              "right": 478,
+              "bottom": 1665
+            }
+          }
+        ]
+      },
+      {
+        "text": "76.24",
+        "box": {
+          "left": 438,
+          "top": 1717,
+          "right": 478,
+          "bottom": 1735
+        },
+        "lines": [
+          {
+            "text": "76.24",
+            "box": {
+              "left": 438,
+              "top": 1717,
+              "right": 478,
+              "bottom": 1735
+            }
+          }
+        ]
+      },
+      {
+        "text": "\/6 25",
+        "box": {
+          "left": 439,
+          "top": 1788,
+          "right": 479,
+          "bottom": 1802
+        },
+        "lines": [
+          {
+            "text": "\/6 25",
+            "box": {
+              "left": 439,
+              "top": 1788,
+              "right": 479,
+              "bottom": 1802
+            }
+          }
+        ]
+      },
+      {
+        "text": "76 24",
+        "box": {
+          "left": 438,
+          "top": 1854,
+          "right": 475,
+          "bottom": 1867
+        },
+        "lines": [
+          {
+            "text": "76 24",
+            "box": {
+              "left": 438,
+              "top": 1854,
+              "right": 475,
+              "bottom": 1867
+            }
+          }
+        ]
+      },
+      {
+        "text": ")01",
+        "box": {
+          "left": 447,
+          "top": 1891,
+          "right": 476,
+          "bottom": 1907
+        },
+        "lines": [
+          {
+            "text": ")01",
+            "box": {
+              "left": 447,
+              "top": 1891,
+              "right": 476,
+              "bottom": 1907
+            }
+          }
+        ]
+      },
+      {
+        "text": "76.25",
+        "box": {
+          "left": 438,
+          "top": 1919,
+          "right": 479,
+          "bottom": 1935
+        },
+        "lines": [
+          {
+            "text": "76.25",
+            "box": {
+              "left": 438,
+              "top": 1919,
+              "right": 479,
+              "bottom": 1935
+            }
+          }
+        ]
+      },
+      {
+        "text": "76.25",
+        "box": {
+          "left": 440,
+          "top": 1992,
+          "right": 477,
+          "bottom": 2011
+        },
+        "lines": [
+          {
+            "text": "76.25",
+            "box": {
+              "left": 440,
+              "top": 1992,
+              "right": 477,
+              "bottom": 2011
+            }
+          }
+        ]
+      },
+      {
+        "text": "7625",
+        "box": {
+          "left": 440,
+          "top": 2131,
+          "right": 479,
+          "bottom": 2147
+        },
+        "lines": [
+          {
+            "text": "7625",
+            "box": {
+              "left": 440,
+              "top": 2131,
+              "right": 479,
+              "bottom": 2147
+            }
+          }
+        ]
+      },
+      {
+        "text": "SPG",
+        "box": {
+          "left": 546,
+          "top": 185,
+          "right": 644,
+          "bottom": 245
+        },
+        "lines": [
+          {
+            "text": "SPG",
+            "box": {
+              "left": 546,
+              "top": 185,
+              "right": 644,
+              "bottom": 245
+            }
+          }
+        ]
+      },
+      {
+        "text": "hcomi",
+        "box": {
+          "left": 540,
+          "top": 659,
+          "right": 646,
+          "bottom": 698
+        },
+        "lines": [
+          {
+            "text": "hcomi",
+            "box": {
+              "left": 540,
+              "top": 659,
+              "right": 646,
+              "bottom": 698
+            }
+          }
+        ]
+      },
+      {
+        "text": "below",
+        "box": {
+          "left": 534,
+          "top": 1103,
+          "right": 632,
+          "bottom": 1133
+        },
+        "lines": [
+          {
+            "text": "below",
+            "box": {
+              "left": 534,
+              "top": 1103,
+              "right": 632,
+              "bottom": 1133
+            }
+          }
+        ]
+      },
+      {
+        "text": "Enter",
+        "box": {
+          "left": 539,
+          "top": 1408,
+          "right": 639,
+          "bottom": 1447
+        },
+        "lines": [
+          {
+            "text": "Enter",
+            "box": {
+              "left": 539,
+              "top": 1408,
+              "right": 639,
+              "bottom": 1447
+            }
+          }
+        ]
+      },
+      {
+        "text": "Trave",
+        "box": {
+          "left": 540,
+          "top": 1634,
+          "right": 639,
+          "bottom": 1674
+        },
+        "lines": [
+          {
+            "text": "Trave",
+            "box": {
+              "left": 540,
+              "top": 1634,
+              "right": 639,
+              "bottom": 1674
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tngscreenshot.png": {
+    "file": "tngscreenshot.png",
+    "width": 1238,
+    "height": 1840,
+    "latency_ms": 4508.138955,
+    "raw_text": "and more\nUpdates 50 new)\noins: We ve Received Your Applicat\nkofyour Google Account data zich\nere among the first to register yo\noration filed with Ive performance\norkshop Upcoming Opening Cer\nber t 2026 (Us. Eastern Time) \/St\nated, YANG ZI CHIENYANG\nhon login for #slaynercoy\nd from in -Flght Theft ALWAYS bey\nar Yang Z This is a final reminder\nYou have recelved RM 2280.00 in\nemidnight to keep going!\nMotorcycle Insurance\/Takaful sic\nckathon Discord and Join a Tear\ngame or Puzzle before midnight\ned ls your Savings Account Staten\nn KK (keevankO 4@gmail.com ) h\ntion\"- Keevan KK shared a spreac\nnCommitee Orientation Commit\n12:16 回@o回回\nHistory\n23 Jul 26 - 21 Aug 26 v\n20 Aug, 20:25\nGOLDEN BITE FOODS\nDuitNow QR\n20 Aug, 20:23\nTransfer to NAN SAN HWAN\nTransfer to Wallet\n20 Aug, 20:17\nBBT KOPITIAM\nDuitNow QR TNGD\n20 Aug, 20:03\nMUHAMAD FADERILAH\nSUHAIMI BIN AZAM\nPayment\n20 Aug, 13:07\nReceive from CHATHERINE\nWIJAYA\nDuitNow Received\n20 Aug, 12:40\nReceive from FONG YAN YAN\nHome\nTransfer\nActivity\n86%\nSend to email\n-RM5.00\n0 points\n-RM8.00\n-RM1.00\n+1 points\n-RM7.50\n+7 points\n+RM8.00\n+RM8.00\nProfile\nBase on August\nKcking off the MU\ntatal imes. DO N\nhat inforrmation by\nntfor more info or\nVou are a Mayban\ncessfuly register\nflename represer\nBlock sender Goo:\nuathlon DG Task\ntand set up y",
+    "spatial_text": "12:16 回@o回回    86%\nUpdates 50 new)\nHistory\n23 Jul 26 - 21 Aug 26 v    Send to email\n20 Aug, 20:25\nand more    GOLDEN BITE FOODS    -RM5.00\noins: We ve Received Your Applicat    DuitNow QR    0 points\nkofyour Google Account data zich    Base on August\nere among the first to register yo\n20 Aug, 20:23\nTransfer to NAN SAN HWAN    -RM8.00\noration filed with Ive performance    Transfer to Wallet\norkshop Upcoming Opening Cer    Kcking off the MU\nber t 2026 (Us. Eastern Time) \/St    20 Aug, 20:17\nBBT KOPITIAM    -RM1.00\nated, YANG ZI CHIENYANG\nDuitNow QR TNGD    +1 points\nhon login for #slaynercoy\nd from in -Flght Theft ALWAYS bey    tatal imes. DO N\n20 Aug, 20:03\nMUHAMAD FADERILAH    -RM7.50\nSUHAIMI BIN AZAM    +7 points\nar Yang Z This is a final reminder    Payment    hat inforrmation by\nYou have recelved RM 2280.00 in    ntfor more info or\nemidnight to keep going!\n20 Aug, 13:07\nMotorcycle Insurance\/Takaful sic    Vou are a Mayban\nReceive from CHATHERINE    +RM8.00\nckathon Discord and Join a Tear    cessfuly register\nWIJAYA\nDuitNow Received\ngame or Puzzle before midnight\ned ls your Savings Account Staten    20 Aug, 12:40    flename represer\nReceive from FONG YAN YAN    +RM8.00\nn KK (keevankO 4@gmail.com ) h    Block sender Goo:\ntion\"- Keevan KK shared a spreac    Home    Transfer    Activity    Profile    uathlon DG Task\nnCommitee Orientation Commit    tand set up y",
+    "blocks": [
+      {
+        "text": "and more",
+        "box": {
+          "left": 3,
+          "top": 435,
+          "right": 76,
+          "bottom": 448
+        },
+        "lines": [
+          {
+            "text": "and more",
+            "box": {
+              "left": 3,
+              "top": 435,
+              "right": 76,
+              "bottom": 448
+            }
+          }
+        ]
+      },
+      {
+        "text": "Updates 50 new)",
+        "box": {
+          "left": 111,
+          "top": 111,
+          "right": 240,
+          "bottom": 130
+        },
+        "lines": [
+          {
+            "text": "Updates 50 new)",
+            "box": {
+              "left": 111,
+              "top": 111,
+              "right": 240,
+              "bottom": 130
+            }
+          }
+        ]
+      },
+      {
+        "text": "oins: We ve Received Your Applicat",
+        "box": {
+          "left": 8,
+          "top": 482,
+          "right": 271,
+          "bottom": 502
+        },
+        "lines": [
+          {
+            "text": "oins: We ve Received Your Applicat",
+            "box": {
+              "left": 8,
+              "top": 482,
+              "right": 271,
+              "bottom": 502
+            }
+          }
+        ]
+      },
+      {
+        "text": "kofyour Google Account data zich",
+        "box": {
+          "left": 4,
+          "top": 531,
+          "right": 273,
+          "bottom": 551
+        },
+        "lines": [
+          {
+            "text": "kofyour Google Account data zich",
+            "box": {
+              "left": 4,
+              "top": 531,
+              "right": 273,
+              "bottom": 551
+            }
+          }
+        ]
+      },
+      {
+        "text": "ere among the first to register yo",
+        "box": {
+          "left": 5,
+          "top": 584,
+          "right": 264,
+          "bottom": 602
+        },
+        "lines": [
+          {
+            "text": "ere among the first to register yo",
+            "box": {
+              "left": 5,
+              "top": 584,
+              "right": 264,
+              "bottom": 602
+            }
+          }
+        ]
+      },
+      {
+        "text": "oration filed with Ive performance",
+        "box": {
+          "left": 5,
+          "top": 684,
+          "right": 271,
+          "bottom": 702
+        },
+        "lines": [
+          {
+            "text": "oration filed with Ive performance",
+            "box": {
+              "left": 5,
+              "top": 684,
+              "right": 271,
+              "bottom": 702
+            }
+          }
+        ]
+      },
+      {
+        "text": "orkshop Upcoming Opening Cer\nber t 2026 (Us. Eastern Time) \/St",
+        "box": {
+          "left": 4,
+          "top": 783,
+          "right": 273,
+          "bottom": 851
+        },
+        "lines": [
+          {
+            "text": "orkshop Upcoming Opening Cer",
+            "box": {
+              "left": 7,
+              "top": 783,
+              "right": 273,
+              "bottom": 802
+            }
+          },
+          {
+            "text": "ber t 2026 (Us. Eastern Time) \/St",
+            "box": {
+              "left": 4,
+              "top": 830,
+              "right": 270,
+              "bottom": 851
+            }
+          }
+        ]
+      },
+      {
+        "text": "ated, YANG ZI CHIENYANG\nhon login for #slaynercoy",
+        "box": {
+          "left": 5,
+          "top": 880,
+          "right": 262,
+          "bottom": 952
+        },
+        "lines": [
+          {
+            "text": "ated, YANG ZI CHIENYANG",
+            "box": {
+              "left": 5,
+              "top": 880,
+              "right": 262,
+              "bottom": 901
+            }
+          },
+          {
+            "text": "hon login for #slaynercoy",
+            "box": {
+              "left": 5,
+              "top": 934,
+              "right": 193,
+              "bottom": 952
+            }
+          }
+        ]
+      },
+      {
+        "text": "d from in -Flght Theft ALWAYS bey",
+        "box": {
+          "left": 5,
+          "top": 1029,
+          "right": 272,
+          "bottom": 1052
+        },
+        "lines": [
+          {
+            "text": "d from in -Flght Theft ALWAYS bey",
+            "box": {
+              "left": 5,
+              "top": 1029,
+              "right": 272,
+              "bottom": 1052
+            }
+          }
+        ]
+      },
+      {
+        "text": "ar Yang Z This is a final reminder",
+        "box": {
+          "left": 4,
+          "top": 1182,
+          "right": 271,
+          "bottom": 1201
+        },
+        "lines": [
+          {
+            "text": "ar Yang Z This is a final reminder",
+            "box": {
+              "left": 4,
+              "top": 1182,
+              "right": 271,
+              "bottom": 1201
+            }
+          }
+        ]
+      },
+      {
+        "text": "You have recelved RM 2280.00 in",
+        "box": {
+          "left": 12,
+          "top": 1231,
+          "right": 273,
+          "bottom": 1250
+        },
+        "lines": [
+          {
+            "text": "You have recelved RM 2280.00 in",
+            "box": {
+              "left": 12,
+              "top": 1231,
+              "right": 273,
+              "bottom": 1250
+            }
+          }
+        ]
+      },
+      {
+        "text": "emidnight to keep going!\nMotorcycle Insurance\/Takaful sic",
+        "box": {
+          "left": -2,
+          "top": 1281,
+          "right": 268,
+          "bottom": 1351
+        },
+        "lines": [
+          {
+            "text": "emidnight to keep going!",
+            "box": {
+              "left": -2,
+              "top": 1281,
+              "right": 193,
+              "bottom": 1302
+            }
+          },
+          {
+            "text": "Motorcycle Insurance\/Takaful sic",
+            "box": {
+              "left": -1,
+              "top": 1329,
+              "right": 268,
+              "bottom": 1351
+            }
+          }
+        ]
+      },
+      {
+        "text": "ckathon Discord and Join a Tear",
+        "box": {
+          "left": 4,
+          "top": 1384,
+          "right": 270,
+          "bottom": 1398
+        },
+        "lines": [
+          {
+            "text": "ckathon Discord and Join a Tear",
+            "box": {
+              "left": 4,
+              "top": 1384,
+              "right": 270,
+              "bottom": 1398
+            }
+          }
+        ]
+      },
+      {
+        "text": "game or Puzzle before midnight",
+        "box": {
+          "left": 5,
+          "top": 1482,
+          "right": 250,
+          "bottom": 1503
+        },
+        "lines": [
+          {
+            "text": "game or Puzzle before midnight",
+            "box": {
+              "left": 5,
+              "top": 1482,
+              "right": 250,
+              "bottom": 1503
+            }
+          }
+        ]
+      },
+      {
+        "text": "ed ls your Savings Account Staten",
+        "box": {
+          "left": 5,
+          "top": 1580,
+          "right": 272,
+          "bottom": 1604
+        },
+        "lines": [
+          {
+            "text": "ed ls your Savings Account Staten",
+            "box": {
+              "left": 5,
+              "top": 1580,
+              "right": 272,
+              "bottom": 1604
+            }
+          }
+        ]
+      },
+      {
+        "text": "n KK (keevankO 4@gmail.com ) h",
+        "box": {
+          "left": 5,
+          "top": 1682,
+          "right": 256,
+          "bottom": 1701
+        },
+        "lines": [
+          {
+            "text": "n KK (keevankO 4@gmail.com ) h",
+            "box": {
+              "left": 5,
+              "top": 1682,
+              "right": 256,
+              "bottom": 1701
+            }
+          }
+        ]
+      },
+      {
+        "text": "tion\"- Keevan KK shared a spreac",
+        "box": {
+          "left": 4,
+          "top": 1734,
+          "right": 270,
+          "bottom": 1750
+        },
+        "lines": [
+          {
+            "text": "tion\"- Keevan KK shared a spreac",
+            "box": {
+              "left": 4,
+              "top": 1734,
+              "right": 270,
+              "bottom": 1750
+            }
+          }
+        ]
+      },
+      {
+        "text": "nCommitee Orientation Commit",
+        "box": {
+          "left": 4,
+          "top": 1783,
+          "right": 263,
+          "bottom": 1803
+        },
+        "lines": [
+          {
+            "text": "nCommitee Orientation Commit",
+            "box": {
+              "left": 4,
+              "top": 1783,
+              "right": 263,
+              "bottom": 1803
+            }
+          }
+        ]
+      },
+      {
+        "text": "12:16 回@o回回",
+        "box": {
+          "left": 333,
+          "top": 70,
+          "right": 583,
+          "bottom": 98
+        },
+        "lines": [
+          {
+            "text": "12:16 回@o回回",
+            "box": {
+              "left": 333,
+              "top": 70,
+              "right": 583,
+              "bottom": 98
+            }
+          }
+        ]
+      },
+      {
+        "text": "History",
+        "box": {
+          "left": 315,
+          "top": 160,
+          "right": 459,
+          "bottom": 202
+        },
+        "lines": [
+          {
+            "text": "History",
+            "box": {
+              "left": 315,
+              "top": 160,
+              "right": 459,
+              "bottom": 202
+            }
+          }
+        ]
+      },
+      {
+        "text": "23 Jul 26 - 21 Aug 26 v",
+        "box": {
+          "left": 316,
+          "top": 278,
+          "right": 663,
+          "bottom": 308
+        },
+        "lines": [
+          {
+            "text": "23 Jul 26 - 21 Aug 26 v",
+            "box": {
+              "left": 316,
+              "top": 278,
+              "right": 663,
+              "bottom": 308
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 20:25",
+        "box": {
+          "left": 315,
+          "top": 384,
+          "right": 481,
+          "bottom": 412
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 20:25",
+            "box": {
+              "left": 315,
+              "top": 384,
+              "right": 481,
+              "bottom": 412
+            }
+          }
+        ]
+      },
+      {
+        "text": "GOLDEN BITE FOODS",
+        "box": {
+          "left": 315,
+          "top": 430,
+          "right": 622,
+          "bottom": 452
+        },
+        "lines": [
+          {
+            "text": "GOLDEN BITE FOODS",
+            "box": {
+              "left": 315,
+              "top": 430,
+              "right": 622,
+              "bottom": 452
+            }
+          }
+        ]
+      },
+      {
+        "text": "DuitNow QR",
+        "box": {
+          "left": 315,
+          "top": 470,
+          "right": 458,
+          "bottom": 493
+        },
+        "lines": [
+          {
+            "text": "DuitNow QR",
+            "box": {
+              "left": 315,
+              "top": 470,
+              "right": 458,
+              "bottom": 493
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 20:23",
+        "box": {
+          "left": 315,
+          "top": 606,
+          "right": 483,
+          "bottom": 630
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 20:23",
+            "box": {
+              "left": 315,
+              "top": 606,
+              "right": 483,
+              "bottom": 630
+            }
+          }
+        ]
+      },
+      {
+        "text": "Transfer to NAN SAN HWAN",
+        "box": {
+          "left": 315,
+          "top": 647,
+          "right": 713,
+          "bottom": 671
+        },
+        "lines": [
+          {
+            "text": "Transfer to NAN SAN HWAN",
+            "box": {
+              "left": 315,
+              "top": 647,
+              "right": 713,
+              "bottom": 671
+            }
+          }
+        ]
+      },
+      {
+        "text": "Transfer to Wallet",
+        "box": {
+          "left": 315,
+          "top": 691,
+          "right": 526,
+          "bottom": 711
+        },
+        "lines": [
+          {
+            "text": "Transfer to Wallet",
+            "box": {
+              "left": 315,
+              "top": 691,
+              "right": 526,
+              "bottom": 711
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 20:17\nBBT KOPITIAM",
+        "box": {
+          "left": 315,
+          "top": 816,
+          "right": 521,
+          "bottom": 885
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 20:17",
+            "box": {
+              "left": 315,
+              "top": 816,
+              "right": 476,
+              "bottom": 846
+            }
+          },
+          {
+            "text": "BBT KOPITIAM",
+            "box": {
+              "left": 316,
+              "top": 862,
+              "right": 522,
+              "bottom": 884
+            }
+          }
+        ]
+      },
+      {
+        "text": "DuitNow QR TNGD",
+        "box": {
+          "left": 315,
+          "top": 905,
+          "right": 540,
+          "bottom": 927
+        },
+        "lines": [
+          {
+            "text": "DuitNow QR TNGD",
+            "box": {
+              "left": 315,
+              "top": 905,
+              "right": 540,
+              "bottom": 927
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 20:03",
+        "box": {
+          "left": 315,
+          "top": 1047,
+          "right": 484,
+          "bottom": 1070
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 20:03",
+            "box": {
+              "left": 315,
+              "top": 1047,
+              "right": 484,
+              "bottom": 1070
+            }
+          }
+        ]
+      },
+      {
+        "text": "MUHAMAD FADERILAH",
+        "box": {
+          "left": 316,
+          "top": 1089,
+          "right": 645,
+          "bottom": 1111
+        },
+        "lines": [
+          {
+            "text": "MUHAMAD FADERILAH",
+            "box": {
+              "left": 316,
+              "top": 1089,
+              "right": 645,
+              "bottom": 1111
+            }
+          }
+        ]
+      },
+      {
+        "text": "SUHAIMI BIN AZAM\nPayment",
+        "box": {
+          "left": 315,
+          "top": 1133,
+          "right": 592,
+          "bottom": 1204
+        },
+        "lines": [
+          {
+            "text": "SUHAIMI BIN AZAM",
+            "box": {
+              "left": 315,
+              "top": 1136,
+              "right": 593,
+              "bottom": 1158
+            }
+          },
+          {
+            "text": "Payment",
+            "box": {
+              "left": 315,
+              "top": 1176,
+              "right": 416,
+              "bottom": 1204
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 13:07",
+        "box": {
+          "left": 315,
+          "top": 1308,
+          "right": 479,
+          "bottom": 1332
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 13:07",
+            "box": {
+              "left": 315,
+              "top": 1308,
+              "right": 479,
+              "bottom": 1332
+            }
+          }
+        ]
+      },
+      {
+        "text": "Receive from CHATHERINE",
+        "box": {
+          "left": 316,
+          "top": 1349,
+          "right": 697,
+          "bottom": 1372
+        },
+        "lines": [
+          {
+            "text": "Receive from CHATHERINE",
+            "box": {
+              "left": 316,
+              "top": 1349,
+              "right": 697,
+              "bottom": 1372
+            }
+          }
+        ]
+      },
+      {
+        "text": "WIJAYA",
+        "box": {
+          "left": 314,
+          "top": 1397,
+          "right": 424,
+          "bottom": 1420
+        },
+        "lines": [
+          {
+            "text": "WIJAYA",
+            "box": {
+              "left": 314,
+              "top": 1397,
+              "right": 424,
+              "bottom": 1420
+            }
+          }
+        ]
+      },
+      {
+        "text": "DuitNow Received",
+        "box": {
+          "left": 316,
+          "top": 1440,
+          "right": 534,
+          "bottom": 1460
+        },
+        "lines": [
+          {
+            "text": "DuitNow Received",
+            "box": {
+              "left": 316,
+              "top": 1440,
+              "right": 534,
+              "bottom": 1460
+            }
+          }
+        ]
+      },
+      {
+        "text": "20 Aug, 12:40",
+        "box": {
+          "left": 315,
+          "top": 1566,
+          "right": 478,
+          "bottom": 1593
+        },
+        "lines": [
+          {
+            "text": "20 Aug, 12:40",
+            "box": {
+              "left": 315,
+              "top": 1566,
+              "right": 478,
+              "bottom": 1593
+            }
+          }
+        ]
+      },
+      {
+        "text": "Receive from FONG YAN YAN",
+        "box": {
+          "left": 316,
+          "top": 1611,
+          "right": 731,
+          "bottom": 1634
+        },
+        "lines": [
+          {
+            "text": "Receive from FONG YAN YAN",
+            "box": {
+              "left": 316,
+              "top": 1611,
+              "right": 731,
+              "bottom": 1634
+            }
+          }
+        ]
+      },
+      {
+        "text": "Home",
+        "box": {
+          "left": 365,
+          "top": 1730,
+          "right": 423,
+          "bottom": 1746
+        },
+        "lines": [
+          {
+            "text": "Home",
+            "box": {
+              "left": 365,
+              "top": 1730,
+              "right": 423,
+              "bottom": 1746
+            }
+          }
+        ]
+      },
+      {
+        "text": "Transfer",
+        "box": {
+          "left": 497,
+          "top": 1727,
+          "right": 576,
+          "bottom": 1746
+        },
+        "lines": [
+          {
+            "text": "Transfer",
+            "box": {
+              "left": 497,
+              "top": 1727,
+              "right": 576,
+              "bottom": 1746
+            }
+          }
+        ]
+      },
+      {
+        "text": "Activity",
+        "box": {
+          "left": 788,
+          "top": 1727,
+          "right": 862,
+          "bottom": 1750
+        },
+        "lines": [
+          {
+            "text": "Activity",
+            "box": {
+              "left": 788,
+              "top": 1727,
+              "right": 862,
+              "bottom": 1750
+            }
+          }
+        ]
+      },
+      {
+        "text": "86%",
+        "box": {
+          "left": 980,
+          "top": 72,
+          "right": 1035,
+          "bottom": 95
+        },
+        "lines": [
+          {
+            "text": "86%",
+            "box": {
+              "left": 980,
+              "top": 72,
+              "right": 1035,
+              "bottom": 95
+            }
+          }
+        ]
+      },
+      {
+        "text": "Send to email",
+        "box": {
+          "left": 865,
+          "top": 280,
+          "right": 1030,
+          "bottom": 301
+        },
+        "lines": [
+          {
+            "text": "Send to email",
+            "box": {
+              "left": 865,
+              "top": 280,
+              "right": 1030,
+              "bottom": 301
+            }
+          }
+        ]
+      },
+      {
+        "text": "-RM5.00",
+        "box": {
+          "left": 928,
+          "top": 426,
+          "right": 1046,
+          "bottom": 453
+        },
+        "lines": [
+          {
+            "text": "-RM5.00",
+            "box": {
+              "left": 928,
+              "top": 426,
+              "right": 1046,
+              "bottom": 453
+            }
+          }
+        ]
+      },
+      {
+        "text": "0 points",
+        "box": {
+          "left": 959,
+          "top": 475,
+          "right": 1040,
+          "bottom": 496
+        },
+        "lines": [
+          {
+            "text": "0 points",
+            "box": {
+              "left": 959,
+              "top": 475,
+              "right": 1040,
+              "bottom": 496
+            }
+          }
+        ]
+      },
+      {
+        "text": "-RM8.00",
+        "box": {
+          "left": 928,
+          "top": 648,
+          "right": 1049,
+          "bottom": 671
+        },
+        "lines": [
+          {
+            "text": "-RM8.00",
+            "box": {
+              "left": 928,
+              "top": 648,
+              "right": 1049,
+              "bottom": 671
+            }
+          }
+        ]
+      },
+      {
+        "text": "-RM1.00",
+        "box": {
+          "left": 933,
+          "top": 862,
+          "right": 1049,
+          "bottom": 885
+        },
+        "lines": [
+          {
+            "text": "-RM1.00",
+            "box": {
+              "left": 933,
+              "top": 862,
+              "right": 1049,
+              "bottom": 885
+            }
+          }
+        ]
+      },
+      {
+        "text": "+1 points",
+        "box": {
+          "left": 942,
+          "top": 916,
+          "right": 1032,
+          "bottom": 937
+        },
+        "lines": [
+          {
+            "text": "+1 points",
+            "box": {
+              "left": 942,
+              "top": 916,
+              "right": 1032,
+              "bottom": 937
+            }
+          }
+        ]
+      },
+      {
+        "text": "-RM7.50",
+        "box": {
+          "left": 933,
+          "top": 1086,
+          "right": 1048,
+          "bottom": 1112
+        },
+        "lines": [
+          {
+            "text": "-RM7.50",
+            "box": {
+              "left": 933,
+              "top": 1086,
+              "right": 1048,
+              "bottom": 1112
+            }
+          }
+        ]
+      },
+      {
+        "text": "+7 points",
+        "box": {
+          "left": 940,
+          "top": 1143,
+          "right": 1033,
+          "bottom": 1162
+        },
+        "lines": [
+          {
+            "text": "+7 points",
+            "box": {
+              "left": 940,
+              "top": 1143,
+              "right": 1033,
+              "bottom": 1162
+            }
+          }
+        ]
+      },
+      {
+        "text": "+RM8.00",
+        "box": {
+          "left": 922,
+          "top": 1350,
+          "right": 1049,
+          "bottom": 1372
+        },
+        "lines": [
+          {
+            "text": "+RM8.00",
+            "box": {
+              "left": 922,
+              "top": 1350,
+              "right": 1049,
+              "bottom": 1372
+            }
+          }
+        ]
+      },
+      {
+        "text": "+RM8.00",
+        "box": {
+          "left": 922,
+          "top": 1611,
+          "right": 1049,
+          "bottom": 1634
+        },
+        "lines": [
+          {
+            "text": "+RM8.00",
+            "box": {
+              "left": 922,
+              "top": 1611,
+              "right": 1049,
+              "bottom": 1634
+            }
+          }
+        ]
+      },
+      {
+        "text": "Profile",
+        "box": {
+          "left": 939,
+          "top": 1729,
+          "right": 1001,
+          "bottom": 1746
+        },
+        "lines": [
+          {
+            "text": "Profile",
+            "box": {
+              "left": 939,
+              "top": 1729,
+              "right": 1001,
+              "bottom": 1746
+            }
+          }
+        ]
+      },
+      {
+        "text": "Base on August",
+        "box": {
+          "left": 1106,
+          "top": 535,
+          "right": 1231,
+          "bottom": 552
+        },
+        "lines": [
+          {
+            "text": "Base on August",
+            "box": {
+              "left": 1106,
+              "top": 535,
+              "right": 1231,
+              "bottom": 552
+            }
+          }
+        ]
+      },
+      {
+        "text": "Kcking off the MU",
+        "box": {
+          "left": 1093,
+          "top": 780,
+          "right": 1230,
+          "bottom": 802
+        },
+        "lines": [
+          {
+            "text": "Kcking off the MU",
+            "box": {
+              "left": 1093,
+              "top": 780,
+              "right": 1230,
+              "bottom": 802
+            }
+          }
+        ]
+      },
+      {
+        "text": "tatal imes. DO N",
+        "box": {
+          "left": 1093,
+          "top": 1028,
+          "right": 1232,
+          "bottom": 1053
+        },
+        "lines": [
+          {
+            "text": "tatal imes. DO N",
+            "box": {
+              "left": 1093,
+              "top": 1028,
+              "right": 1232,
+              "bottom": 1053
+            }
+          }
+        ]
+      },
+      {
+        "text": "hat inforrmation by",
+        "box": {
+          "left": 1093,
+          "top": 1181,
+          "right": 1232,
+          "bottom": 1200
+        },
+        "lines": [
+          {
+            "text": "hat inforrmation by",
+            "box": {
+              "left": 1093,
+              "top": 1181,
+              "right": 1232,
+              "bottom": 1200
+            }
+          }
+        ]
+      },
+      {
+        "text": "ntfor more info or",
+        "box": {
+          "left": 1093,
+          "top": 1231,
+          "right": 1230,
+          "bottom": 1249
+        },
+        "lines": [
+          {
+            "text": "ntfor more info or",
+            "box": {
+              "left": 1093,
+              "top": 1231,
+              "right": 1230,
+              "bottom": 1249
+            }
+          }
+        ]
+      },
+      {
+        "text": "Vou are a Mayban",
+        "box": {
+          "left": 1094,
+          "top": 1332,
+          "right": 1229,
+          "bottom": 1354
+        },
+        "lines": [
+          {
+            "text": "Vou are a Mayban",
+            "box": {
+              "left": 1094,
+              "top": 1332,
+              "right": 1229,
+              "bottom": 1354
+            }
+          }
+        ]
+      },
+      {
+        "text": "cessfuly register",
+        "box": {
+          "left": 1107,
+          "top": 1384,
+          "right": 1233,
+          "bottom": 1401
+        },
+        "lines": [
+          {
+            "text": "cessfuly register",
+            "box": {
+              "left": 1107,
+              "top": 1384,
+              "right": 1233,
+              "bottom": 1401
+            }
+          }
+        ]
+      },
+      {
+        "text": "flename represer",
+        "box": {
+          "left": 1092,
+          "top": 1581,
+          "right": 1233,
+          "bottom": 1602
+        },
+        "lines": [
+          {
+            "text": "flename represer",
+            "box": {
+              "left": 1092,
+              "top": 1581,
+              "right": 1233,
+              "bottom": 1602
+            }
+          }
+        ]
+      },
+      {
+        "text": "Block sender Goo:",
+        "box": {
+          "left": 1092,
+          "top": 1681,
+          "right": 1230,
+          "bottom": 1700
+        },
+        "lines": [
+          {
+            "text": "Block sender Goo:",
+            "box": {
+              "left": 1092,
+              "top": 1681,
+              "right": 1230,
+              "bottom": 1700
+            }
+          }
+        ]
+      },
+      {
+        "text": "uathlon DG Task",
+        "box": {
+          "left": 1093,
+          "top": 1731,
+          "right": 1220,
+          "bottom": 1749
+        },
+        "lines": [
+          {
+            "text": "uathlon DG Task",
+            "box": {
+              "left": 1093,
+              "top": 1731,
+              "right": 1220,
+              "bottom": 1749
+            }
+          }
+        ]
+      },
+      {
+        "text": "tand set up y",
+        "box": {
+          "left": 1118,
+          "top": 1784,
+          "right": 1220,
+          "bottom": 1801
+        },
+        "lines": [
+          {
+            "text": "tand set up y",
+            "box": {
+              "left": 1118,
+              "top": 1784,
+              "right": 1220,
+              "bottom": 1801
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "pasted_image.png": {
+    "file": "pasted_image.png",
+    "width": 960,
+    "height": 1280,
+    "latency_ms": 1771.465955,
+    "raw_text": "Rech. Nr. 4572\nBar\nBer ghotel\nGrosse Scheidegg\n3818 Grinde lwald\n1xGloki\n2xL.atte Macchiato\nFami lie R. Müller\n1xChässpätzli\n30.07.2007\/ 13:29: 17\nTisch\n4.50 CHF\n5.00 CHF\n1xSchweinschnitzel à 22.00 CHF\nTotal : CHF\nIncl. 7.6% MwSt 54.50 CHF:\nEntspricht in Euro 36.33 EUR\nEs bediente Sie: Ursula\nà 18.50 CHF 18.50\nMwSt Nr.: 430 234\nTel.: 033 853 67 16\nFax. : 033 853 67 19\n7\/01\n3.85\n9. 00\n5.00\n22.00\nE-mail: grossescheidegg@b luewin. ch\n54,50",
+    "spatial_text": "Ber ghotel\nGrosse Scheidegg\n3818 Grinde lwald\nFami lie R. Müller\nRech. Nr. 4572    30.07.2007\/ 13:29: 17\nBar    Tisch    7\/01\n2xL.atte Macchiato    4.50 CHF    9. 00\n1xGloki    5.00 CHF    5.00\n1xSchweinschnitzel à 22.00 CHF    22.00\n1xChässpätzli    à 18.50 CHF 18.50\nTotal : CHF    54,50\nIncl. 7.6% MwSt 54.50 CHF:    3.85\nEntspricht in Euro 36.33 EUR\nEs bediente Sie: Ursula\nMwSt Nr.: 430 234\nTel.: 033 853 67 16\nFax. : 033 853 67 19\nE-mail: grossescheidegg@b luewin. ch",
+    "blocks": [
+      {
+        "text": "Rech. Nr. 4572",
+        "box": {
+          "left": 149,
+          "top": 363,
+          "right": 327,
+          "bottom": 386
+        },
+        "lines": [
+          {
+            "text": "Rech. Nr. 4572",
+            "box": {
+              "left": 149,
+              "top": 363,
+              "right": 327,
+              "bottom": 386
+            }
+          }
+        ]
+      },
+      {
+        "text": "Bar",
+        "box": {
+          "left": 149,
+          "top": 401,
+          "right": 188,
+          "bottom": 425
+        },
+        "lines": [
+          {
+            "text": "Bar",
+            "box": {
+              "left": 149,
+              "top": 401,
+              "right": 188,
+              "bottom": 425
+            }
+          }
+        ]
+      },
+      {
+        "text": "Ber ghotel\nGrosse Scheidegg\n3818 Grinde lwald",
+        "box": {
+          "left": 315,
+          "top": 167,
+          "right": 642,
+          "bottom": 272
+        },
+        "lines": [
+          {
+            "text": "Ber ghotel",
+            "box": {
+              "left": 392,
+              "top": 168,
+              "right": 567,
+              "bottom": 204
+            }
+          },
+          {
+            "text": "Grosse Scheidegg",
+            "box": {
+              "left": 315,
+              "top": 205,
+              "right": 642,
+              "bottom": 244
+            }
+          },
+          {
+            "text": "3818 Grinde lwald",
+            "box": {
+              "left": 358,
+              "top": 247,
+              "right": 577,
+              "bottom": 272
+            }
+          }
+        ]
+      },
+      {
+        "text": "1xGloki",
+        "box": {
+          "left": 166,
+          "top": 516,
+          "right": 252,
+          "bottom": 542
+        },
+        "lines": [
+          {
+            "text": "1xGloki",
+            "box": {
+              "left": 166,
+              "top": 516,
+              "right": 252,
+              "bottom": 542
+            }
+          }
+        ]
+      },
+      {
+        "text": "2xL.atte Macchiato",
+        "box": {
+          "left": 163,
+          "top": 481,
+          "right": 397,
+          "bottom": 505
+        },
+        "lines": [
+          {
+            "text": "2xL.atte Macchiato",
+            "box": {
+              "left": 163,
+              "top": 481,
+              "right": 397,
+              "bottom": 505
+            }
+          }
+        ]
+      },
+      {
+        "text": "Fami lie R. Müller",
+        "box": {
+          "left": 357,
+          "top": 283,
+          "right": 576,
+          "bottom": 312
+        },
+        "lines": [
+          {
+            "text": "Fami lie R. Müller",
+            "box": {
+              "left": 357,
+              "top": 283,
+              "right": 576,
+              "bottom": 312
+            }
+          }
+        ]
+      },
+      {
+        "text": "1xChässpätzli",
+        "box": {
+          "left": 166,
+          "top": 593,
+          "right": 338,
+          "bottom": 620
+        },
+        "lines": [
+          {
+            "text": "1xChässpätzli",
+            "box": {
+              "left": 166,
+              "top": 593,
+              "right": 338,
+              "bottom": 620
+            }
+          }
+        ]
+      },
+      {
+        "text": "30.07.2007\/ 13:29: 17\nTisch",
+        "box": {
+          "left": 486,
+          "top": 357,
+          "right": 740,
+          "bottom": 427
+        },
+        "lines": [
+          {
+            "text": "30.07.2007\/ 13:29: 17",
+            "box": {
+              "left": 487,
+              "top": 359,
+              "right": 740,
+              "bottom": 392
+            }
+          },
+          {
+            "text": "Tisch",
+            "box": {
+              "left": 578,
+              "top": 398,
+              "right": 645,
+              "bottom": 426
+            }
+          }
+        ]
+      },
+      {
+        "text": "4.50 CHF",
+        "box": {
+          "left": 497,
+          "top": 481,
+          "right": 618,
+          "bottom": 504
+        },
+        "lines": [
+          {
+            "text": "4.50 CHF",
+            "box": {
+              "left": 497,
+              "top": 481,
+              "right": 618,
+              "bottom": 504
+            }
+          }
+        ]
+      },
+      {
+        "text": "5.00 CHF",
+        "box": {
+          "left": 497,
+          "top": 518,
+          "right": 619,
+          "bottom": 542
+        },
+        "lines": [
+          {
+            "text": "5.00 CHF",
+            "box": {
+              "left": 497,
+              "top": 518,
+              "right": 619,
+              "bottom": 542
+            }
+          }
+        ]
+      },
+      {
+        "text": "1xSchweinschnitzel à 22.00 CHF",
+        "box": {
+          "left": 166,
+          "top": 555,
+          "right": 620,
+          "bottom": 580
+        },
+        "lines": [
+          {
+            "text": "1xSchweinschnitzel à 22.00 CHF",
+            "box": {
+              "left": 166,
+              "top": 555,
+              "right": 620,
+              "bottom": 580
+            }
+          }
+        ]
+      },
+      {
+        "text": "Total : CHF",
+        "box": {
+          "left": 331,
+          "top": 675,
+          "right": 524,
+          "bottom": 701
+        },
+        "lines": [
+          {
+            "text": "Total : CHF",
+            "box": {
+              "left": 331,
+              "top": 675,
+              "right": 524,
+              "bottom": 701
+            }
+          }
+        ]
+      },
+      {
+        "text": "Incl. 7.6% MwSt 54.50 CHF:",
+        "box": {
+          "left": 149,
+          "top": 751,
+          "right": 536,
+          "bottom": 775
+        },
+        "lines": [
+          {
+            "text": "Incl. 7.6% MwSt 54.50 CHF:",
+            "box": {
+              "left": 149,
+              "top": 751,
+              "right": 536,
+              "bottom": 775
+            }
+          }
+        ]
+      },
+      {
+        "text": "Entspricht in Euro 36.33 EUR\nEs bediente Sie: Ursula",
+        "box": {
+          "left": 146,
+          "top": 831,
+          "right": 582,
+          "bottom": 897
+        },
+        "lines": [
+          {
+            "text": "Entspricht in Euro 36.33 EUR",
+            "box": {
+              "left": 146,
+              "top": 831,
+              "right": 582,
+              "bottom": 859
+            }
+          },
+          {
+            "text": "Es bediente Sie: Ursula",
+            "box": {
+              "left": 146,
+              "top": 871,
+              "right": 470,
+              "bottom": 897
+            }
+          }
+        ]
+      },
+      {
+        "text": "à 18.50 CHF 18.50",
+        "box": {
+          "left": 442,
+          "top": 593,
+          "right": 731,
+          "bottom": 617
+        },
+        "lines": [
+          {
+            "text": "à 18.50 CHF 18.50",
+            "box": {
+              "left": 442,
+              "top": 593,
+              "right": 731,
+              "bottom": 617
+            }
+          }
+        ]
+      },
+      {
+        "text": "MwSt Nr.: 430 234\nTel.: 033 853 67 16\nFax. : 033 853 67 19",
+        "box": {
+          "left": 330,
+          "top": 943,
+          "right": 596,
+          "bottom": 1058
+        },
+        "lines": [
+          {
+            "text": "MwSt Nr.: 430 234",
+            "box": {
+              "left": 359,
+              "top": 944,
+              "right": 595,
+              "bottom": 978
+            }
+          },
+          {
+            "text": "Tel.: 033 853 67 16",
+            "box": {
+              "left": 332,
+              "top": 986,
+              "right": 595,
+              "bottom": 1015
+            }
+          },
+          {
+            "text": "Fax. : 033 853 67 19",
+            "box": {
+              "left": 331,
+              "top": 1025,
+              "right": 598,
+              "bottom": 1057
+            }
+          }
+        ]
+      },
+      {
+        "text": "7\/01",
+        "box": {
+          "left": 688,
+          "top": 401,
+          "right": 739,
+          "bottom": 428
+        },
+        "lines": [
+          {
+            "text": "7\/01",
+            "box": {
+              "left": 688,
+              "top": 401,
+              "right": 739,
+              "bottom": 428
+            }
+          }
+        ]
+      },
+      {
+        "text": "3.85",
+        "box": {
+          "left": 598,
+          "top": 750,
+          "right": 651,
+          "bottom": 774
+        },
+        "lines": [
+          {
+            "text": "3.85",
+            "box": {
+              "left": 598,
+              "top": 750,
+              "right": 651,
+              "bottom": 774
+            }
+          }
+        ]
+      },
+      {
+        "text": "9. 00",
+        "box": {
+          "left": 676,
+          "top": 482,
+          "right": 729,
+          "bottom": 505
+        },
+        "lines": [
+          {
+            "text": "9. 00",
+            "box": {
+              "left": 676,
+              "top": 482,
+              "right": 729,
+              "bottom": 505
+            }
+          }
+        ]
+      },
+      {
+        "text": "5.00",
+        "box": {
+          "left": 677,
+          "top": 519,
+          "right": 728,
+          "bottom": 542
+        },
+        "lines": [
+          {
+            "text": "5.00",
+            "box": {
+              "left": 677,
+              "top": 519,
+              "right": 728,
+              "bottom": 542
+            }
+          }
+        ]
+      },
+      {
+        "text": "22.00",
+        "box": {
+          "left": 663,
+          "top": 556,
+          "right": 730,
+          "bottom": 579
+        },
+        "lines": [
+          {
+            "text": "22.00",
+            "box": {
+              "left": 663,
+              "top": 556,
+              "right": 730,
+              "bottom": 579
+            }
+          }
+        ]
+      },
+      {
+        "text": "E-mail: grossescheidegg@b luewin. ch",
+        "box": {
+          "left": 190,
+          "top": 1066,
+          "right": 667,
+          "bottom": 1096
+        },
+        "lines": [
+          {
+            "text": "E-mail: grossescheidegg@b luewin. ch",
+            "box": {
+              "left": 190,
+              "top": 1066,
+              "right": 667,
+              "bottom": 1096
+            }
+          }
+        ]
+      },
+      {
+        "text": "54,50",
+        "box": {
+          "left": 610,
+          "top": 669,
+          "right": 709,
+          "bottom": 704
+        },
+        "lines": [
+          {
+            "text": "54,50",
+            "box": {
+              "left": 610,
+              "top": 669,
+              "right": 709,
+              "bottom": 704
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

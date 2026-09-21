@@ -12,6 +12,7 @@ import { txnMonthKey } from '../lib/budget';
 import { isValidIsoDate, monthLabel, shortDate } from '../lib/dates';
 import { fmtMoney } from '../lib/format';
 import { confirmAction } from '../lib/platformAlert';
+import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { outstanding } from '../lib/split';
 import { expenseIdsFromSelection, reassignedFromOtherTrips, type Trip } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
@@ -183,6 +184,13 @@ export function AllTransactionsScreen({
   onOpenOwed,
   onOpenTrips,
   onOpenTrip,
+  embedded,
+  onSheetOpenChange,
+  initialQuery = '',
+  initialType = 'all',
+  initialMonths = [],
+  initialDateFrom = '',
+  initialDateTo = '',
 }: {
   onBack: () => void;
   filterCategoryId?: string | null;
@@ -193,6 +201,13 @@ export function AllTransactionsScreen({
   onOpenTrips: () => void;
   /** Opens the detail view for a specific trip directly. */
   onOpenTrip?: (tripId: string) => void;
+  embedded?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
+  initialQuery?: string;
+  initialType?: TxnTypeFilter;
+  initialMonths?: string[];
+  initialDateFrom?: string;
+  initialDateTo?: string;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -209,20 +224,20 @@ export function AllTransactionsScreen({
   // `search` is what the box shows and must update on the keystroke; `query` is what the
   // ledger is filtered against and lags it by a beat. Filtering thousands of rows on every
   // letter is what made the keyboard feel like it was catching up.
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
   useEffect(() => {
     if (search === query) return;
     const id = setTimeout(() => setQuery(search), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [search, query]);
 
-  const [monthFilter, setMonthFilter] = useState<Set<string>>(new Set());
+  const [monthFilter, setMonthFilter] = useState<Set<string>>(new Set(initialMonths));
   const [catFilter, setCatFilter] = useState<Set<string>>(new Set());
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(initialDateFrom);
+  const [dateTo, setDateTo] = useState(initialDateTo);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<TxnTypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TxnTypeFilter>(initialType);
 
   /** txnId -> what is still owed on that bill, so a small row can explain itself. */
   const owedByTxn = useMemo(() => {
@@ -242,6 +257,7 @@ export function AllTransactionsScreen({
   const owedTotal = useMemo(() => openShares.reduce((s, x) => s + x.outstanding, 0), [openShares]);
 
   const [editing, setEditing] = useState<Transaction | null>(null);
+  useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tripPickerOpen, setTripPickerOpen] = useState(false);
@@ -353,8 +369,8 @@ export function AllTransactionsScreen({
 
   const dc = useDisplayCurrency();
   const filterTotal = useMemo(
-    () => (filtered ? shown.reduce((s, t) => s + dc.convertTxn(t), 0) : 0),
-    [filtered, shown, dc]
+    () => shown.reduce((s, t) => s + dc.convertTxn(t), 0),
+    [shown, dc]
   );
 
   const toggleSelect = (id: string) => {
@@ -458,9 +474,10 @@ export function AllTransactionsScreen({
               monthFilter.size > 0 ? (isZh ? `${monthFilter.size} 个月份` : `${monthFilter.size} month${monthFilter.size === 1 ? '' : 's'}`) : null,
               catFilter.size > 0 ? (isZh ? `${catFilter.size} 个分类` : `${catFilter.size} categor${catFilter.size === 1 ? 'y' : 'ies'}`) : null,
               validFrom || validTo ? (isZh ? '日期范围' : 'date range') : null,
+              query.trim() ? `“${query.trim()}”` : null,
             ]
               .filter(Boolean)
-              .join(' · ')}
+              .join(' · ')} · {fmtMoney(filterTotal, dc.code)}
           </Text>
           <View style={[styles.clearPill, { backgroundColor: colorTheme.surface2 }]}>
             <Icon name="x" size={12} color={colorTheme.ink2} />
@@ -550,7 +567,7 @@ export function AllTransactionsScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
+      <View style={{ paddingTop: embedded ? 0 : insets.top + 4 }}>
         {selectMode ? (
           <View style={styles.selectBar}>
             <IconButton name="x" onPress={cancelSelect} size={19} />
@@ -565,6 +582,7 @@ export function AllTransactionsScreen({
             </Pressable>
           </View>
         ) : (
+          !embedded && (
           <TopBar
             title={filtered ? (filterCat ? tCat(filterCat) : (isZh ? '已筛选' : 'Filtered')) : t('allTransactionsTitle')}
             onBack={onBack}
@@ -586,6 +604,7 @@ export function AllTransactionsScreen({
               </View>
             }
           />
+          )
         )}
       </View>
 

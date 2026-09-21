@@ -64,6 +64,13 @@ export interface CoachInput {
   system: string;
 }
 
+export interface AskPipLlmInput {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+}
+
 /** One piece of a document handed to a document-capable model. */
 export type DocPart =
   | { kind: 'binary'; base64: string; mimeType: string } // PDF / image  read server-side
@@ -115,6 +122,8 @@ export interface LLMProvider {
   guessCategories?(input: CategoryGuessInput): Promise<Record<number, string | null>>;
   /** Turn one line of typed text into transaction drafts, when the offline parser can't. */
   quickAdd?(input: QuickAddInput): Promise<QuickDraft[]>;
+  /** Return one JSON action for Ask Pip chat navigation. */
+  askPip?(input: AskPipLlmInput): Promise<unknown>;
   /** Lightweight credential check for the Settings "Test" button. */
   test(input: TestInput): Promise<void>;
   /** Short, on-demand text advice (budget coach). */

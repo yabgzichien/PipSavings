@@ -15,6 +15,7 @@ import type {
   QuickAddInput,
 } from './types';
 import { loadSettings, type LLMSettings } from '../settings/settingsStore';
+import { defaultAskPipKeyStore, type AskPipProviderId } from '../lib/askPip/keyStore';
 
 /** The methods a screen can request. */
 export type Capability =
@@ -124,7 +125,24 @@ export class FallbackProvider {
   }
 }
 
-/** Build the fallback provider from the current (env-configured) settings. */
+/** Build the fallback provider from the user's active key when present, else env keys. */
+export function llmSettingsForActiveKey(
+  active: { providerId: AskPipProviderId; apiKey: string } | null,
+  env: LLMSettings,
+): LLMSettings {
+  if (!active?.apiKey) return env;
+  return {
+    geminiKey: active.providerId === 'gemini' ? active.apiKey : '',
+    geminiModel: env.geminiModel,
+    groqKey: active.providerId === 'groq' ? active.apiKey : '',
+    groqModel: env.groqModel,
+    openrouterKey: active.providerId === 'openrouter' ? active.apiKey : '',
+    openrouterModel: env.openrouterModel,
+  };
+}
+
 export async function getLLM(): Promise<FallbackProvider> {
-  return new FallbackProvider(await loadSettings());
+  const env = await loadSettings();
+  const active = await defaultAskPipKeyStore().getActive();
+  return new FallbackProvider(llmSettingsForActiveKey(active, env));
 }

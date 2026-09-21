@@ -21,7 +21,7 @@ import { ReviewCheckInToast } from '../components/ReviewCheckInToast';
 
 const STATUS_COLOR = { ok: '#1f8a5b', warn: '#d98a00', over: '#c5402f' } as const;
 
-export function BudgetScreen({ onBack, onOpenRecap = () => {} }: { onBack: () => void; onOpenRecap?: () => void }) {
+export function BudgetScreen({ onBack, onOpenRecap = () => {}, embedded }: { onBack: () => void; onOpenRecap?: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -71,20 +71,22 @@ export function BudgetScreen({ onBack, onOpenRecap = () => {} }: { onBack: () =>
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <ReviewCheckInToast />
-      <View style={{ paddingTop: insets.top + spacing.xs }}>
-        <TopBar
-          title={t('budgetTitle')}
-          onBack={onBack}
-          right={
-            <IconButton
-              name="pencil"
-              onPress={() => setEditing(true)}
-              size={18}
-              accessibilityLabel="Edit budget"
-            />
-          }
-        />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + spacing.xs }}>
+          <TopBar
+            title={t('budgetTitle')}
+            onBack={onBack}
+            right={
+              <IconButton
+                name="pencil"
+                onPress={() => setEditing(true)}
+                size={18}
+                accessibilityLabel="Edit budget"
+              />
+            }
+          />
+        </View>
+      )}
       <ScrollView contentContainerStyle={{ padding: spacing.base, paddingBottom: insets.bottom + spacing.lg }} showsVerticalScrollIndicator={false}>
         {/* summary */}
         <Card style={{ padding: spacing.base }}>

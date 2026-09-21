@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '../components/Icon';
 import { AccentSwatchRow } from '../components/AccentSwatchRow';
@@ -7,11 +7,22 @@ import { InfoButton } from '../components/InfoButton';
 import { Pip } from '../components/Pip';
 import { Card, Eyebrow, TopBar } from '../components/ui';
 import { WidgetCustomizerBadge } from '../components/WidgetCustomizerBadge';
+import { ProMembershipCard } from '../components/ProMembershipCard';
+import { AskPipKeySheet } from '../components/AskPipKeySheet';
+import { RedeemCodeModal } from '../components/RedeemCodeModal';
+import { ReportBugModal } from '../components/ReportBugModal';
+import { ProWelcome } from '../components/ProWelcome';
+import { ProBadge } from '../components/ProUi';
 import { getActiveCurrencies } from '../db/currencyRepo';
 import { clearMemory } from '../db/memoryRepo';
+import { APP_VERSION, PIP_INSTAGRAM_URL, PRIVACY_POLICY_URL, TERMS_URL } from '../lib/aboutLinks';
 import { isMultiCurrency } from '../lib/currency';
 import { fmtMoney } from '../lib/format';
 import { confirmAction, notify } from '../lib/platformAlert';
+import { useEntitlement } from '../billing/entitlement';
+import { resolveManageSubscriptionAction } from '../billing/manageSubscription';
+import { fetchManagementURL, presentCustomerCenter, restore } from '../billing/purchases';
+import { usePaywall } from '../billing/paywallContext';
 import { filterSettings } from '../lib/settingsSearch';
 import { cadenceLabel, REMINDER_CADENCES } from '../lib/reminders';
 import * as sound from '../lib/sound';
@@ -24,7 +35,7 @@ import { useLanguage } from '../i18n';
 import { radius, uiFont } from '../theme';
 import { motionSettingLabel, MOTION_SETTINGS } from '../theme/motion';
 
-export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenCategories, onOpenCommitments, onOpenTax, onOpenCurrencySettings, onOpenBackup, onOpenWidgetCustomizer, onResetToOnboarding, taxRequestableCount = 0 }: { onBack: () => void; onAdvancedImport?: () => void; onOpenExport?: () => void; onOpenCategories?: () => void; onOpenCommitments?: () => void; onOpenTax?: () => void; onOpenCurrencySettings?: () => void; onOpenBackup?: () => void; onOpenWidgetCustomizer?: () => void; onResetToOnboarding?: () => void; taxRequestableCount?: number }) {
+export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenCategories, onOpenCommitments, onOpenTax, onOpenCurrencySettings, onOpenBackup, onOpenWidgetCustomizer, onResetToOnboarding, onAskPipKeyChanged, taxRequestableCount = 0, embedded }: { onBack: () => void; onAdvancedImport?: () => void; onOpenExport?: () => void; onOpenCategories?: () => void; onOpenCommitments?: () => void; onOpenTax?: () => void; onOpenCurrencySettings?: () => void; onOpenBackup?: () => void; onOpenWidgetCustomizer?: () => void; onResetToOnboarding?: () => void; onAskPipKeyChanged?: () => void; taxRequestableCount?: number; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -33,6 +44,32 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
   const { memory, coverage, refreshAll, expectedIncome, allocations, hasBudget, resetBudget, resetAllData, resetToOnboarding, resetTutorial } = useAppData();
   const [activeCurrencies, setActiveCurrencies] = useState<string[]>(['MYR']);
   const [search, setSearch] = useState('');
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [askPipKeyOpen, setAskPipKeyOpen] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [bugOpen, setBugOpen] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const { isPro, refresh } = useEntitlement();
+  const { openPaywall } = usePaywall();
+
+  const onRedeemed = async () => {
+    await refresh();
+    setWelcomeOpen(true);
+  };
+
+  const onRestorePurchases = async () => {
+    if (restoreBusy) return;
+    setRestoreBusy(true);
+    try {
+      const tier = await restore();
+      await refresh();
+      if (tier === 'free') notify(t('proRestoreNothing'));
+    } catch {
+      notify(t('proStoreUnreachable'));
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
 
   useEffect(() => {
     getActiveCurrencies().then(setActiveCurrencies);
@@ -75,6 +112,33 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
     );
   };
 
+  const onManageSubscription = async () => {
+    if (!isPro) {
+      openPaywall('scan_quota', 'settings');
+      return;
+    }
+    const url = await fetchManagementURL();
+    const action = resolveManageSubscriptionAction({ isPro: true, managementURL: url });
+    if (action === 'open-store' && url) {
+      try {
+        await Linking.openURL(url);
+      } catch {
+        notify(t('proStoreUnreachable'));
+      }
+      return;
+    }
+    if (await presentCustomerCenter()) return;
+    notify(t('nothingToCancelTitle'), t('nothingToCancelBody'));
+  };
+
+  const onConnectWithUs = async () => {
+    try {
+      await Linking.openURL(PIP_INSTAGRAM_URL);
+    } catch {
+      notify(t('connectWithUs'), PIP_INSTAGRAM_URL);
+    }
+  };
+
   const { matchingKeys, isSearching, matchingSections } = filterSettings(search, {
     data_currencies: activeCurrencies,
   });
@@ -86,7 +150,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
     matchingKeys.has('motion') ||
     ((Platform.OS === 'android' || Platform.OS === 'web') && Boolean(onOpenWidgetCustomizer) && matchingKeys.has('widgetMascot')) ||
     matchingKeys.has('sounds') ||
-    matchingKeys.has('streak');
+    matchingKeys.has('glossary');
 
   const hasVisibleRemindersCard =
     Platform.OS !== 'web' &&
@@ -102,25 +166,40 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
     (Boolean(onAdvancedImport) && matchingKeys.has('data_import')) ||
     (Boolean(onOpenExport) && matchingKeys.has('data_export')) ||
     (Boolean(onOpenBackup) && matchingKeys.has('data_backup')) ||
-    matchingKeys.has('data_tutorial') ||
+    matchingKeys.has('ask_pip') ||
     matchingKeys.has('data_diagnostics');
+
+  const hasVisibleSubscriptionCard = matchingKeys.has('subscription');
+
+  const hasVisibleAboutCard =
+    matchingKeys.has('about_version') ||
+    matchingKeys.has('about_privacy') ||
+    matchingKeys.has('about_terms') ||
+    matchingKeys.has('about_manage') ||
+    matchingKeys.has('about_tutorial') ||
+    matchingKeys.has('about_connect') ||
+    matchingKeys.has('about_bug');
 
   const hasVisibleDangerCard =
     matchingKeys.has('danger_reset_all') || matchingKeys.has('danger_reset_setup');
 
   const hasAnyVisibleSetting =
+    hasVisibleSubscriptionCard ||
     hasVisibleAppearanceCard ||
     hasVisibleRemindersCard ||
     (matchingSections.has('learning') && matchingKeys.has('learning')) ||
     (matchingSections.has('budget') && matchingKeys.has('budget')) ||
     hasVisibleDataCard ||
+    hasVisibleAboutCard ||
     hasVisibleDangerCard;
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('settingsTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('settingsTitle')} onBack={onBack} />
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         {/* Search bar */}
@@ -142,6 +221,60 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
             </Pressable>
           )}
         </View>
+
+        {(!isSearching || hasVisibleSubscriptionCard) && (
+          <ProMembershipCard
+            isPro={isPro}
+            onUpgrade={() => openPaywall('scan_quota', 'settings')}
+            t={t}
+          />
+        )}
+
+        {(!isSearching || hasVisibleSubscriptionCard) && !isPro && (
+          <Pressable
+            testID="settings-restore-purchases"
+            accessibilityRole="button"
+            accessibilityLabel={t('proRestore')}
+            onPress={() => void onRestorePurchases()}
+            disabled={restoreBusy}
+            style={({ pressed }) => [
+              styles.redeemCodeRow,
+              { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+              pressed && { opacity: 0.82 },
+              restoreBusy && { opacity: 0.6 },
+            ]}
+          >
+            <View style={[styles.providerBadge, { backgroundColor: theme.accentSoft }]}>
+              <Icon name="return" size={22} color={theme.onTint} />
+            </View>
+            <Text style={[styles.providerName, { color: colorTheme.ink, flex: 1 }]}>{t('proRestore')}</Text>
+            {restoreBusy ? (
+              <ActivityIndicator size="small" color={colorTheme.ink3} />
+            ) : (
+              <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+            )}
+          </Pressable>
+        )}
+
+        {(!isSearching || hasVisibleSubscriptionCard) && !isPro && (
+          <Pressable
+            testID="settings-redeem-code"
+            accessibilityRole="button"
+            accessibilityLabel={t('promoCodeSettingsTitle')}
+            onPress={() => setRedeemOpen(true)}
+            style={({ pressed }) => [
+              styles.redeemCodeRow,
+              { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+              pressed && { opacity: 0.82 },
+            ]}
+          >
+            <View style={[styles.providerBadge, { backgroundColor: theme.accentSoft }]}>
+              <Icon name="gift" size={22} color={theme.onTint} />
+            </View>
+            <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('promoCodeSettingsTitle')}</Text>
+            <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+          </Pressable>
+        )}
 
         {isSearching && !hasAnyVisibleSetting && (
           <View style={styles.emptyWrap}>
@@ -168,7 +301,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
 
         {matchingSections.has('appearance') && hasVisibleAppearanceCard && (
           <>
-            <Eyebrow style={{ marginBottom: 10 }}>{t('appearance')}</Eyebrow>
+            <Eyebrow style={{ marginTop: 26, marginBottom: 10 }}>{t('appearance')}</Eyebrow>
             <View style={{ gap: 12 }}>
               {(Platform.OS === 'android' || Platform.OS === 'web') && onOpenWidgetCustomizer && matchingKeys.has('widgetMascot') && (
                 <Pressable
@@ -223,10 +356,13 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   <SoundPicker />
                 </Card>
               )}
-              {matchingKeys.has('streak') && (
+              {matchingKeys.has('glossary') && (
                 <Card style={{ padding: 16 }}>
-                  <Text style={[styles.providerName, { color: colorTheme.ink, marginBottom: 12 }]}>{t('streak')}</Text>
-                  <StreakPausePicker />
+                  <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('glossary')}</Text>
+                  <Text style={[styles.providerSub, { color: colorTheme.ink2, marginBottom: 12 }]}>
+                    {t('glossaryHint')}
+                  </Text>
+                  <GlossaryPicker />
                 </Card>
               )}
             </View>
@@ -318,7 +454,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="clock" size={16} color={theme.accent} />
+                    <Icon name="clock" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('recurringBillsInvestments')}</Text>
@@ -333,7 +469,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="receipt" size={16} color={theme.accent} />
+                    <Icon name="receipt" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('taxRelief')}</Text>
@@ -353,7 +489,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="sliders" size={16} color={theme.accent} />
+                    <Icon name="sliders" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('categories')}</Text>
@@ -368,7 +504,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="wallet" size={16} color={theme.accent} />
+                    <Icon name="wallet" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('currencies')}</Text>
@@ -386,7 +522,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="sparkles" size={16} color={theme.accent} />
+                    <Icon name="sparkles" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('advancedImport')}</Text>
@@ -401,11 +537,12 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="download" size={16} color={theme.accent} />
+                    <Icon name="download" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('financialReportsExport')}</Text>
                   </View>
+                  {!isPro ? <ProBadge locked /> : null}
                   <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
                 </Pressable>
               )}
@@ -416,7 +553,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="shield" size={16} color={theme.accent} />
+                    <Icon name="shield" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('backupRestore')}</Text>
@@ -425,24 +562,17 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                 </Pressable>
               )}
 
-              {matchingKeys.has('data_tutorial') && (
+              {matchingKeys.has('ask_pip') && (
                 <Pressable
-                  onPress={async () => {
-                    await resetTutorial();
-                    notify(t('tutorialTitle'), t('tutorialReplayedToast'));
-                  }}
-                  style={({ pressed }) => [
-                    styles.providerRow,
-                    styles.migrateRow,
-                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
-                    { opacity: pressed ? 0.9 : 1 },
-                  ]}
+                  onPress={() => setAskPipKeyOpen(true)}
+                  style={({ pressed }) => [styles.providerRow, styles.migrateRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }, { opacity: pressed ? 0.9 : 1 }]}
                 >
                   <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
-                    <Icon name="sparkles" size={16} color={theme.accent} />
+                    <Icon name="sparkles" size={22} color={theme.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('replayTutorial')}</Text>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('askPipSettingsTitle')}</Text>
+                    <Text style={[styles.providerSub, { color: colorTheme.ink2 }]}>{t('askPipSettingsDesc')}</Text>
                   </View>
                   <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
                 </Pressable>
@@ -461,6 +591,183 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   <DiagnosticsPicker />
                 </Card>
               )}
+            </View>
+          </>
+        )}
+
+        {matchingSections.has('about') && hasVisibleAboutCard && (
+          <>
+            <Eyebrow style={{ marginTop: 26, marginBottom: 10 }}>{t('aboutSection')}</Eyebrow>
+            <View style={{ gap: 10 }}>
+              {matchingKeys.has('about_version') && (
+                <View
+                  testID="about-version"
+                  style={[
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="code" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>
+                      {t('aboutVersion', { version: APP_VERSION })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {matchingKeys.has('about_privacy') && (
+                <Pressable
+                  testID="about-privacy"
+                  onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="shield" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('aboutPrivacy')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {matchingKeys.has('about_terms') && (
+                <Pressable
+                  testID="about-terms"
+                  onPress={() => void Linking.openURL(TERMS_URL)}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="file" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('aboutTerms')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {matchingKeys.has('about_manage') && (
+                <Pressable
+                  testID="about-manage"
+                  onPress={() => void onManageSubscription()}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="store" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('proManage')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {matchingKeys.has('about_tutorial') && (
+                <Pressable
+                  testID="about-tutorial"
+                  onPress={async () => {
+                    await resetTutorial();
+                    notify(t('tutorialTitle'), t('tutorialReplayedToast'));
+                  }}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="sparkles" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('replayTutorial')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {matchingKeys.has('about_connect') && (
+                <Pressable
+                  testID="about-connect"
+                  onPress={() => void onConnectWithUs()}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="users" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('connectWithUs')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {matchingKeys.has('about_bug') && (
+                <Pressable
+                  testID="about-bug"
+                  onPress={() => setBugOpen(true)}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="alert" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>{t('reportBug')}</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              )}
+
+              {__DEV__ ? (
+                <Pressable
+                  testID="about-preview-pro-welcome"
+                  onPress={() => setWelcomeOpen(true)}
+                  style={({ pressed }) => [
+                    styles.providerRow,
+                    styles.migrateRow,
+                    { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <View style={[styles.providerBadge, { backgroundColor: theme.accentTint }]}>
+                    <Icon name="sparkles" size={22} color={theme.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.providerName, { color: colorTheme.ink }]}>Preview Pro welcome</Text>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
+                </Pressable>
+              ) : null}
             </View>
           </>
         )}
@@ -519,6 +826,32 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+      <AskPipKeySheet
+        visible={askPipKeyOpen}
+        onClose={() => setAskPipKeyOpen(false)}
+        onSaved={onAskPipKeyChanged}
+      />
+      <RedeemCodeModal
+        visible={redeemOpen && !isPro}
+        onClose={() => setRedeemOpen(false)}
+        onRedeemed={onRedeemed}
+        t={t}
+      />
+      <ReportBugModal
+        visible={bugOpen}
+        onClose={() => setBugOpen(false)}
+        onSent={() => notify(t('reportBugSent'))}
+        t={t}
+      />
+      {welcomeOpen ? (
+        <View style={[StyleSheet.absoluteFill, { elevation: 20, zIndex: 20 }]}>
+          <ProWelcome
+            title={t('proWelcome')}
+            closeLabel={t('close')}
+            onDone={() => setWelcomeOpen(false)}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -719,36 +1052,6 @@ function ThemeModePicker() {
   );
 }
 
-/** Two-pill On/Paused, same shape as OwedReminderPicker (docs/ui-engagement-plan.md Step 4).
- *  "On" is first and reads as the affirmative state, matching every other reminder pair on this
- *  screen; "Paused" is the one the user reaches for, not the default. */
-function StreakPausePicker() {
-  const theme = useAccent();
-  const colorTheme = useThemeColors();
-  const { streakPaused, pauseStreak, resumeStreak } = useAppData();
-  const { t } = useLanguage();
-  return (
-    <View style={[styles.modeToggle, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line2 }]}>
-      {[false, true].map((paused) => {
-        const on = streakPaused === paused;
-        return (
-          <Pressable
-            key={String(paused)}
-            onPress={() => void (paused ? pauseStreak() : resumeStreak())}
-            style={[styles.modeBtn, on && { backgroundColor: theme.accentInk }]}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-          >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
-              {paused ? t('paused') : t('on')}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 /** Full/Reduced/Off, same pill shape as ThemeModePicker (docs/ui-engagement-plan.md Step 1). */
 function MotionSettingPicker() {
   const theme = useAccent();
@@ -795,6 +1098,34 @@ function SoundPicker() {
               await setSoundEnabled(value);
               if (value) sound.payoff();
             }}
+            style={[styles.modeBtn, on && { backgroundColor: theme.accentInk }]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+          >
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+              {value ? t('on') : t('off')}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Two-pill Off/On for the inline glossary (i) buttons. */
+function GlossaryPicker() {
+  const theme = useAccent();
+  const colorTheme = useThemeColors();
+  const { glossaryEnabled, setGlossaryEnabled } = useAppData();
+  const { t } = useLanguage();
+  return (
+    <View style={[styles.modeToggle, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line2 }]}>
+      {[false, true].map((value) => {
+        const on = glossaryEnabled === value;
+        return (
+          <Pressable
+            key={String(value)}
+            onPress={() => void setGlossaryEnabled(value)}
             style={[styles.modeBtn, on && { backgroundColor: theme.accentInk }]}
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
@@ -888,6 +1219,16 @@ const styles = StyleSheet.create({
   providerName: { fontFamily: uiFont(700), fontSize: 15 },
   providerSub: { fontFamily: uiFont(500), fontSize: 12.5, marginTop: 1 },
   migrateRow: { padding: 16, borderRadius: radius.md, borderWidth: 1 },
+  redeemCodeRow: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    minHeight: 64,
+    padding: 12,
+  },
   resetBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 8 },
   resetText: { fontFamily: uiFont(600), fontSize: 13.5 },
   countBadge: { minWidth: 20, height: 20, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginRight: 8 },

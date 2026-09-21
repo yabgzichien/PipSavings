@@ -1,6 +1,7 @@
 // src/db/accountsRepo.ts
 import { genId, getDb } from './db';
-import type { Account, AccountKind, BalanceEntry, PriceQuote } from '../lib/types';
+import { planLinkedMove } from '../lib/moveFunds';
+import type { Account, AccountKind, BalanceEntry, BalanceEntrySource, PriceQuote } from '../lib/types';
 
 interface AccountRow {
   id: string;
@@ -8,6 +9,7 @@ interface AccountRow {
   kind: string;
   cls: string;
   archived: number;
+  archived_at: string | null;
   created_at: string;
   sub: string | null;
   symbol: string | null;
@@ -24,12 +26,18 @@ interface EntryRow {
   value: number;
   as_of: string;
   created_at: string;
+  source: string | null;
 }
 interface PriceRow {
   symbol: string;
   price_myr: number;
   change24: number | null;
   as_of: string;
+}
+
+function toSource(raw: string | null | undefined): BalanceEntrySource {
+  if (raw === 'linked' || raw === 'price') return raw;
+  return 'manual';
 }
 
 function toAccount(r: AccountRow): Account {
@@ -39,6 +47,7 @@ function toAccount(r: AccountRow): Account {
     kind: r.kind === 'liability' ? 'liability' : 'asset',
     cls: r.cls,
     archived: r.archived === 1,
+    archivedAt: r.archived_at ?? null,
     createdAt: r.created_at,
     sub: r.sub ?? null,
     symbol: r.symbol ?? null,
@@ -51,7 +60,14 @@ function toAccount(r: AccountRow): Account {
   };
 }
 function toEntry(r: EntryRow): BalanceEntry {
-  return { id: r.id, accountId: r.account_id, value: r.value, asOf: r.as_of, createdAt: r.created_at };
+  return {
+    id: r.id,
+    accountId: r.account_id,
+    value: r.value,
+    asOf: r.as_of,
+    createdAt: r.created_at,
+    source: toSource(r.source),
+  };
 }
 
 export async function listAccounts(): Promise<Account[]> {
@@ -96,15 +112,16 @@ export async function addAccount(
       cost ?? null
     );
     await db.runAsync(
-      'INSERT INTO balance_entries (id, account_id, value, as_of, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO balance_entries (id, account_id, value, as_of, created_at, source) VALUES (?, ?, ?, ?, ?, ?)',
       genId(),
       id,
       openingValue,
       asOf,
-      now
+      now,
+      'manual'
     );
   });
-  return { id, name, kind, cls, archived: false, createdAt: now, sub: null, symbol: null, ticker: null, quantity: null, cost: cost ?? null, icon: icon ?? null, currency, interestRate: interestRate ?? null };
+  return { id, name, kind, cls, archived: false, archivedAt: null, createdAt: now, sub: null, symbol: null, ticker: null, quantity: null, cost: cost ?? null, icon: icon ?? null, currency, interestRate: interestRate ?? null };
 }
 
 export async function updateAccount(
@@ -166,23 +183,73 @@ export async function deleteAccount(id: string): Promise<void> {
 }
 
 /** Record a new dated balance reading for an account. */
-export async function addBalanceEntry(accountId: string, value: number, asOf: string): Promise<BalanceEntry> {
+export async function addBalanceEntry(
+  accountId: string,
+  value: number,
+  asOf: string,
+  source: BalanceEntrySource = 'manual'
+): Promise<BalanceEntry> {
   const db = await getDb();
   const id = genId();
   const createdAt = new Date().toISOString();
   await db.runAsync(
-    'INSERT INTO balance_entries (id, account_id, value, as_of, created_at) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO balance_entries (id, account_id, value, as_of, created_at, source) VALUES (?, ?, ?, ?, ?, ?)',
     id,
     accountId,
     value,
     asOf,
-    createdAt
+    createdAt,
+    source
   );
-  return { id, accountId, value, asOf, createdAt };
+  return { id, accountId, value, asOf, createdAt, source };
+}
+
+/** Nudge two cash accounts by the same amount in one transaction. Both readings are `linked`. */
+export async function moveLiquidBalances(
+  fromId: string,
+  toId: string,
+  amount: number,
+  asOf: string
+): Promise<void> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<EntryRow>(
+    'SELECT * FROM balance_entries WHERE account_id IN (?, ?) ORDER BY as_of ASC, created_at ASC',
+    fromId,
+    toId
+  );
+  const fromEntries = rows.filter((r) => r.account_id === fromId).map(toEntry);
+  const toEntries = rows.filter((r) => r.account_id === toId).map(toEntry);
+  const plan = planLinkedMove(fromEntries, toEntries, amount, asOf);
+  const now = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'INSERT INTO balance_entries (id, account_id, value, as_of, created_at, source) VALUES (?, ?, ?, ?, ?, ?)',
+      genId(),
+      fromId,
+      plan.fromValue,
+      plan.fromAsOf,
+      now,
+      'linked'
+    );
+    await db.runAsync(
+      'INSERT INTO balance_entries (id, account_id, value, as_of, created_at, source) VALUES (?, ?, ?, ?, ?, ?)',
+      genId(),
+      toId,
+      plan.toValue,
+      plan.toAsOf,
+      now,
+      'linked'
+    );
+  });
 }
 
 /** At most one balance entry per account per day (overwrites the day's value). */
-export async function upsertDailyBalanceEntry(accountId: string, value: number, day: string): Promise<void> {
+export async function upsertDailyBalanceEntry(
+  accountId: string,
+  value: number,
+  day: string,
+  source: BalanceEntrySource = 'manual'
+): Promise<void> {
   const db = await getDb();
   const existing = await db.getFirstAsync<{ id: string }>(
     'SELECT id FROM balance_entries WHERE account_id = ? AND as_of = ? LIMIT 1',
@@ -190,9 +257,9 @@ export async function upsertDailyBalanceEntry(accountId: string, value: number, 
     day
   );
   if (existing) {
-    await db.runAsync('UPDATE balance_entries SET value = ? WHERE id = ?', value, existing.id);
+    await db.runAsync('UPDATE balance_entries SET value = ?, source = ? WHERE id = ?', value, source, existing.id);
   } else {
-    await addBalanceEntry(accountId, value, day);
+    await addBalanceEntry(accountId, value, day, source);
   }
 }
 
@@ -226,7 +293,7 @@ export async function addHolding(
       interestRate ?? null
     );
   });
-  return { id, name, kind: 'asset', cls: 'investments', archived: false, createdAt: now, sub, symbol, ticker, quantity, cost, icon: icon ?? null, currency: 'MYR', interestRate: interestRate ?? null };
+  return { id, name, kind: 'asset', cls: 'investments', archived: false, archivedAt: null, createdAt: now, sub, symbol, ticker, quantity, cost, icon: icon ?? null, currency: 'MYR', interestRate: interestRate ?? null };
 }
 
 /** Update a holding's quantity (e.g. after buying/selling more). */

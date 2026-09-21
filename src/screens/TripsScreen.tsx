@@ -81,9 +81,13 @@ function TripRow({
 export function TripsScreen({
   onBack,
   onOpenTrip,
+  embedded,
+  initialCreate,
 }: {
   onBack: () => void;
   onOpenTrip: (tripId: string) => void;
+  embedded?: boolean;
+  initialCreate?: { name: string; startDate: string; endDate: string };
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -91,10 +95,13 @@ export function TripsScreen({
   const { t, isZh } = useLanguage();
   const { trips, addTrip, setTripArchived } = useAppData();
 
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(Boolean(initialCreate));
+  const [name, setName] = useState(initialCreate?.name ?? '');
   const [icon, setIcon] = useState<string | null>(null);
-  const [dates, setDates] = useState<DateRange>({ start: null, end: null });
+  const [dates, setDates] = useState<DateRange>({
+    start: initialCreate?.startDate ?? null,
+    end: initialCreate?.endDate ?? null,
+  });
   const [pickingDates, setPickingDates] = useState(false);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,9 +165,11 @@ export function TripsScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
-      <View style={{ paddingTop: insets.top + 4 }}>
-        <TopBar title={t('tripsTitle')} onBack={onBack} />
-      </View>
+      {!embedded && (
+        <View style={{ paddingTop: insets.top + 4 }}>
+          <TopBar title={t('tripsTitle')} onBack={onBack} />
+        </View>
+      )}
 
       {/* A trip list grows without bound, and the create form pushes it further down with the
           keyboard open, so this has to scroll — a plain View simply clipped everything past the

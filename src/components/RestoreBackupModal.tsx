@@ -21,6 +21,9 @@ import { Caption, Card, Eyebrow, Title } from './ui';
 import { InvalidBackupError, formatRelativeBackupTime, peekBackupZip } from '../lib/backupRestore';
 import { useCloudBackup } from '../lib/cloudBackup/useCloudBackup';
 import * as haptics from '../lib/haptics';
+import { restore } from '../billing/purchases';
+import { useEntitlement } from '../billing/entitlement';
+import { offerRestorePurchases } from '../lib/offerRestorePurchases';
 import { confirmAction, notify } from '../lib/platformAlert';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -44,6 +47,7 @@ export function RestoreBackupModal({
   const colorTheme = useThemeColors();
   const { t, isZh } = useLanguage();
   const appData = useAppData();
+  const { refresh } = useEntitlement();
   const cloud = useCloudBackup();
 
   const [restoringFile, setRestoringFile] = useState(false);
@@ -78,7 +82,20 @@ export function RestoreBackupModal({
           onClose();
           onRestoreSuccess?.();
           haptics.payoff();
-          notify(t('restoreSuccessTitle'), t('restoreSuccessBody'));
+          // Data restore succeeds first; purchases aren't in the backup, so ask once.
+          // Cancel ("Not now") is safe because onboarding is already complete.
+          offerRestorePurchases({
+            confirmAction,
+            restore,
+            refresh,
+            notify,
+            title: t('restorePurchasesAskTitle'),
+            body: t('restorePurchasesAskBody'),
+            confirmLabel: t('proRestore'),
+            skipLabel: t('restorePurchasesAskSkip'),
+            nothingToRestore: t('proRestoreNothing'),
+            storeUnreachable: t('proStoreUnreachable'),
+          });
         } catch (e: any) {
           notify(t('restoreFailedTitle'), e?.message);
         }
@@ -111,12 +128,13 @@ export function RestoreBackupModal({
   const handleCloudRestore = async () => {
     setRestoringCloud(true);
     try {
-      const bytes = await cloud.restoreLatest();
-      if (!bytes) {
+      const result = await cloud.restoreLatest();
+      if (result.status === 'cancelled') return;
+      if (result.status === 'empty') {
         notify(t('restoreFailedTitle'), t('restoreNoBackupFound'));
         return;
       }
-      await runRestore(bytes);
+      await runRestore(result.bytes);
     } catch (e: any) {
       notify(t('restoreFailedTitle'), e?.message);
     } finally {
@@ -225,54 +243,27 @@ export function RestoreBackupModal({
                   <Text style={[styles.errorText, { color: '#b3261e' }]}>{cloud.error}</Text>
                 )}
 
-                {cloud.status === 'disconnected' || cloud.status === 'connecting' || cloud.status === 'error' ? (
-                  <Pressable
-                    onPress={cloud.connect}
-                    disabled={!cloud.isConfigured || cloud.status === 'connecting' || isRestoring}
-                    style={({ pressed }) => [
-                      styles.secondaryBtn,
-                      {
-                        backgroundColor: colorTheme.surface2,
-                        borderColor: colorTheme.line2,
-                        opacity: !cloud.isConfigured ? 0.4 : cloud.status === 'connecting' ? 0.6 : pressed ? 0.85 : 1,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    {cloud.status === 'connecting' ? (
-                      <ActivityIndicator color={theme.accent} size="small" />
-                    ) : (
-                      <>
-                        <Icon name="shield" size={16} color={theme.accent} />
-                        <Text style={[styles.secondaryBtnText, { color: theme.accent }]}>
-                          {t('restoreConnectGoogleBtn')}
-                        </Text>
-                      </>
-                    )}
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    onPress={handleCloudRestore}
-                    disabled={isRestoring}
-                    style={({ pressed }) => [
-                      styles.primaryBtn,
-                      {
-                        backgroundColor: theme.accentInk,
-                        opacity: restoringCloud || cloud.status === 'restoring' ? 0.6 : pressed ? 0.92 : 1,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    {restoringCloud || cloud.status === 'restoring' ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <>
-                        <Icon name="download" size={16} color="#fff" />
-                        <Text style={styles.primaryBtnText}>{t('restoreLatestBackupBtn')}</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={handleCloudRestore}
+                  disabled={!cloud.isConfigured || isRestoring}
+                  style={({ pressed }) => [
+                    styles.primaryBtn,
+                    {
+                      backgroundColor: theme.accentInk,
+                      opacity: !cloud.isConfigured ? 0.4 : isRestoring ? 0.6 : pressed ? 0.92 : 1,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                >
+                  {restoringCloud || cloud.status === 'connecting' || cloud.status === 'restoring' ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Icon name="download" size={16} color="#fff" />
+                      <Text style={styles.primaryBtnText}>{t('restoreConnectGoogleBtn')}</Text>
+                    </>
+                  )}
+                </Pressable>
               </Card>
             </>
           )}
@@ -379,18 +370,5 @@ const styles = StyleSheet.create({
     fontFamily: uiFont(700),
     fontSize: 14,
     color: '#fff',
-  },
-  secondaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 42,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  secondaryBtnText: {
-    fontFamily: uiFont(600),
-    fontSize: 13.5,
   },
 });

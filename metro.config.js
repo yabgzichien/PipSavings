@@ -5,6 +5,24 @@ const { getDefaultConfig } = require('expo/metro-config');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+// Metro's Node watcher (FallbackWatcher) uses inotify. Native Gradle output under
+// node_modules/*/android/build and a sibling git worktree will exhaust the default
+// 65k watch cap (ENOSPC). Keep those trees out of the file map.
+const extraIgnores = [
+  /\/\.worktrees\/.*/,
+  /\/android\/build\/.*/,
+  /\/android\/\.gradle\/.*/,
+  /\/\.kotlin\/.*/,
+];
+config.resolver.blockList = [
+  ...(Array.isArray(config.resolver.blockList)
+    ? config.resolver.blockList
+    : config.resolver.blockList
+      ? [config.resolver.blockList]
+      : []),
+  ...extraIgnores,
+];
+
 // --- expo-sqlite web support ---
 // expo-sqlite on web is backed by wa-sqlite (WASM), so Metro must treat .wasm as an asset...
 config.resolver.assetExts.push('wasm');
