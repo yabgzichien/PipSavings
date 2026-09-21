@@ -1,5 +1,4 @@
-import React from 'react';
-import { Platform } from 'react-native';
+import { Appearance, Platform } from 'react-native';
 import { requestWidgetUpdate } from 'react-native-android-widget';
 import { computeStreak, compute7DayDots, type StreakInput } from '../lib/streak';
 import type { Transaction } from '../lib/types';
@@ -12,6 +11,12 @@ import {
   parseWidgetMascotConfig,
   WIDGET_MASCOT_CONFIG_KEY,
 } from './mascot/config';
+import {
+  APPEARANCE_STYLE_KEY,
+  parseAppearanceStyle,
+  resolveWidgetChrome,
+} from '../lib/appearanceStyle';
+import { COLOR_SCHEME_MODE_KEY } from '../state/colorScheme';
 
 export { compute7DayDots };
 
@@ -48,7 +53,18 @@ export async function getStreakWidgetData(providedTxns?: Transaction[], provided
   }
 
   const now = new Date();
-  return { streak: computeStreak(txns, now, 1, checkIns), dots: compute7DayDots(txns, now, checkIns), config };
+  let chrome = resolveWidgetChrome('colour', 'light');
+  try {
+    const style = parseAppearanceStyle(await getMeta(APPEARANCE_STYLE_KEY));
+    const mode = await getMeta(COLOR_SCHEME_MODE_KEY);
+    const os = Appearance.getColorScheme();
+    const scheme = mode === 'dark' || (mode === 'system' && os === 'dark') ? 'dark' : 'light';
+    chrome = resolveWidgetChrome(style, scheme);
+  } catch {
+    // Keep colour cream.
+  }
+
+  return { streak: computeStreak(txns, now, 1, checkIns), dots: compute7DayDots(txns, now, checkIns), config, chrome };
 }
 
 export async function syncStreakWidget(txns?: Transaction[], checkIns?: CheckInMap): Promise<void> {
@@ -63,6 +79,7 @@ export async function syncStreakWidget(txns?: Transaction[], checkIns?: CheckInM
           streak={data.streak}
           dots={data.dots}
           config={data.config}
+          chrome={data.chrome}
         />
       ),
     });

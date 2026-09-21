@@ -13,7 +13,7 @@ export async function syncQuickRecordWidget(txns?: Transaction[]): Promise<void>
     await requestWidgetUpdate({
       widgetName: 'QuickRecordWidget',
       renderWidget: () => (
-        <QuickRecordWidget streak={data.streak} dots={data.dots} config={data.config} />
+        <QuickRecordWidget streak={data.streak} dots={data.dots} config={data.config} chrome={data.chrome} />
       ),
     });
   } catch {

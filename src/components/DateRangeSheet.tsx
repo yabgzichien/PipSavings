@@ -163,7 +163,7 @@ export function DateRangeSheet({
                   <View
                     style={[
                       styles.day,
-                      isEndpoint && { backgroundColor: theme.accent },
+                      isEndpoint && { backgroundColor: theme.accentInk },
                       !isEndpoint && isToday && { borderWidth: 1.5, borderColor: theme.accentSoft },
                     ]}
                   >
@@ -172,7 +172,7 @@ export function DateRangeSheet({
                         styles.dayText,
                         {
                           color: isEndpoint
-                            ? '#fff'
+                            ? theme.onAccent
                             : cell.inMonth
                               ? colorTheme.ink
                               : colorTheme.ink3,

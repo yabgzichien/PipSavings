@@ -22,7 +22,8 @@ import {
   type CustomizerTab,
 } from '../lib/widgetCustomizerTabs';
 import { useAccent } from '../state/accent';
-import { useThemeColors } from '../state/colorScheme';
+import { useAppearanceStyle, useResolvedScheme, useThemeColors } from '../state/colorScheme';
+import { resolveWidgetChrome } from '../lib/appearanceStyle';
 import { useAppData } from '../state/store';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
@@ -79,6 +80,8 @@ export function WidgetCustomizerScreen({ onBack, initialDraft, onDraftChange }: 
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
+  const { style } = useAppearanceStyle();
+  const scheme = useResolvedScheme();
   const { t } = useLanguage();
   const { widgetMascotConfig, setWidgetMascotConfig } = useAppData();
   const { isPro } = useEntitlement();
@@ -93,7 +96,7 @@ export function WidgetCustomizerScreen({ onBack, initialDraft, onDraftChange }: 
 
   // The whole widget, not just the mascot — otherwise the slot pickers and size sliders change
   // nothing on screen. See mascot/previewCompose.ts on why it is a second renderer.
-  const preview = composeWidgetPreview(draft, PREVIEW_STREAK, PREVIEW_DOTS);
+  const preview = composeWidgetPreview(draft, PREVIEW_STREAK, PREVIEW_DOTS, resolveWidgetChrome(style, scheme));
   const fits = fitsDeclaredMinimum(draft);
   const previewW = preview.width * PREVIEW_SCALE;
   const previewH = preview.height * PREVIEW_SCALE;

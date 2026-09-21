@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import Svg, { Circle, Line, Path, Rect, G } from 'react-native-svg';
 import { colors } from '../theme';
+import { OnAccentFillCtx } from '../state/onAccentFill';
 import { useThemeColors } from '../state/colorScheme';
 
 /**
@@ -467,10 +468,14 @@ export function Icon({
   color?: string;
 }) {
   const colorTheme = useThemeColors();
+  const onAccentFill = useContext(OnAccentFillCtx);
+  const passed = color ?? colorTheme.ink;
+  const lowered = passed.toLowerCase();
+  const isHardcodedWhite = lowered === '#fff' || lowered === '#ffffff' || lowered === colors.onAccent.toLowerCase();
   const render = ICONS[name] ?? ICONS.dots;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      {render(color ?? colorTheme.ink, stroke)}
+      {render(onAccentFill && isHardcodedWhite ? onAccentFill : passed, stroke)}
     </Svg>
   );
 }

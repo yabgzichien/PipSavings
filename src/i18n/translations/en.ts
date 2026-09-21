@@ -51,6 +51,8 @@ export const en: Translations = {
   themeLight: 'Light',
   themeDark: 'Dark',
   themeSystem: 'System',
+  accentInk: 'Ink',
+  accentMonoHint: 'The app stays black and white. {name} still tints your icon — tap it to bring colour back.',
   accentColor: 'Accent color',
   appIcon: 'App icon',
   appIconDesc: 'Your home screen icon follows shortly after you leave the app',

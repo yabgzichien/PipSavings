@@ -28,6 +28,14 @@ describe('Settings Search', () => {
       expect(filterSettings('system').matchingKeys.has('theme')).toBe(true);
     });
 
+    it('finds colour / monochrome / ink on the accent row', () => {
+      expect(filterSettings('monochrome').matchingKeys.has('accent')).toBe(true);
+      expect(filterSettings('black and white').matchingKeys.has('accent')).toBe(true);
+      expect(filterSettings('ink').matchingKeys.has('accent')).toBe(true);
+      expect(filterSettings('colour').matchingKeys.has('accent')).toBe(true);
+      expect(filterSettings('monochrome').matchingKeys.has('appearanceStyle')).toBe(false);
+    });
+
     it('finds language settings', () => {
       expect(filterSettings('language').matchingKeys.has('language')).toBe(true);
       expect(filterSettings('english').matchingKeys.has('language')).toBe(true);
@@ -155,6 +163,8 @@ describe('Settings Search', () => {
       expect(filterSettings('主题').matchingKeys.has('theme')).toBe(true);
       expect(filterSettings('深色').matchingKeys.has('theme')).toBe(true);
       expect(filterSettings('夜间模式').matchingKeys.has('theme')).toBe(true);
+      expect(filterSettings('单色').matchingKeys.has('accent')).toBe(true);
+      expect(filterSettings('黑白').matchingKeys.has('accent')).toBe(true);
       expect(filterSettings('语言').matchingKeys.has('language')).toBe(true);
       expect(filterSettings('简体中文').matchingKeys.has('language')).toBe(true);
       expect(filterSettings('强调色').matchingKeys.has('accent')).toBe(true);

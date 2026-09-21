@@ -57,7 +57,7 @@ import { todayISO } from '../lib/duplicates';
 import { searchInvestments } from '../prices';
 import type { Account, BalanceEntry, PriceQuote } from '../lib/types';
 import { useAppData } from '../state/store';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
@@ -782,6 +782,7 @@ function JournalTrendChart({
 function MoversSection({ movers, prevMonth, dc }: { movers: ClassMover[]; prevMonth: string; dc: DisplayCurrency }) {
   const colorTheme = useThemeColors();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const { isZh } = useLanguage();
   return (
     <View style={styles.section}>
@@ -795,7 +796,7 @@ function MoversSection({ movers, prevMonth, dc }: { movers: ClassMover[]; prevMo
           return (
             <View key={mover.cls} style={[styles.moverRow, index > 0 && { borderTopColor: colorTheme.line, borderTopWidth: 1 }]}>
               <Body>{formatClassLabel(mover.cls, isZh, mover.label)}</Body>
-              <Label numeric color={up ? theme.accent : colorTheme.red}>
+              <Label numeric color={up ? signedUp : colorTheme.red}>
                 {up ? '+' : '−'}{fmtMoney(dc.convert(Math.abs(mover.delta)), dc.code)}
               </Label>
             </View>
@@ -1307,6 +1308,7 @@ function HoldingRowD({
   onPress: () => void;
 }) {
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const badge = badgeFor(grp.sub, grp.symbol);
   const cryptoBrand = grp.sub === 'crypto' ? matchCrypto(grp.symbol) || matchCrypto(grp.ticker) || matchCrypto(grp.name) : null;
@@ -1332,7 +1334,7 @@ function HoldingRowD({
             {grp.quantity} {unitPx != null ? `× ${currencyPrefix(dc.code)} ${fmtPx(dc.convert(unitPx))}` : grp.ticker}
           </Text>
           {ch != null && (
-            <Text style={[styles.chChip, { color: chUp ? '#1a9962' : colorTheme.red, backgroundColor: chUp ? theme.accentTint : '#fff0ef' }]}>
+            <Text style={[styles.chChip, { color: chUp ? theme.onTint : colorTheme.red, backgroundColor: chUp ? theme.accentTint : colorTheme.redTint }]}>
               {chUp ? '+' : ''}{ch.toFixed(2)}%
             </Text>
           )}
@@ -1341,7 +1343,7 @@ function HoldingRowD({
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{fmtMoney(dc.convert(grp.value), dc.code)}</Text>
         {profit && (
-          <Text style={[styles.rowProfit, { color: up ? theme.accent : colorTheme.red }]}>
+          <Text style={[styles.rowProfit, { color: up ? signedUp : colorTheme.red }]}>
             {up ? '+' : '−'}
             {profitMode === 'percent' && profit.pct != null
               ? `${Math.abs(profit.pct).toFixed(1)}%`
@@ -1405,14 +1407,14 @@ function LiabilityRowD({
           <Image source={{ uri: customIcon }} style={{ width: 36, height: 36 }} resizeMode="cover" />
         </View>
       ) : (
-        <View style={[styles.rowTile, { backgroundColor: '#fff0ef' }]}>
+        <View style={[styles.rowTile, { backgroundColor: colorTheme.redTint }]}>
           <Icon name="scale" size={16} color={colorTheme.red} />
         </View>
       )}
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={styles.liabNameRow}>
           <Text style={[styles.rowName, { color: colorTheme.ink }]} numberOfLines={1}>{name}</Text>
-          <Text style={[styles.liabChip, { color: colorTheme.red }]}>{cls}</Text>
+          <Text style={[styles.liabChip, { color: colorTheme.red, backgroundColor: colorTheme.redTint }]}>{cls}</Text>
         </View>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
@@ -1588,6 +1590,7 @@ function AccountSheet({
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
   const {
@@ -1935,7 +1938,7 @@ function AccountSheet({
                 const p = holdingProfit(accountValues[account.id] ?? 0, account.cost);
                 const up = p.profit >= 0;
                 return (
-                  <Text style={[styles.profitLine, { color: up ? theme.accent : RED2 }]}>
+                  <Text style={[styles.profitLine, { color: up ? signedUp : RED2 }]}>
                     {up ? '▲' : '▼'} {up ? '+' : '−'}{fmtMoney(dc.convert(Math.abs(p.profit)), dc.code)}
                     {p.pct != null ? ` (${up ? '+' : '−'}${Math.abs(p.pct).toFixed(1)}%)` : ''} on {fmtMoney(dc.convert(account.cost), dc.code)} invested
                   </Text>
@@ -2276,7 +2279,7 @@ function AccountSheet({
                       const pct = Math.round((diff / costVal) * 1000) / 10;
                       const up = diff >= 0;
                       return (
-                        <Text style={[styles.profitLine, { color: up ? theme.accent : RED2, marginTop: 6 }]}>
+                        <Text style={[styles.profitLine, { color: up ? signedUp : RED2, marginTop: 6 }]}>
                           {up ? '▲' : '▼'} {up ? '+' : '−'}{fmtMoney(dc.convert(Math.abs(diff)), dc.code)}
                           {` (${up ? '+' : '−'}${Math.abs(pct)}%) ${isZh ? '较购置成本' : 'vs cost'}`}
                         </Text>
@@ -2501,7 +2504,7 @@ function AccountSheet({
                 style={{
                   padding: 8,
                   borderRadius: 8,
-                  backgroundColor: '#fff0ef',
+                  backgroundColor: colorTheme.redTint,
                 }}
               >
                 <Icon name="trash" size={16} color={colorTheme.red} />
@@ -2634,7 +2637,7 @@ const styles = StyleSheet.create({
   holdMeta: { fontFamily: numFont(500), fontSize: 11, flexShrink: 1 },
   chChip: { fontFamily: numFont(700), fontSize: 11, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
   liabNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  liabChip: { fontFamily: uiFont(600), fontSize: 11, backgroundColor: '#fff0ef', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' },
+  liabChip: { fontFamily: uiFont(600), fontSize: 11, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' },
   emptyTitle: { fontFamily: uiFont(700), fontSize: 17, marginTop: 12 },
   emptySub: { fontFamily: uiFont(500), fontSize: 13.5, textAlign: 'center', marginTop: 6, lineHeight: 19 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 10 },

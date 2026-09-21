@@ -40,12 +40,12 @@ function arrowFragment(path: string, color: string): string {
   return `<path d="${path}" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`;
 }
 
-export function upArrowFragment(): string {
-  return arrowFragment(UP_ARROW_PATH, INCOME_COLOR);
+export function upArrowFragment(color: string = INCOME_COLOR): string {
+  return arrowFragment(UP_ARROW_PATH, color);
 }
 
-export function downArrowFragment(): string {
-  return arrowFragment(DOWN_ARROW_PATH, EXPENSE_COLOR);
+export function downArrowFragment(color: string = EXPENSE_COLOR): string {
+  return arrowFragment(DOWN_ARROW_PATH, color);
 }
 
 /** Standalone arrow SVGs for the real widget, which needs one complete document per SvgWidget. */
@@ -64,10 +64,12 @@ export function dotsRowFragment(dots: boolean[], color: string): string {
   const safe = dots.length === 7 ? dots : Array.from({ length: 7 }, (_, i) => dots[i] ?? false);
   return safe
     .map((on, i) => {
-      const cx = 4 + i * 10;
+      // Inset from the 68-wide viewBox so the last circle's stroke is not clipped into a
+      // crescent when Android draws the SvgWidget at the 2x1 cell edge.
+      const cx = 6 + i * 9;
       return on
-        ? `<circle data-dot="on" cx="${cx}" cy="4" r="4" fill="${color}" />`
-        : `<circle data-dot="off" cx="${cx}" cy="4" r="3.2" fill="none" stroke="${DOT_INACTIVE}" stroke-width="1.4" />`;
+        ? `<circle data-dot="on" cx="${cx}" cy="4" r="3.5" fill="${color}" />`
+        : `<circle data-dot="off" cx="${cx}" cy="4" r="2.8" fill="none" stroke="${DOT_INACTIVE}" stroke-width="1.2" />`;
     })
     .join('');
 }

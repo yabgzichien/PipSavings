@@ -8,7 +8,7 @@ import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
-import { colors, numFont, radius, shadowToggle, uiFont } from '../theme';
+import { numFont, radius, shadowToggle, uiFont } from '../theme';
 import { AddPersonModal } from './AddPersonModal';
 import { Icon } from './Icon';
 import { InfoButton } from './InfoButton';
@@ -346,7 +346,7 @@ export function SplitSheet({
             accessibilityState={{ checked: includeSelf }}
           >
             <View style={[styles.check, { borderColor: colorTheme.line, backgroundColor: colorTheme.surface }, includeSelf && styles.checkOn, includeSelf && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-              {includeSelf && <Icon name="check" size={13} color={colors.onAccent} stroke={2.6} />}
+              {includeSelf && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
             </View>
             <Text style={[styles.selfText, { color: colorTheme.ink }]}>{isZh ? '我也参与了这笔账单' : 'I was on this bill too'}</Text>
             {includeSelf && method === 'shares' && (

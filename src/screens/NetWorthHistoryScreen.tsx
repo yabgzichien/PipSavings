@@ -18,7 +18,7 @@ import {
 } from '../lib/netWorthChart';
 import { classValuesAsOf, monthsWithData, netWorthSeries, type NetWorthPoint } from '../lib/networth';
 import { rankClassMovers, type ClassMover } from '../lib/netWorthPresentation';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
@@ -52,6 +52,7 @@ function formatClassLabel(cls: string, isZh: boolean, fallbackLabel: string): st
 export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const { t, formatMonthLabel, isZh } = useLanguage();
   const { accounts, balanceEntries } = useAppData();
@@ -204,7 +205,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
         {showingDemo && (
           <View style={[styles.demoBanner, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
             <View style={{ flex: 1, gap: spacing.xs }}>
-              <Label weight={700} color={theme.accentInk}>
+              <Label weight={700} color={theme.onTint}>
                 {t('historyDemoBanner')}
               </Label>
               <Caption color={colorTheme.ink2}>{t('historyDemoBody')}</Caption>
@@ -252,7 +253,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={rangeLabel(r)}
                   >
-                    <Label weight={700} color={on ? '#ffffff' : colorTheme.ink2}>
+                    <Label weight={700} color={on ? theme.onAccent : colorTheme.ink2}>
                       {rangeLabel(r)}
                     </Label>
                   </Pressable>
@@ -320,7 +321,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
                 {displayDelta != null && (
                   <Label
                     weight={700}
-                    color={displayDelta >= 0 ? theme.accent : colorTheme.red}
+                    color={displayDelta >= 0 ? signedUp : colorTheme.red}
                     style={{ marginTop: spacing.xs }}
                   >
                     {displayDelta >= 0 ? '▲' : '▼'} {fmtMoney(Math.abs(displayDelta), dc.code)}{' '}
@@ -348,7 +349,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
                 accessibilityRole="button"
                 accessibilityLabel={t('historyUnlock')}
               >
-                <Body weight={700} color="#ffffff">
+                <Body weight={700} color={theme.onAccent}>
                   {t('historyUnlock')}
                 </Body>
               </Pressable>
@@ -362,7 +363,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
                   return (
                     <View key={mover.cls} style={styles.moverRow}>
                       <Body>{formatClassLabel(mover.cls, isZh, mover.label)}</Body>
-                      <Label weight={700} color={up ? theme.accent : colorTheme.red}>
+                      <Label weight={700} color={up ? signedUp : colorTheme.red}>
                         {up ? '+' : '−'}
                         {fmtMoney(dc.convert(Math.abs(mover.delta)), dc.code)}
                       </Label>
@@ -447,7 +448,7 @@ export function NetWorthHistoryScreen({ onBack }: { onBack: () => void }) {
                               {r.delta !== null && (
                                 <Label
                                   weight={700}
-                                  color={up ? theme.accent : colorTheme.red}
+                                  color={up ? signedUp : colorTheme.red}
                                   style={{ marginTop: spacing.xs }}
                                 >
                                   {up ? '▲' : '▼'} {fmtMoney(dc.convert(Math.abs(r.delta)), dc.code)}{' '}

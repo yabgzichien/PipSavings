@@ -24,7 +24,7 @@ import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
-import { colors, numFont, radius, uiFont } from '../theme';
+import { numFont, radius, uiFont } from '../theme';
 
 /**
  * What a bill is called, in one place: the merchant, else the user's own remark, else the
@@ -620,7 +620,7 @@ export function OwedScreen({ onBack }: { onBack: () => void }) {
                                 },
                               ]}
                             >
-                              {isSettled && <Icon name="check" size={12} color={colors.onAccent} stroke={2.8} />}
+                              {isSettled && <Icon name="check" size={12} color={theme.onAccent} stroke={2.8} />}
                             </Pressable>
 
                             {!isSettled && (

@@ -25,11 +25,9 @@ import {
   WIDGET_MASCOT_LANE_WIDTH,
 } from './sizing';
 import {
-  DIVIDER_COLOR,
   DIVIDER_HEIGHT,
   DOTS_ROW_HEIGHT,
   DOTS_ROW_WIDTH,
-  SHELL_BG,
   SHELL_PADDING_H,
   SHELL_RADIUS,
   STREAK_COUNT_FONT_SIZE,
@@ -41,6 +39,7 @@ import {
   streakSlotMetrics,
   upArrowFragment,
 } from './chrome';
+import { resolveWidgetChrome, type WidgetChrome } from '../../lib/appearanceStyle';
 
 export const PREVIEW_WIDTH = DECLARED_MIN_WIDTH_DP;
 export const PREVIEW_HEIGHT = DECLARED_MIN_HEIGHT_DP;
@@ -88,9 +87,9 @@ function round(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-function divider(x: number, height: number): string {
+function divider(x: number, height: number, color: string): string {
   const y = (height - DIVIDER_HEIGHT) / 2;
-  return `<rect x="${round(x)}" y="${round(y)}" width="${DIVIDER}" height="${DIVIDER_HEIGHT}" fill="${DIVIDER_COLOR}" />`;
+  return `<rect x="${round(x)}" y="${round(y)}" width="${DIVIDER}" height="${DIVIDER_HEIGHT}" fill="${color}" />`;
 }
 
 /** Centres a 28x28 arrow glyph in a `button`-sized cell centered at (centerX, height / 2). */
@@ -183,7 +182,8 @@ function streakSlot(
 export function composeWidgetPreview(
   config: WidgetMascotConfig,
   streak: number,
-  dots: boolean[]
+  dots: boolean[],
+  chrome: WidgetChrome = resolveWidgetChrome('colour', 'light'),
 ): WidgetPreview {
   const mascot = MASCOT_SIZES[config.mascotNotch];
   const hasSlot1 = config.slot1 !== 'none';
@@ -200,7 +200,7 @@ export function composeWidgetPreview(
   const height = PREVIEW_HEIGHT;
 
   const body: string[] = [
-    `<rect data-preview-shell="true" x="0" y="0" width="${width}" height="${height}" rx="${SHELL_RADIUS}" fill="${SHELL_BG}" />`,
+    `<rect data-preview-shell="true" x="0" y="0" width="${width}" height="${height}" rx="${SHELL_RADIUS}" fill="${chrome.bg}" />`,
   ];
 
   // Mascot section: centered in its allocated area (x=8..82, center=45) or centered in whole widget if both slots empty
@@ -229,7 +229,7 @@ export function composeWidgetPreview(
       body.push(streakSlot(config, streak, centerX, height, size));
     } else {
       const size = BUTTON_SIZES[config.buttonNotch];
-      const fragment = content === 'income' ? upArrowFragment() : downArrowFragment();
+      const fragment = content === 'income' ? upArrowFragment(chrome.income) : downArrowFragment(chrome.expense);
       body.push(arrowGroup(fragment, centerX, height, size));
     }
   }
@@ -240,15 +240,15 @@ export function composeWidgetPreview(
     // Fire is selected: show the fire and the streaks (enlarged fire, count, and 7-day dots).
     body.push(streakColumn(config, streak, dots, SHELL_PADDING_H + WIDGET_MASCOT_LANE_WIDTH + STREAK_COLUMN / 2, height));
   } else if (hasSlot1 && hasSlot2) {
-    body.push(divider(82, height));
+    body.push(divider(82, height, chrome.divider));
     renderSlotContent(config.slot1, 100);
-    body.push(divider(117, height));
+    body.push(divider(117, height, chrome.divider));
     renderSlotContent(config.slot2, 135);
   } else if (hasSlot1) {
-    body.push(divider(82, height));
+    body.push(divider(82, height, chrome.divider));
     renderSlotContent(config.slot1, 117.5);
   } else if (hasSlot2) {
-    body.push(divider(82, height));
+    body.push(divider(82, height, chrome.divider));
     renderSlotContent(config.slot2, 117.5);
   }
 

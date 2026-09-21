@@ -18,6 +18,7 @@ jest.mock('../src/lib/appIcon', () => ({
 jest.mock('../src/state/colorScheme', () => ({
   useColorSchemeMode: () => ({ mode: 'light', setMode: () => {}, resolvedScheme: 'light' }),
   useSetDarkSurfaces: () => () => {},
+  useAppearanceStyle: () => ({ style: 'colour', setStyle: () => {} }),
 }));
 
 import { AccentProvider, useAccentPreset } from '../src/state/accent';

@@ -456,10 +456,10 @@ export function DemoStep({
                                 backgroundColor: colorTheme.surface2,
                                 borderColor: colorTheme.line,
                               },
-                              on && { backgroundColor: theme.accent, borderColor: theme.accent },
+                              on && { backgroundColor: theme.accentInk, borderColor: theme.accentInk },
                             ]}
                           >
-                            <Caption color={on ? '#fff' : colorTheme.ink2}>
+                            <Caption color={on ? theme.onAccent : colorTheme.ink2}>
                               {name.slice(0, id === SELF ? 3 : 1).toUpperCase()}
                             </Caption>
                           </Pressable>

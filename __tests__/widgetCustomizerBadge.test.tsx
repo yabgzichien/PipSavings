@@ -5,6 +5,7 @@ import { DARK_COLORS, LIGHT_COLORS } from '../src/theme';
 const TestRenderer = require('react-test-renderer');
 
 let mockThemeColors = LIGHT_COLORS;
+let mockScheme: 'light' | 'dark' = 'light';
 
 jest.mock('../src/state/accent', () => ({
   useAccent: () => ({
@@ -18,11 +19,13 @@ jest.mock('../src/state/accent', () => ({
 
 jest.mock('../src/state/colorScheme', () => ({
   useThemeColors: () => mockThemeColors,
+  useResolvedScheme: () => mockScheme,
 }));
 
 describe('WidgetCustomizerBadge', () => {
   beforeEach(() => {
     mockThemeColors = LIGHT_COLORS;
+    mockScheme = 'light';
   });
 
   it('renders correctly with default size (38x38) and radius (11)', () => {
@@ -61,6 +64,7 @@ describe('WidgetCustomizerBadge', () => {
 
   it('renders dark mode surface adaptation when active scheme is dark', () => {
     mockThemeColors = DARK_COLORS;
+    mockScheme = 'dark';
     let tree: any;
     TestRenderer.act(() => {
       tree = TestRenderer.create(<WidgetCustomizerBadge />);

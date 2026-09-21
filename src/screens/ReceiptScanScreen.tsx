@@ -36,7 +36,7 @@ import { useAppData } from '../state/store';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useReducedMotion } from '../state/useReducedMotion';
-import { colors, numFont, radius, uiFont } from '../theme';
+import { numFont, radius, uiFont } from '../theme';
 import type { PickedImage } from './AttachScreen';
 
 export interface ReceiptSplitResult {
@@ -812,7 +812,7 @@ export function ReceiptScanScreen({
                             accessibilityLabel={isZh ? `${on ? '取消分配' : '分配给'} ${name}：${line.label}` : `${on ? 'Remove' : 'Add'} ${name} on ${line.label}`}
                             accessibilityState={{ selected: on }}
                           >
-                            <Text style={[styles.avatarText, { color: colorTheme.ink2 }, on && styles.avatarTextOn]}>
+                            <Text style={[styles.avatarText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
                               {name.slice(0, id === SELF ? 3 : 1).toUpperCase()}
                             </Text>
                           </Pressable>
@@ -1266,7 +1266,6 @@ const styles = StyleSheet.create({
   },
   avatarOn: {},
   avatarText: { fontFamily: uiFont(700), fontSize: 12 },
-  avatarTextOn: { color: colors.onAccent },
   allBtn: { paddingHorizontal: 9, paddingVertical: 7 },
   allText: { fontFamily: uiFont(600), fontSize: 12 },
   unassigned: { fontFamily: uiFont(500), fontSize: 11.5, marginTop: 9, lineHeight: 16 },

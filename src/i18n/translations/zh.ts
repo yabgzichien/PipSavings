@@ -51,6 +51,8 @@ export const zh: Translations = {
   themeLight: '浅色',
   themeDark: '深色',
   themeSystem: '跟随系统',
+  accentInk: '墨色',
+  accentMonoHint: '应用保持黑白。{name} 仍会用于应用图标 — 点它即可恢复色彩。',
   accentColor: '主题强调色',
   appIcon: '应用图标',
   appIconDesc: '离开应用后，主屏幕图标会稍后同步更新',

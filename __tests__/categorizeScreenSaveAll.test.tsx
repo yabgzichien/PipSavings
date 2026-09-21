@@ -12,6 +12,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('../src/state/accent', () => ({
   useAccent: () => ({ accent: '#1f8a5b', accentSoft: '#34d399', accentInk: '#1f8a5b', accentTint: '#e6f4ea' }),
   useAccentAlert: () => ({ setAlert: jest.fn() }),
+  useSignedUp: () => '#1f8a5b',
 }));
 
 jest.mock('../src/state/colorScheme', () => ({

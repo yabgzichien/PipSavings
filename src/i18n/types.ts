@@ -51,6 +51,8 @@ export interface Translations {
   themeLight: string;
   themeDark: string;
   themeSystem: string;
+  accentInk: string;
+  accentMonoHint: string;
   accentColor: string;
   appIcon: string;
   appIconDesc: string;

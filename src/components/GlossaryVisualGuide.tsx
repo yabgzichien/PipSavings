@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
-import { colors, numFont, radius, shadowCard, shadowToggle, spacing, uiFont } from '../theme';
+import { numFont, radius, shadowCard, shadowToggle, spacing, uiFont } from '../theme';
 import { Icon } from './Icon';
 import type { SplitMethod } from '../lib/types';
 import { fmtMoney } from '../lib/format';
@@ -343,7 +343,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                 includeSelf && { backgroundColor: theme.accent, borderColor: theme.accent },
               ]}
             >
-              {includeSelf && <Icon name="check" size={13} color={colors.onAccent} stroke={2.6} />}
+              {includeSelf && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
             </View>
             <Text style={[styles.selfText, { color: colorTheme.ink }]}>
               {isZh ? '我也参与了这笔账单' : 'I was on this bill too'}
@@ -665,7 +665,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                 style={[
                   styles.effectText,
                   { color: colorTheme.ink2 },
-                  cardEffect === 'add' && styles.effectTextOn,
+                  cardEffect === 'add' && { color: theme.onAccent, fontFamily: uiFont(700) },
                 ]}
               >
                 {isZh ? '计入 Maybank Visa' : 'Adds to Maybank Visa'}
@@ -679,7 +679,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                 style={[
                   styles.effectText,
                   { color: colorTheme.ink2 },
-                  cardEffect === 'subtract' && styles.effectTextOn,
+                  cardEffect === 'subtract' && { color: theme.onAccent, fontFamily: uiFont(700) },
                 ]}
               >
                 {isZh ? '偿还 Maybank Visa' : 'Pays down Maybank Visa'}
@@ -1282,7 +1282,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
   effectTextOn: {
-    color: colors.onAccent,
     fontFamily: uiFont(700),
   },
   eqBox: {

@@ -16,7 +16,7 @@ import { currencyPrefix, fmt, fmtMoney } from '../lib/format';
 import { assignImported, detectSourceVocabulary, pendingLabel, resolvePending, PENDING_CAT } from '../lib/import';
 import { notify } from '../lib/platformAlert';
 import { DROP, type Category, type ExtractedTxn, type TxnType } from '../lib/types';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { numFont, radius, shadowToggle, uiFont } from '../theme';
@@ -54,6 +54,7 @@ export function ImportReviewScreen({
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const { categories, catById, memory, transactions, addCategory } = useAppData();
   const { isPro } = useEntitlement();
@@ -325,7 +326,7 @@ export function ImportReviewScreen({
                     </View>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.amount, { color: income ? theme.accent : colorTheme.ink }]}>
+                    <Text style={[styles.amount, { color: income ? signedUp : colorTheme.ink }]}>
                       {income ? '+' : ''}{fmtMoney(r.item.amount, r.item.currency)}
                     </Text>
                     <Icon name="pencil" size={13} color={colorTheme.ink3} />

@@ -15,7 +15,7 @@ import {
   type XAxisLabel,
 } from '../lib/netWorthChart';
 import { Caption } from './ui';
-import { useAccent } from '../state/accent';
+import { useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { radius, spacing } from '../theme';
 
@@ -33,7 +33,7 @@ export function NetWorthHistoryChart({
   onSelectIndex: (index: number) => void;
   formatAxisLabel: (monthKey: string) => string;
 }) {
-  const theme = useAccent();
+  const signedUp = useSignedUp();
   const colors = useThemeColors();
   const [width, setWidth] = useState(0);
 
@@ -103,7 +103,7 @@ export function NetWorthHistoryChart({
             <ChartSvg
               layout={layout}
               selected={selected}
-              accent={theme.accent}
+              accent={signedUp}
               red={colors.red}
               line={colors.line}
               ink3={colors.ink3}

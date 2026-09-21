@@ -27,7 +27,8 @@ import { cadenceLabel, REMINDER_CADENCES } from '../lib/reminders';
 import * as sound from '../lib/sound';
 import { ensurePermission } from '../notifications';
 import { useAccent, useAccentPreset } from '../state/accent';
-import { useColorSchemeMode, useThemeColors, type ColorSchemeMode } from '../state/colorScheme';
+import { useColorSchemeMode, useThemeColors, useAppearanceStyle, useResolvedScheme, type ColorSchemeMode } from '../state/colorScheme';
+import { inkSwatchCheck, inkSwatchFill } from '../lib/appearanceStyle';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
@@ -471,7 +472,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   </View>
                   {taxRequestableCount > 0 && (
                     <View style={[styles.countBadge, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.countBadgeText}>{taxRequestableCount}</Text>
+                      <Text style={[styles.countBadgeText, { color: theme.onAccent }]}>{taxRequestableCount}</Text>
                     </View>
                   )}
                   <Icon name="chevronRight" size={18} color={colorTheme.ink3} />
@@ -565,7 +566,7 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
                   <Text style={[styles.providerSub, { color: colorTheme.ink2, marginBottom: 12 }]}>
                     {isZh
                       ? '当 Pip 崩溃时，发送匿名的技术报告以便修复。绝不包含您的交易、金额、商家或收据 — 仅有错误发生的代码位置。'
-                      : 'When Pip crashes, send an anonymous technical report so it can be fixed. Never includes your transactions, amounts, merchants or receipts — only where in the code it broke.'}
+                      : 'Send technical crash reports when the app fails'}
                   </Text>
                   <DiagnosticsPicker />
                 </Card>
@@ -865,7 +866,7 @@ function LanguagePicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {lang === 'en' ? 'English' : '简体中文'}
             </Text>
           </Pressable>
@@ -893,7 +894,7 @@ function LogReminderPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {formatCadence(cadence)}
             </Text>
           </Pressable>
@@ -933,7 +934,7 @@ function ReminderHourOverridePicker() {
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
             >
-              <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+              <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
                 {opt.hour === null ? t('reminderAuto') : opt.label}
               </Text>
             </Pressable>
@@ -962,7 +963,7 @@ function OwedReminderPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {value ? t('on') : t('off')}
             </Text>
           </Pressable>
@@ -990,7 +991,7 @@ function CommitmentReminderPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {value ? t('on') : t('off')}
             </Text>
           </Pressable>
@@ -1018,7 +1019,7 @@ function ThemeModePicker() {
         const on = mode === opt.mode;
         return (
           <Pressable key={opt.mode} onPress={() => setMode(opt.mode)} style={[styles.modeBtn, on && { backgroundColor: theme.accentInk }]}>
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>{t(opt.key)}</Text>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>{t(opt.key)}</Text>
           </Pressable>
         );
       })}
@@ -1044,7 +1045,7 @@ function MotionSettingPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {formatMotion(setting)}
             </Text>
           </Pressable>
@@ -1076,7 +1077,7 @@ function SoundPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {value ? t('on') : t('off')}
             </Text>
           </Pressable>
@@ -1104,7 +1105,7 @@ function GlossaryPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {value ? t('on') : t('off')}
             </Text>
           </Pressable>
@@ -1133,7 +1134,7 @@ function DiagnosticsPicker() {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
           >
-            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && styles.modeTextOn]}>
+            <Text style={[styles.modeText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {value ? t('on') : t('off')}
             </Text>
           </Pressable>
@@ -1146,7 +1147,9 @@ function DiagnosticsPicker() {
 /** Row of preset swatches for picking the app's accent color, plus live app icon preview */
 function AccentColorPicker() {
   const colorTheme = useThemeColors();
+  const scheme = useResolvedScheme();
   const { presetId, setPresetId, presets } = useAccentPreset();
+  const { style, setStyle } = useAppearanceStyle();
   const { t } = useLanguage();
   const activePreset = presets.find((p) => p.id === presetId) ?? presets[0];
 
@@ -1171,8 +1174,18 @@ function AccentColorPicker() {
       <AccentSwatchRow
         presets={presets}
         presetId={presetId}
-        onSelect={setPresetId}
+        onSelect={(id) => {
+          setStyle('colour');
+          setPresetId(id);
+        }}
+        onSelectInk={() => setStyle('monochrome')}
         selectedBorderColor={colorTheme.ink}
+        ink={{
+          selected: style === 'monochrome',
+          fill: inkSwatchFill(scheme),
+          checkColor: inkSwatchCheck(scheme),
+          label: t('accentInk'),
+        }}
       />
     </View>
   );

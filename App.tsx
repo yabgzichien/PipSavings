@@ -48,7 +48,7 @@ import { AppAlertModal } from './src/components/AppAlertModal';
 import { TourSpotlight, type TourStepInfo } from './src/components/TourSpotlight';
 import { AccentProvider, useAccent } from './src/state/accent';
 import { AlertHostProvider } from './src/state/alertHost';
-import { ColorSchemeProvider, useColorSchemeMode, useThemeColors } from './src/state/colorScheme';
+import { ColorSchemeProvider, useAppearanceStyle, useColorSchemeMode, useThemeColors } from './src/state/colorScheme';
 import { GlossaryProvider, useGlossary } from './src/state/glossary';
 import { LanguageProvider, useLanguage } from './src/i18n';
 import { AppDataProvider, useAppData } from './src/state/store';
@@ -121,6 +121,7 @@ export default function App() {
               </EntitlementProvider>
             </AppDataProvider>
             <ThemedStatusBar />
+            <WidgetAppearanceSync />
           </SafeAreaProvider>
         </GestureHandlerRootView>
       </PhoneFrame>
@@ -132,6 +133,16 @@ export default function App() {
 function ThemedStatusBar() {
   const { resolvedScheme } = useColorSchemeMode();
   return <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />;
+}
+
+/** Home-screen widgets don't sit in the React tree; restyle them when Colour/Mono or light/dark changes. */
+function WidgetAppearanceSync() {
+  const { style } = useAppearanceStyle();
+  const { resolvedScheme } = useColorSchemeMode();
+  useEffect(() => {
+    void syncAllWidgets();
+  }, [style, resolvedScheme]);
+  return null;
 }
 
 /**
