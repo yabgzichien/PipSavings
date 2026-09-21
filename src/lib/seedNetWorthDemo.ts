@@ -115,3 +115,144 @@ export async function seedNetWorthDemo(now: Date = new Date()): Promise<SeedNetW
     proGranted: true,
   };
 }
+
+function isoDay(now: Date, dayOffset: number): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Extra ledger rows so README screenshots are not empty shells. Calls `seedNetWorthDemo` first. */
+export async function seedReadmeDemo(now: Date = new Date()): Promise<SeedNetWorthResult> {
+  const result = await seedNetWorthDemo(now);
+  const db = await getDb();
+  const createdAt = now.toISOString();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const ya = now.getFullYear();
+
+  const txns: Array<{
+    id: string;
+    merchant: string;
+    amount: number;
+    type: 'expense' | 'income';
+    date: string;
+    category: string;
+  }> = [
+    { id: 'seed-txn-salary', merchant: 'Maybank payroll', amount: 5200, type: 'income', date: monthStart, category: 'salary' },
+    { id: 'seed-txn-rent', merchant: 'Residensi Ampang', amount: 1400, type: 'expense', date: isoDay(now, -18), category: 'rental' },
+    { id: 'seed-txn-ins', merchant: 'AIA Life', amount: 92.1, type: 'expense', date: isoDay(now, -16), category: 'insurance' },
+    { id: 'seed-txn-food1', merchant: 'Kedai Kopi Ah Seng', amount: 12.5, type: 'expense', date: isoDay(now, -6), category: 'food' },
+    { id: 'seed-txn-food2', merchant: 'Tealive', amount: 9.9, type: 'expense', date: isoDay(now, -5), category: 'food' },
+    { id: 'seed-txn-grab', merchant: 'Grab', amount: 18.4, type: 'expense', date: isoDay(now, -4), category: 'travelling' },
+    { id: 'seed-txn-dinner', merchant: 'Sebelas Dinner', amount: 86.4, type: 'expense', date: isoDay(now, -3), category: 'food' },
+    { id: 'seed-txn-gym', merchant: 'Anytime Fitness', amount: 158, type: 'expense', date: isoDay(now, -2), category: 'entertainment' },
+    { id: 'seed-txn-books', merchant: 'Popular Bookstore', amount: 64.9, type: 'expense', date: isoDay(now, -1), category: 'learning' },
+    { id: 'seed-txn-clinic', merchant: 'Gleneagles checkup', amount: 280, type: 'expense', date: isoDay(now, 0), category: 'medical' },
+  ];
+
+  await db.runAsync('DELETE FROM transactions');
+    await db.runAsync('DELETE FROM relief_tags');
+    await db.runAsync('DELETE FROM split_payments');
+    await db.runAsync('DELETE FROM split_shares');
+    await db.runAsync('DELETE FROM splits');
+    await db.runAsync('DELETE FROM people');
+    await db.runAsync('DELETE FROM budget_allocation');
+    await db.runAsync(
+      `INSERT INTO budget (id, expected_income, updated_at) VALUES (1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET expected_income = excluded.expected_income, updated_at = excluded.updated_at`,
+      5200,
+      createdAt,
+    );
+    const allocations: Array<[string, number]> = [
+      ['rental', 1400],
+      ['food', 800],
+      ['insurance', 120],
+      ['travelling', 250],
+      ['entertainment', 200],
+      ['learning', 80],
+      ['medical', 300],
+    ];
+    for (const [categoryId, amount] of allocations) {
+      await db.runAsync(
+        'INSERT INTO budget_allocation (category_id, amount, updated_at) VALUES (?, ?, ?)',
+        categoryId,
+        amount,
+        createdAt,
+      );
+    }
+    for (const t of txns) {
+      await db.runAsync(
+        `INSERT INTO transactions
+           (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id)
+         VALUES (?, ?, ?, ?, 'MYR', ?, ?, ?, ?, 'manual', NULL, NULL, NULL, NULL, NULL)`,
+        t.id,
+        t.merchant,
+        t.merchant.toLowerCase(),
+        t.amount,
+        t.type,
+        t.date,
+        t.category,
+        createdAt,
+      );
+    }
+    await db.runAsync(
+      'INSERT INTO people (id, name, created_at) VALUES (?, ?, ?)',
+      'seed-person-ali',
+      'Ali',
+      createdAt,
+    );
+    await db.runAsync(
+      `INSERT INTO splits (id, txn_id, gross, own_share, method, created_at, currency, fx_rate)
+       VALUES (?, ?, ?, ?, 'itemized', ?, 'MYR', NULL)`,
+      'seed-split-dinner',
+      'seed-txn-dinner',
+      86.4,
+      28.8,
+      createdAt,
+    );
+    await db.runAsync(
+      `INSERT INTO split_shares (id, split_id, person_id, owed, paid, status, written_off_txn_id, created_at)
+       VALUES (?, ?, ?, ?, 0, 'open', NULL, ?)`,
+      'seed-share-ali',
+      'seed-split-dinner',
+      'seed-person-ali',
+      57.6,
+      createdAt,
+    );
+    await db.runAsync(
+      `INSERT INTO relief_tags (id, txn_id, code, ya, amount, origin, cert_image_uri, einvoice_image_uri, created_at)
+       VALUES (?, ?, 'lifestyle', ?, ?, 'manual', NULL, NULL, ?)`,
+      'seed-relief-books',
+      'seed-txn-books',
+      ya,
+      64.9,
+      createdAt,
+    );
+    await db.runAsync(
+      `INSERT INTO relief_tags (id, txn_id, code, ya, amount, origin, cert_image_uri, einvoice_image_uri, created_at)
+       VALUES (?, ?, 'sports', ?, ?, 'manual', NULL, NULL, ?)`,
+      'seed-relief-gym',
+      'seed-txn-gym',
+      ya,
+      158,
+      createdAt,
+    );
+    await db.runAsync(
+      `INSERT INTO relief_tags (id, txn_id, code, ya, amount, origin, cert_image_uri, einvoice_image_uri, created_at)
+       VALUES (?, ?, 'medical.checkup', ?, ?, 'manual', NULL, NULL, ?)`,
+      'seed-relief-clinic',
+      'seed-txn-clinic',
+      ya,
+      280,
+      createdAt,
+    );
+
+  const checkIns: Record<string, string> = {};
+  for (let i = 6; i >= 1; i--) checkIns[isoDay(now, -i)] = 'review';
+  checkIns[isoDay(now, 0)] = 'review';
+  await setMeta('daily_checkins', JSON.stringify(checkIns));
+
+  return result;
+}

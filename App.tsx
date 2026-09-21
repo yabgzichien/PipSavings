@@ -88,7 +88,7 @@ import { getMeta, setMeta } from './src/db/metaRepo';
 import { notify } from './src/lib/platformAlert';
 import { platformShadow, uiFont } from './src/theme';
 import type { WidgetMascotConfig } from './src/widget/mascot/config';
-import { seedNetWorthDemo } from './src/lib/seedNetWorthDemo';
+import { seedNetWorthDemo, seedReadmeDemo } from './src/lib/seedNetWorthDemo';
 
 /**
  * Web-only: a global :focus-visible outline so keyboard users get a visible focus indicator
@@ -176,17 +176,24 @@ function DevNetWorthSeeder() {
   useEffect(() => {
     const g = globalThis as typeof globalThis & {
       __pipSeedNetWorth?: () => Promise<{ accounts: number; entries: number; proGranted: boolean }>;
+      __pipSeedReadme?: () => Promise<{ accounts: number; entries: number; proGranted: boolean }>;
     };
-    g.__pipSeedNetWorth = async () => {
-      const result = await seedNetWorthDemo(new Date());
-      // Hard reload so AppDataProvider + EntitlementProvider re-read SQLite / grant cache.
+    const reload = () => {
       if (typeof window !== 'undefined') {
         window.setTimeout(() => window.location.reload(), 50);
       }
+    };
+    g.__pipSeedNetWorth = async () => {
+      const result = await seedNetWorthDemo(new Date());
+      reload();
       return result;
+    };
+    g.__pipSeedReadme = async () => {
+      return seedReadmeDemo(new Date());
     };
     return () => {
       delete g.__pipSeedNetWorth;
+      delete g.__pipSeedReadme;
     };
   }, []);
   return null;
