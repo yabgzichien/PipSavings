@@ -43,13 +43,24 @@ describe('resolveFilters', () => {
 
   it('keeps YYYY-MM month and YYYY-MM-DD date range filters', () => {
     const r = resolveFilters(
-      { month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30' },
+      {
+        month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30',
+        query: 'OpenAI', transactionType: 'expense',
+      },
       world,
     );
     expect(r).toEqual({
       status: 'ok',
-      filters: { month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30' },
+      filters: {
+        month: '2026-09', dateFrom: '2026-09-01', dateTo: '2026-09-30',
+        query: 'OpenAI', transactionType: 'expense',
+      },
     });
+  });
+
+  it('clarifies a reversed date range instead of silently applying it', () => {
+    const r = resolveFilters({ dateFrom: '2026-09-30', dateTo: '2026-09-01' }, world);
+    expect(r).toEqual({ status: 'invalid', field: 'dateRange' });
   });
 
   it('drops month and date filters that are not ISO shapes', () => {

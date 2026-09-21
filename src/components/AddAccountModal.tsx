@@ -50,6 +50,8 @@ export function AddAccountModal({
   preset,
   initialKind = 'asset',
   initialClass,
+  initialName,
+  initialCurrency,
   onClose,
   onCreated,
 }: {
@@ -61,6 +63,9 @@ export function AddAccountModal({
   initialKind?: AccountKind;
   /** Pre-selects an account category when the caller already knows it, such as a DCA target. */
   initialClass?: string;
+  /** Confirmation-first chat flows may propose a bank account without creating it. */
+  initialName?: string | null;
+  initialCurrency?: string | null;
   onClose: () => void;
   onCreated?: (accountId: string) => void;
 }) {
@@ -95,7 +100,7 @@ export function AddAccountModal({
   const clsChoices = classesFor(kind);
 
   const reset = () => {
-    setName('');
+    setName(initialName ?? '');
     setKind(initialKind);
     setCls(initialClass ?? (initialKind === 'liability' ? 'mortgage' : 'cash'));
     setHoldingMode(false);
@@ -108,7 +113,7 @@ export function AddAccountModal({
     setRateMode('depreciation');
     setValueText('');
     setCustomIcon(null);
-    setCurrency(BASE_CURRENCY);
+    setCurrency(initialCurrency ?? BASE_CURRENCY);
     setSearchOpen(false);
   };
   const close = () => {
@@ -145,7 +150,7 @@ export function AddAccountModal({
     getActiveCurrencies().then(setActiveCurrencies);
     // Defaults to the user's own entry currency, not ringgit, so a wallet the app bills in SGD
     // doesn't get created labelled "RM".
-    getEntryCurrency().then((c) => setCurrency(c ?? BASE_CURRENCY));
+    getEntryCurrency().then((c) => setCurrency(initialCurrency ?? c ?? BASE_CURRENCY));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 

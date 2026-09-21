@@ -54,4 +54,37 @@ describe('resolveAskPipQuickAddPrefill', () => {
     });
     expect(draft).toBeNull();
   });
+
+  it('prefills merchant, SGD, Food, and the matching Maybank account locally', async () => {
+    const draft = await resolveAskPipQuickAddPrefill({
+      text: 'mcd 18sgd with maybank',
+      activeCurrencies: ['MYR', 'SGD'],
+      today: '2026-09-21',
+      apiKey: null,
+      provider: null,
+      categories: cats,
+      accounts: [{ id: 'maybank', name: 'Maybank', archived: false }],
+    });
+    expect(draft).toMatchObject({
+      label: 'mcd',
+      amount: 18,
+      currency: 'SGD',
+      categoryId: 'food',
+      accountId: 'maybank',
+      accountQuery: null,
+    });
+  });
+
+  it('keeps an unmatched account name as a guided creation request', async () => {
+    const draft = await resolveAskPipQuickAddPrefill({
+      text: 'mcd 18sgd with maybank',
+      activeCurrencies: ['MYR', 'SGD'],
+      today: '2026-09-21',
+      apiKey: null,
+      provider: null,
+      categories: cats,
+      accounts: [],
+    });
+    expect(draft).toMatchObject({ accountId: null, accountQuery: 'maybank' });
+  });
 });

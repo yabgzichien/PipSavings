@@ -1,11 +1,14 @@
 import type {
   AskPipAction,
   AskPipClarifyChoice,
+  AskPipColorScheme,
   AskPipEntryKind,
   AskPipFilters,
+  AskPipSayKind,
   AskPipViewId,
 } from './catalog';
 import type { ChatVisionHost } from './vision';
+import type { AskPipAnalysisResult } from './analytics';
 
 export interface AskPipFrame {
   view: AskPipViewId;
@@ -15,19 +18,39 @@ export interface AskPipFrame {
   settleShareId?: string;
   caption?: string;
   vision?: ChatVisionHost;
+  tripDraft?: { name: string; startDate: string; endDate: string };
+  analysis?: AskPipAnalysisResult;
 }
 
 export interface AskPipSession {
   stack: AskPipFrame[];
+  messages: AskPipChatMessage[];
+  messageSeq: number;
   pendingPhoto: boolean;
   pendingClarify: { field: string; choices: { id: string; label: string; action: AskPipAction }[] } | null;
   refuse: boolean;
+  sayKind: AskPipSayKind | null;
+  pendingPref: { pref: 'colorScheme'; value: AskPipColorScheme } | null;
 }
 
+export type AskPipChatMessage =
+  | { id: string; role: 'user'; text: string }
+  | { id: string; role: 'assistant'; text: string; frame?: AskPipFrame };
+
 export const HISTORY_CAP = 10;
+const THREAD_CAP = HISTORY_CAP * 2;
 
 export function emptySession(): AskPipSession {
-  return { stack: [], pendingPhoto: false, pendingClarify: null, refuse: false };
+  return {
+    stack: [],
+    messages: [],
+    messageSeq: 0,
+    pendingPhoto: false,
+    pendingClarify: null,
+    refuse: false,
+    sayKind: null,
+    pendingPref: null,
+  };
 }
 
 export type AskPipEvent =
@@ -37,9 +60,34 @@ export type AskPipEvent =
   | { type: 'dropChip'; key: keyof AskPipFilters | 'view' }
   | { type: 'photoAttached' }
   | { type: 'scanKindChosen'; kind: AskPipEntryKind; vision?: ChatVisionHost }
-  | { type: 'clearRefuse' };
+  | { type: 'clearRefuse' }
+  | { type: 'clearPref' }
+  | { type: 'appendUser'; text: string }
+  | { type: 'appendAssistant'; text: string; frame?: AskPipFrame }
+  | { type: 'showAnalysis'; result: AskPipAnalysisResult; filters: AskPipFilters };
 
 const ENTRY_PLACEHOLDER_VIEW: AskPipViewId = 'transactions';
+
+function capTurns(messages: AskPipChatMessage[]): AskPipChatMessage[] {
+  if (messages.length <= THREAD_CAP) {
+    return messages;
+  }
+  return messages.slice(messages.length - THREAD_CAP);
+}
+
+export type AskPipChatDraft =
+  | { role: 'user'; text: string }
+  | { role: 'assistant'; text: string; frame?: AskPipFrame };
+
+function appendMessage(state: AskPipSession, message: AskPipChatDraft): AskPipSession {
+  const messageSeq = state.messageSeq + 1;
+  const next = { ...message, id: String(messageSeq) } as AskPipChatMessage;
+  return {
+    ...state,
+    messageSeq,
+    messages: capTurns([...state.messages, next]),
+  };
+}
 
 function capStack(stack: AskPipFrame[]): AskPipFrame[] {
   if (stack.length <= HISTORY_CAP) {
@@ -122,6 +170,14 @@ function applyAction(state: AskPipSession, action: AskPipAction): AskPipSession 
         refuse: false,
       };
     }
+    case 'start_trip': {
+      const stack = pushFrame(state.stack, {
+        view: 'trips',
+        filters: {},
+        tripDraft: { name: action.name, startDate: action.startDate, endDate: action.endDate },
+      });
+      return { ...state, stack, pendingClarify: null, refuse: false };
+    }
     case 'clarify':
       return {
         ...state,
@@ -134,6 +190,23 @@ function applyAction(state: AskPipSession, action: AskPipAction): AskPipSession 
       return {
         ...state,
         refuse: true,
+        pendingClarify: null,
+        sayKind: null,
+      };
+    case 'say':
+      return {
+        ...state,
+        sayKind: action.kind,
+        refuse: false,
+        pendingClarify: null,
+      };
+    case 'set_pref':
+      return {
+        ...state,
+        pendingPref: { pref: action.pref, value: action.value },
+        sayKind:
+          action.value === 'dark' ? 'themeDark' : action.value === 'light' ? 'themeLight' : 'themeSystem',
+        refuse: false,
         pendingClarify: null,
       };
     default:
@@ -213,6 +286,25 @@ export function reduceSession(state: AskPipSession, event: AskPipEvent): AskPipS
     }
     case 'clearRefuse':
       return { ...state, refuse: false };
+    case 'clearPref':
+      return { ...state, pendingPref: null };
+    case 'appendUser':
+      return appendMessage(state, { role: 'user', text: event.text });
+    case 'appendAssistant':
+      return event.frame
+        ? appendMessage(state, { role: 'assistant', text: event.text, frame: event.frame })
+        : appendMessage(state, { role: 'assistant', text: event.text });
+    case 'showAnalysis':
+      return {
+        ...state,
+        stack: pushFrame(state.stack, {
+          view: 'transactions',
+          filters: event.filters,
+          analysis: event.result,
+        }),
+        pendingClarify: null,
+        refuse: false,
+      };
     default:
       return state;
   }

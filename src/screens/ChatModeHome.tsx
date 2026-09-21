@@ -1,4 +1,4 @@
-import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,16 +9,19 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AskPipChatBubble, AskPipTypingBubble } from '../components/AskPipChatBubble';
 import { ChatStreakStrip } from '../components/ChatStreakStrip';
 import { ChatCanvasHost } from './ChatCanvasHost';
+import { HomeMascot } from '../components/HomeMascotButton';
 import { Icon, type IconName } from '../components/Icon';
 import { FadeIn } from '../components/Motion';
 import { Pip } from '../components/Pip';
-import { Body, Caption, Label } from '../components/ui';
+import { Caption, Label } from '../components/ui';
 import { currentMonthKey } from '../lib/budget';
+import { todayISO } from '../lib/duplicates';
 import { fmtMoney } from '../lib/format';
 import * as haptics from '../lib/haptics';
-import type { AskPipEntryKind, AskPipFilters, AskPipViewId } from '../lib/askPip/catalog';
+import { matchLocalAskPipAction, type AskPipEntryKind, type AskPipFilters, type AskPipSayKind, type AskPipViewId } from '../lib/askPip/catalog';
 import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
 import { needsYouBannerKind, type NeedsYouSlot } from '../lib/askPip/needsYou';
 import {
@@ -26,10 +29,14 @@ import {
   currentFrame,
   emptySession,
   reduceSession,
+  type AskPipChatMessage,
+  type AskPipFrame,
   type AskPipSession,
 } from '../lib/askPip/session';
 import { restingSuggestions } from '../lib/askPip/suggestions';
+import type { ExploreTask } from '../lib/tasks';
 import { runAskPipTurn, type AskPipTurnInput } from '../lib/askPip/turn';
+import { formatAskPipAnalysisReply } from '../lib/askPip/analysisReply';
 import { hostFromVision, kindFromUtterance, runChatVision } from '../lib/askPip/vision';
 import type { AskPipWorld } from '../lib/askPip/resolve';
 import { uint8ArrayToBase64 } from '../lib/receiptImage';
@@ -38,20 +45,11 @@ import { File } from 'expo-file-system';
 import type { PickedImage } from './AttachScreen';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
-import { useThemeColors } from '../state/colorScheme';
+import { useThemeColors, useColorSchemeMode } from '../state/colorScheme';
+import { useReducedMotion } from '../state/useReducedMotion';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { shadowCard, spacing, uiFont } from '../theme';
-
-const FILTER_KEYS: (keyof AskPipFilters)[] = [
-  'tripId',
-  'tripQuery',
-  'categoryId',
-  'month',
-  'personId',
-  'personQuery',
-  'dateFrom',
-  'dateTo',
-];
+import { duration } from '../theme/motion';
 
 function viewLabel(view: AskPipViewId, t: (key: string) => string): string {
   switch (view) {
@@ -92,6 +90,8 @@ function viewLabel(view: AskPipViewId, t: (key: string) => string): string {
       return t('widgetCustomizer');
     case 'advancedImport':
       return t('advancedImport');
+    case 'settings':
+      return t('settingsTitle');
   }
 }
 
@@ -108,6 +108,55 @@ function suggestionLabel(id: string, t: (key: string) => string): string {
     default:
       return id;
   }
+}
+
+function sayCopy(kind: AskPipSayKind, t: (key: string) => string): string {
+  switch (kind) {
+    case 'greeting':
+      return t('askPipGreeting');
+    case 'themeDark':
+      return t('askPipThemeDark');
+    case 'themeLight':
+      return t('askPipThemeLight');
+    case 'themeSystem':
+      return t('askPipThemeSystem');
+  }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function replyText(
+  session: AskPipSession,
+  t: (key: string) => string,
+  displayCurrency: ReturnType<typeof useDisplayCurrency>,
+  isZh: boolean,
+): string {
+  if (session.refuse) return t('askPipRefuse');
+  if (session.sayKind) return sayCopy(session.sayKind, t);
+  const frame = currentFrame(session);
+  if (frame?.analysis) {
+    const rateAvailable = displayCurrency.code === 'MYR'
+      || Number.isFinite(displayCurrency.rates[displayCurrency.code]);
+    return formatAskPipAnalysisReply(frame.analysis, {
+      currency: rateAvailable ? displayCurrency.code : 'MYR',
+      convert: rateAvailable ? displayCurrency.convert : (value) => value,
+      isZh,
+    });
+  }
+  if (frame) return frame.caption ?? viewLabel(frame.view, t);
+  return t('askPipRefuse');
+}
+
+function lastHostedMessageId(messages: AskPipChatMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const item = messages[i];
+    if (item.role === 'assistant' && item.frame) return item.id;
+  }
+  return null;
 }
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
@@ -172,6 +221,11 @@ export type ChatModeHomeProps = {
   tripName: string | null;
   tripId: string | null;
   hasHoldings: boolean;
+  onAskPipKeyChanged?: () => void;
+  onOpenCalendar: () => void;
+  onOpenOwed: () => void;
+  onOpenCommitments: () => void;
+  onGuideExploreTask?: (task: ExploreTask) => void;
 };
 
 const KIND_CHIPS: { kind: AskPipEntryKind; labelKey: string }[] = [
@@ -216,11 +270,18 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   tripName,
   tripId,
   hasHoldings,
+  onAskPipKeyChanged,
+  onOpenCalendar,
+  onOpenOwed,
+  onOpenCommitments,
+  onGuideExploreTask = () => {},
 }, ref) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { t } = useLanguage();
+  const { setMode } = useColorSchemeMode();
+  const reducedMotion = useReducedMotion();
+  const { t, isZh } = useLanguage();
   const dc = useDisplayCurrency();
 
   const [session, setSession] = useState<AskPipSession>(emptySession);
@@ -232,11 +293,21 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const attachedRef = useRef<PickedImage | null>(null);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const sendGen = useRef(0);
+  const threadRef = useRef<ScrollView>(null);
   const hostedSheetOpenRef = useRef(false);
   const onSheetOpenChange = useCallback((open: boolean) => {
     hostedSheetOpenRef.current = open;
   }, []);
+
+  useEffect(() => {
+    const pref = session.pendingPref;
+    if (!pref) return;
+    if (pref.pref === 'colorScheme') {
+      setMode(pref.value);
+    }
+    setSession((prev) => reduceSession(prev, { type: 'clearPref' }));
+  }, [session.pendingPref, setMode]);
 
   async function chooseKind(kind: AskPipEntryKind) {
     if (sending) return;
@@ -338,13 +409,72 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     applyEvent({ type: 'apply', action: { type: 'show_view', view, filters } });
   }
 
+  function hostFor(frame: AskPipFrame) {
+    return (
+      <ChatCanvasHost
+        frame={frame}
+        onPop={() => applyEvent({ type: 'pop' })}
+        onSheetOpenChange={onSheetOpenChange}
+        onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
+        onOpenTrips={() => showView('trips')}
+        onOpenOwed={() => showView('owed')}
+        onOpenHistory={() => showView('netWorthHistory')}
+        onOpenCategory={(categoryId) => showView('categoryDetail', { categoryId })}
+        onOpenRecap={() => showView('recap')}
+        onOpenCalendar={(month) => showView('calendar', { month })}
+        onOpenExport={(month) => showView('export', { month })}
+        onReviewCommitments={() => showView('commitments')}
+        onClearFilter={() => applyEvent({ type: 'dropChip', key: 'categoryId' })}
+        onOpenExportList={() => showView('export')}
+        onOpenCategories={() => showView('categories')}
+        onOpenTax={() => showView('tax')}
+        onOpenCurrencySettings={() => showView('currencySettings')}
+        onOpenBackup={() => showView('backup')}
+        onOpenWidgetCustomizer={() => showView('widgetCustomizer')}
+        onOpenAdvancedImport={() => showView('advancedImport')}
+        onAskPipKeyChanged={onAskPipKeyChanged}
+        onViewAnalysisTransactions={() => showView('transactions', frame.filters)}
+      />
+    );
+  }
+
+  async function playLocalTurn(userText: string, apply: (s: AskPipSession) => AskPipSession) {
+    if (sending) return;
+    const gen = ++sendGen.current;
+    setSending(true);
+    setComposerError(null);
+    const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: userText });
+    sessionRef.current = withUser;
+    setSession(withUser);
+    try {
+      await finishTurn(apply(withUser), gen);
+    } finally {
+      if (gen === sendGen.current) setSending(false);
+    }
+  }
+
   function openNeedsYouView() {
     if (needsKind === null) return;
     haptics.tap();
-    applyEvent({
-      type: 'apply',
-      action: { type: 'show_view', view: needsKind, filters: {} },
+    if (needsKind === 'owed') onOpenOwed();
+    else onOpenCommitments();
+  }
+
+  function commitAssistant(next: AskPipSession): AskPipSession {
+    const frame = currentFrame(next) ?? undefined;
+    return reduceSession(next, {
+      type: 'appendAssistant',
+      text: replyText(next, t, dc, isZh),
+      frame,
     });
+  }
+
+  async function finishTurn(next: AskPipSession, gen: number) {
+    await wait(reducedMotion ? 0 : duration.enter);
+    if (gen !== sendGen.current) return;
+    const withReply = commitAssistant(next);
+    sessionRef.current = withReply;
+    setSession(withReply);
   }
 
   async function sendUtterance(utterance: string) {
@@ -357,35 +487,64 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         return;
       }
     }
+    const localAction = matchLocalAskPipAction(trimmed);
+    if (localAction) {
+      setDraft('');
+      await playLocalTurn(trimmed, (withUser) => {
+        const applied = reduceSession(withUser, { type: 'apply', action: localAction });
+        return localAction.type === 'set_pref'
+          ? reduceSession(applied, { type: 'apply', action: { type: 'show_view', view: 'settings', filters: {} } })
+          : applied;
+      });
+      return;
+    }
     if (!hasKey) {
       onNeedKey();
       return;
     }
     const allowed = await onDiscloseSend();
     if (!allowed) return;
+    const gen = ++sendGen.current;
     setSending(true);
     setComposerError(null);
-    const snapshot = sessionRef.current;
+    const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: trimmed });
+    sessionRef.current = withUser;
+    setSession(withUser);
+    setDraft('');
     try {
       const result = await runAskPipTurn({
         utterance: trimmed,
         world,
-        session: snapshot,
+        session: withUser,
         model: runModel,
+        today: todayISO(),
       });
-      setSession(result.session);
-      setDraft('');
+      await finishTurn(result.session, gen);
     } catch (err) {
+      if (gen !== sendGen.current) return;
       if (err instanceof LLMError) {
         if (err.code === 'auth') setComposerError(t('askPipBadKey'));
         else if (err.code === 'network') setComposerError(t('askPipOffline'));
+        else {
+          await finishTurn(
+            reduceSession(sessionRef.current, { type: 'apply', action: { type: 'refuse' } }),
+            gen,
+          );
+        }
+      } else {
+        await finishTurn(
+          reduceSession(sessionRef.current, { type: 'apply', action: { type: 'refuse' } }),
+          gen,
+        );
       }
     } finally {
-      setSending(false);
+      if (gen === sendGen.current) setSending(false);
     }
   }
 
-  const resting = session.stack.length === 0;
+  const resting = session.messages.length === 0 && !sending;
+  const liveId = lastHostedMessageId(session.messages);
+  const liveFrame = currentFrame(session);
 
   return (
     <FadeIn style={[styles.root, { backgroundColor: colorTheme.bg }]}>
@@ -400,14 +559,8 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
               week={week}
               todayIndex={todayIndex}
               onPress={() => {
-                if (onPress) {
-                  onPress();
-                  return;
-                }
-                applyEvent({
-                  type: 'apply',
-                  action: { type: 'show_view', view: 'calendar', filters: {} },
-                });
+                haptics.tap();
+                onOpenCalendar();
               }}
             />
             {showBell && (
@@ -431,6 +584,28 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
             <Pressable
               onPress={() => {
                 haptics.tap();
+                onNeedKey();
+              }}
+              style={({ pressed }) => [
+                styles.iconBtn,
+                { backgroundColor: colorTheme.surface, opacity: pressed ? 0.85 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={hasKey ? (t('askPipProvider')) : t('askPipNeedKeyTitle')}
+              accessibilityState={{ selected: hasKey }}
+            >
+              <Icon name="key" size={17} color={hasKey ? theme.accent : colorTheme.ink2} />
+              <View
+                style={[
+                  styles.keyStatus,
+                  { backgroundColor: hasKey ? theme.accent : colorTheme.red, borderColor: colorTheme.bg },
+                ]}
+              />
+            </Pressable>
+            <HomeMascot onGuideExploreTask={onGuideExploreTask} />
+            <Pressable
+              onPress={() => {
+                haptics.tap();
                 onToggleDashboard();
               }}
               style={({ pressed }) => [
@@ -440,7 +615,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
               accessibilityRole="button"
               accessibilityLabel={t('askPipToggleDashboard')}
             >
-              <Icon name="sparkles" size={17} color={colorTheme.ink2} />
+              <Icon name="human" size={17} color={colorTheme.ink2} />
             </Pressable>
           </View>
 
@@ -465,64 +640,9 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
               <Icon name="chevronRight" size={16} color={colorTheme.ink3} />
             </Pressable>
           )}
-
-          {!resting && frame && (
-            <View style={styles.chipRow}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-                <Chip
-                  label={frame.caption ?? viewLabel(frame.view, t)}
-                  onDrop={() => applyEvent({ type: 'dropChip', key: 'view' })}
-                />
-                {FILTER_KEYS.filter((key) => frame.filters[key] !== undefined).map((key) => (
-                  <Chip
-                    key={key}
-                    label={filterChipLabel(key, frame.filters, world)}
-                    onDrop={() => applyEvent({ type: 'dropChip', key })}
-                  />
-                ))}
-              </ScrollView>
-              <Pressable
-                onPress={() => {
-                  haptics.tap();
-                  setHistoryOpen((open) => !open);
-                }}
-                style={({ pressed }) => [
-                  styles.iconBtn,
-                  { backgroundColor: colorTheme.surface, opacity: pressed ? 0.85 : 1 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={t('askPipHistory')}
-              >
-                <Icon name="clock" size={17} color={colorTheme.ink2} />
-              </Pressable>
-            </View>
-          )}
         </View>
 
-        <View style={[styles.canvas, { backgroundColor: resting ? colorTheme.bg : theme.accentTint }]}>
-          {historyOpen && session.stack.length > 0 && (
-            <View style={[styles.history, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
-              {session.stack.map((item, index) => (
-                <Pressable
-                  key={`${item.view}-${index}`}
-                  onPress={() => {
-                    haptics.tap();
-                    applyEvent({ type: 'jump', index });
-                    setHistoryOpen(false);
-                  }}
-                  style={styles.historyRow}
-                  accessibilityRole="button"
-                >
-                  <Label>{item.caption ?? viewLabel(item.view, t)}</Label>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          {session.refuse && (
-            <Body weight={700} style={styles.refuse}>
-              {t('askPipRefuse')}
-            </Body>
-          )}
+        <View style={[styles.canvas, { backgroundColor: colorTheme.bg }]}>
           {resting ? (
             <View style={styles.resting}>
               <Pip size={80} expr="idle" float />
@@ -532,7 +652,13 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                     key={chip.id}
                     onPress={() => {
                       haptics.tap();
-                      applyEvent({ type: 'apply', action: chip.action });
+                      if (chip.id === 'owed') {
+                        onOpenOwed();
+                        return;
+                      }
+                      void playLocalTurn(suggestionLabel(chip.id, t), (s) =>
+                        reduceSession(s, { type: 'apply', action: chip.action }),
+                      );
                     }}
                     style={({ pressed }) => [
                       styles.suggestion,
@@ -549,23 +675,22 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                 ))}
               </View>
             </View>
-          ) : frame ? (
-            <ChatCanvasHost
-              frame={frame}
-              onPop={() => applyEvent({ type: 'pop' })}
-              onSheetOpenChange={onSheetOpenChange}
-              onOpenTrip={(tripId) => showView('tripDetail', { tripId })}
-              onOpenTrips={() => showView('trips')}
-              onOpenOwed={() => showView('owed')}
-              onOpenHistory={() => showView('netWorthHistory')}
-              onOpenCategory={(categoryId) => showView('categoryDetail', { categoryId })}
-              onOpenRecap={() => showView('recap')}
-              onOpenCalendar={(month) => showView('calendar', { month })}
-              onOpenExport={(month) => showView('export', { month })}
-              onReviewCommitments={() => showView('commitments')}
-              onClearFilter={() => applyEvent({ type: 'dropChip', key: 'categoryId' })}
-            />
-          ) : null}
+          ) : (
+            <ScrollView
+              ref={threadRef}
+              style={styles.thread}
+              contentContainerStyle={styles.threadContent}
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() => threadRef.current?.scrollToEnd({ animated: !reducedMotion })}
+            >
+              {session.messages.map((item) => (
+                <AskPipChatBubble key={item.id} role={item.role} text={item.text}>
+                  {item.role === 'assistant' && item.id === liveId && liveFrame ? hostFor(liveFrame) : null}
+                </AskPipChatBubble>
+              ))}
+              {sending ? <AskPipTypingBubble /> : null}
+            </ScrollView>
+          )}
         </View>
 
         {session.pendingPhoto && !sending && (
@@ -600,7 +725,9 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                 key={choice.id}
                 onPress={() => {
                   haptics.tap();
-                  applyEvent({ type: 'apply', action: choice.action });
+                  void playLocalTurn(choice.label, (s) =>
+                    reduceSession(s, { type: 'apply', action: choice.action }),
+                  );
                 }}
                 style={({ pressed }) => [
                   styles.suggestion,
@@ -660,42 +787,6 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   );
 });
 
-function filterChipLabel(
-  key: keyof AskPipFilters,
-  filters: AskPipFilters,
-  world: AskPipWorld,
-): string {
-  const value = filters[key];
-  if (key === 'tripId') {
-    return world.trips.find((trip) => trip.id === value)?.name ?? String(value ?? '');
-  }
-  if (key === 'personId') {
-    return world.people.find((person) => person.id === value)?.name ?? String(value ?? '');
-  }
-  if (key === 'categoryId') {
-    return world.categories.find((category) => category.id === value)?.label ?? String(value ?? '');
-  }
-  return String(value ?? key);
-}
-
-function Chip({ label, onDrop }: { label: string; onDrop: () => void }) {
-  const theme = useAccent();
-  const colorTheme = useThemeColors();
-  return (
-    <Pressable
-      onPress={() => {
-        haptics.tap();
-        onDrop();
-      }}
-      style={[styles.chip, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}
-      accessibilityRole="button"
-    >
-      <Label color={theme.accent}>{label}</Label>
-      <Icon name="x" size={12} color={colorTheme.ink3} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   chrome: { paddingHorizontal: spacing.base, gap: spacing.sm },
@@ -720,6 +811,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
+  keyStatus: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+  },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -729,27 +829,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bannerCopy: { flex: 1, gap: spacing.xs },
-  chipRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  chipScroll: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    borderWidth: 1,
+  canvas: { flex: 1, marginTop: spacing.sm },
+  thread: { flex: 1 },
+  threadContent: {
+    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
-  canvas: { flex: 1, marginTop: spacing.sm, marginHorizontal: spacing.base, borderRadius: 16, overflow: 'hidden' },
-  history: {
-    margin: spacing.sm,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  historyRow: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
-  refuse: { paddingHorizontal: spacing.base, paddingTop: spacing.base },
   resting: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.base },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
   suggestion: {

@@ -14,6 +14,7 @@ export async function runAskPipModel(input: {
   personNames: string[];
   categoryLabels: string[];
   current: AskPipFrame | null;
+  today?: string;
 }): Promise<unknown> {
   const providers: Record<AskPipProviderId, LLMProvider> = {
     gemini: GeminiProvider,

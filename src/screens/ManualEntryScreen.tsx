@@ -59,6 +59,8 @@ export function ManualEntryScreen({
   initialDate = null,
   initialCategoryId = null,
   initialCategorySource = null,
+  initialAccountId = null,
+  initialAccountName = null,
   initialSplit = null,
   initialTripId = null,
   isTutorial = false,
@@ -88,6 +90,9 @@ export function ManualEntryScreen({
    *  prefill or it's a plain default. Drives the "AI guess"/"Learned" badge on that category's
    *  chip so the user can see it wasn't a manual pick. */
   initialCategorySource?: CategorySuggestion['source'] | null;
+  /** Account resolved from chat text, or a missing account name to create before review. */
+  initialAccountId?: string | null;
+  initialAccountName?: string | null;
   initialSplit?: SplitDraft | null;
   /** Prefills the optional trip — set when entry was opened from a trip's own "Add expense".
    *  The user can still change or clear it here; whatever they leave is what `onComplete` reports. */
@@ -213,7 +218,7 @@ export function ManualEntryScreen({
     return (act.find((a) => a.cls === 'cash') ?? act[0])?.id ?? null;
   }, [assetAccounts, accounts]);
 
-  const [fromAccountId, setFromAccountId] = useState<string | null>(defaultAcctId);
+  const [fromAccountId, setFromAccountId] = useState<string | null>(initialAccountId ?? defaultAcctId);
   const [toAccountId, setToAccountId] = useState<string | null>(null);
 
   const visibleAccounts = useMemo(() => visibleChoices(paymentAccounts, fromAccountId, MAX_OPTIONAL_CHIPS), [paymentAccounts, fromAccountId]);
@@ -320,7 +325,7 @@ export function ManualEntryScreen({
 
   // Seed the default account selection once accounts are known, creating a
   // default "Cash" account if the user has none yet.
-  const seededRef = useRef(false);
+  const seededRef = useRef(Boolean(initialAccountId));
   useEffect(() => {
     if (seededRef.current) return;
     if (defaultAcctId) {
@@ -335,6 +340,10 @@ export function ManualEntryScreen({
       });
     }
   }, [defaultAcctId, ensureDefaultAccount]);
+
+  useEffect(() => {
+    if (initialAccountName) setAddingAccount(true);
+  }, [initialAccountName]);
 
   // A split whose gross no longer matches the amount field is stale (the user changed the bill
   // after splitting it), so it is dropped rather than silently applied to a different number.
@@ -780,6 +789,9 @@ export function ManualEntryScreen({
 
       <AddAccountModal
         visible={addingAccount}
+        initialName={initialAccountName}
+        initialClass="bank"
+        initialCurrency={currency}
         onClose={() => setAddingAccount(false)}
         onCreated={(id) => {
           setFromAccountId(id);

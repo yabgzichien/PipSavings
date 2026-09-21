@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Caption } from '../components/ui';
+import { AskPipAnalyticsCard } from '../components/AskPipAnalyticsCard';
 import { getActiveCurrencies } from '../db/currencyRepo';
 import type { AskPipEntryKind } from '../lib/askPip/catalog';
 import { ASK_PIP_LLM_PROVIDERS } from '../lib/askPip/keyTest';
 import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
-import { resolveAskPipQuickAddPrefill } from '../lib/askPip/quickAddPrefill';
+import { resolveAskPipQuickAddPrefill, type AskPipQuickAddDraft } from '../lib/askPip/quickAddPrefill';
+import { activityInitialState } from '../lib/askPip/activityFilters';
 import { tripDetailHostKey, type AskPipFrame } from '../lib/askPip/session';
 import { todayISO } from '../lib/duplicates';
-import type { QuickDraft } from '../lib/quickParse';
 import type { ExtractedTxn, SplitDraft } from '../lib/types';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
 import { spacing } from '../theme';
+import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { AdvancedImportScreen } from './AdvancedImportScreen';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
 import { BackupScreen } from './BackupScreen';
@@ -32,6 +34,7 @@ import { NetWorthScreen } from './NetWorthScreen';
 import { OwedScreen } from './OwedScreen';
 import { ReceiptScanScreen } from './ReceiptScanScreen';
 import { RecapScreen } from './RecapScreen';
+import { SettingsScreen } from './SettingsScreen';
 import { TaxScreen } from './TaxScreen';
 import { TripDetailScreen } from './TripDetailScreen';
 import { TripsScreen } from './TripsScreen';
@@ -57,6 +60,15 @@ export type ChatCanvasHostProps = {
   onClearFilter?: () => void;
   onReviewCommitments?: () => void;
   onSheetOpenChange?: (open: boolean) => void;
+  onOpenExportList?: () => void;
+  onOpenCategories?: () => void;
+  onOpenTax?: () => void;
+  onOpenCurrencySettings?: () => void;
+  onOpenBackup?: () => void;
+  onOpenWidgetCustomizer?: () => void;
+  onOpenAdvancedImport?: () => void;
+  onAskPipKeyChanged?: () => void;
+  onViewAnalysisTransactions?: () => void;
 };
 
 export function ChatCanvasHost({
@@ -75,9 +87,19 @@ export function ChatCanvasHost({
   onClearFilter = noop,
   onReviewCommitments = noop,
   onSheetOpenChange = noop,
+  onOpenExportList = noop,
+  onOpenCategories = noop,
+  onOpenTax = noop,
+  onOpenCurrencySettings = noop,
+  onOpenBackup = noop,
+  onOpenWidgetCustomizer = noop,
+  onOpenAdvancedImport = noop,
+  onAskPipKeyChanged = noop,
+  onViewAnalysisTransactions = noop,
 }: ChatCanvasHostProps) {
-  const { entryCategories, commitCategorized, setTransactionsTrip } = useAppData();
+  const { entryCategories, commitCategorized, setTransactionsTrip, accounts } = useAppData();
   const colorTheme = useThemeColors();
+  const displayCurrency = useDisplayCurrency();
 
   const onQuickAddComplete = useCallback(
     async (item: ExtractedTxn, categoryId: string, split: SplitDraft | null, tripId: string | null) => {
@@ -92,6 +114,18 @@ export function ChatCanvasHost({
     },
     [commitCategorized, setTransactionsTrip, onPop],
   );
+
+  if (frame.analysis) {
+    return (
+      <View style={styles.root}>
+        <AskPipAnalyticsCard
+          result={frame.analysis}
+          displayCurrency={displayCurrency}
+          onViewTransactions={onViewAnalysisTransactions}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -110,8 +144,18 @@ export function ChatCanvasHost({
         onClearFilter,
         onReviewCommitments,
         onSheetOpenChange,
+        onOpenExportList,
+        onOpenCategories,
+        onOpenTax,
+        onOpenCurrencySettings,
+        onOpenBackup,
+        onOpenWidgetCustomizer,
+        onOpenAdvancedImport,
+        onAskPipKeyChanged,
+        onViewAnalysisTransactions,
         onQuickAddComplete,
         entryCategories,
+        accounts,
         placeholderColor: colorTheme.ink2,
       })}
     </View>
@@ -122,6 +166,7 @@ type HostCallbacks = Required<
   Omit<ChatCanvasHostProps, 'frame'>
 > & {
   entryCategories: ReturnType<typeof useAppData>['entryCategories'];
+  accounts: ReturnType<typeof useAppData>['accounts'];
   placeholderColor: string;
   onQuickAddComplete: (
     item: ExtractedTxn,
@@ -134,15 +179,19 @@ type HostCallbacks = Required<
 function QuickAddCanvas({
   text,
   categories,
+  accounts,
   onBack,
   onComplete,
+  startSplitting = false,
 }: {
   text?: string;
   categories: ReturnType<typeof useAppData>['entryCategories'];
+  accounts: ReturnType<typeof useAppData>['accounts'];
   onBack: () => void;
   onComplete: HostCallbacks['onQuickAddComplete'];
+  startSplitting?: boolean;
 }) {
-  const [draft, setDraft] = useState<QuickDraft | null | undefined>(undefined);
+  const [draft, setDraft] = useState<AskPipQuickAddDraft | null | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,13 +209,18 @@ function QuickAddCanvas({
         categories: categories
           .filter((c) => c.kind === 'expense' || c.kind === 'income')
           .map((c) => ({ id: c.id, label: c.label, kind: c.kind })),
+        accounts: accounts.map((account) => ({
+          id: account.id,
+          name: account.name,
+          archived: account.archived,
+        })),
       });
       if (!cancelled) setDraft(result);
     })();
     return () => {
       cancelled = true;
     };
-  }, [text, categories]);
+  }, [text, categories, accounts]);
 
   if (draft === undefined) {
     return <View style={styles.root} />;
@@ -186,6 +240,9 @@ function QuickAddCanvas({
       initialDate={draft?.date ?? null}
       initialCategoryId={draft?.categoryId ?? null}
       initialCategorySource={draft?.categorySource ?? null}
+      initialAccountId={draft?.accountId ?? null}
+      initialAccountName={draft?.accountQuery ?? null}
+      startSplitting={startSplitting}
     />
   );
 }
@@ -205,8 +262,20 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
         <QuickAddCanvas
           text={frame.text}
           categories={ctx.entryCategories}
+          accounts={ctx.accounts}
           onBack={ctx.onPop}
           onComplete={ctx.onQuickAddComplete}
+        />
+      );
+    case 'split_bill':
+      return (
+        <QuickAddCanvas
+          text={frame.text}
+          categories={ctx.entryCategories}
+          accounts={ctx.accounts}
+          onBack={ctx.onPop}
+          onComplete={ctx.onQuickAddComplete}
+          startSplitting
         />
       );
     case 'settle':
@@ -275,7 +344,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
     case 'owed':
       return <OwedScreen onBack={ctx.onPop} embedded onSheetOpenChange={ctx.onSheetOpenChange} />;
     case 'trips':
-      return <TripsScreen onBack={ctx.onPop} onOpenTrip={ctx.onOpenTrip} embedded />;
+      return <TripsScreen onBack={ctx.onPop} onOpenTrip={ctx.onOpenTrip} embedded initialCreate={frame.tripDraft} />;
     case 'tripDetail':
       return (
         <TripDetailScreen
@@ -311,7 +380,8 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           embedded
         />
       );
-    case 'transactions':
+    case 'transactions': {
+      const activity = activityInitialState(frame.filters);
       return (
         <AllTransactionsScreen
           onBack={ctx.onPop}
@@ -322,8 +392,14 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           onOpenTrip={ctx.onOpenTrip}
           embedded
           onSheetOpenChange={ctx.onSheetOpenChange}
+          initialQuery={activity.query}
+          initialType={activity.transactionType}
+          initialMonths={activity.months}
+          initialDateFrom={activity.dateFrom}
+          initialDateTo={activity.dateTo}
         />
       );
+    }
     case 'categoryDetail':
       return (
         <CategoryDetailScreen
@@ -382,6 +458,22 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
       return <WidgetCustomizerScreen onBack={ctx.onPop} embedded />;
     case 'advancedImport':
       return <AdvancedImportScreen onClose={ctx.onPop} embedded />;
+    case 'settings':
+      return (
+        <SettingsScreen
+          onBack={ctx.onPop}
+          embedded
+          onAdvancedImport={ctx.onOpenAdvancedImport}
+          onOpenExport={ctx.onOpenExportList}
+          onOpenCategories={ctx.onOpenCategories}
+          onOpenCommitments={ctx.onReviewCommitments}
+          onOpenTax={ctx.onOpenTax}
+          onOpenCurrencySettings={ctx.onOpenCurrencySettings}
+          onOpenBackup={ctx.onOpenBackup}
+          onOpenWidgetCustomizer={ctx.onOpenWidgetCustomizer}
+          onAskPipKeyChanged={ctx.onAskPipKeyChanged}
+        />
+      );
   }
 }
 

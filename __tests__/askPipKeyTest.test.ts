@@ -3,7 +3,22 @@ import { join } from 'path';
 import { GeminiProvider } from '../src/llm/gemini';
 import { GroqProvider } from '../src/llm/groq';
 import { OpenRouterProvider } from '../src/llm/openrouter';
-import { testAskPipKey } from '../src/lib/askPip/keyTest';
+import { detectAskPipProvider, testAskPipKey } from '../src/lib/askPip/keyTest';
+
+describe('detectAskPipProvider', () => {
+  it('detects Gemini, Groq, and OpenRouter key prefixes after trimming', () => {
+    expect(detectAskPipProvider('  AIzaSyExample  ')).toBe('gemini');
+    expect(detectAskPipProvider('gsk_example')).toBe('groq');
+    expect(detectAskPipProvider('sk-or-v1-example')).toBe('openrouter');
+  });
+
+  it('rejects unsupported and incomplete keys', () => {
+    expect(detectAskPipProvider('sk-proj-openai')).toBeNull();
+    expect(detectAskPipProvider('AIza')).toBeNull();
+    expect(detectAskPipProvider('gsk_')).toBeNull();
+    expect(detectAskPipProvider('sk-or-')).toBeNull();
+  });
+});
 
 describe('testAskPipKey', () => {
   afterEach(() => {

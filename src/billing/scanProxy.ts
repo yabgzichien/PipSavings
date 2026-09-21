@@ -1,7 +1,10 @@
 // src/billing/scanProxy.ts
 import * as Crypto from 'expo-crypto';
 import { getMeta, setMeta } from '../db/metaRepo';
-import { normalizeAllowance, type ScanAllowance } from './scanQuota';
+import { byokAllowance, normalizeAllowance, type ScanAllowance } from './scanQuota';
+import { getLLM } from '../llm/fallback';
+import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
+import type { DocPart } from '../llm/types';
 import type { ExtractedTxn } from '../lib/types';
 import type { ScannedReceipt } from '../lib/parseReceipt';
 import type { ScannedSnapshot } from '../lib/parseSnapshot';
@@ -245,6 +248,58 @@ interface CommonScanResult {
   error?: string;
 }
 
+async function runLocalByokScan(
+  scanType: ScanType,
+  bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType },
+  request: { categories?: Array<{ id: string; label: string; kind?: string }> },
+  entitlement: 'free' | 'pro',
+): Promise<CommonScanResult> {
+  const llm = await getLLM();
+  const allowance = byokAllowance(entitlement);
+  const parts: DocPart[] = [];
+  if (bodyPayload.ocrText) parts.push({ kind: 'text', text: bodyPayload.ocrText });
+  if (bodyPayload.imageBase64) {
+    parts.push({
+      kind: 'binary',
+      base64: bodyPayload.imageBase64,
+      mimeType: bodyPayload.mimeType || 'image/jpeg',
+    });
+  }
+
+  try {
+    if (scanType === 'transactions') {
+      const items = await llm.extract({
+        imageBase64: bodyPayload.imageBase64 || '',
+        mimeType: bodyPayload.mimeType || 'image/jpeg',
+        categories: request.categories as { id: string; label: string; kind: 'expense' | 'income' }[] | undefined,
+      });
+      if (!items.length) {
+        return { ok: false, allowance, quotaBlocked: false, error: 'Scan request failed' };
+      }
+      return { ok: true, items, allowance, quotaBlocked: false };
+    }
+    if (scanType === 'receipt') {
+      const receipt = await llm.extractReceipt({ parts });
+      if (!receipt) {
+        return { ok: false, allowance, quotaBlocked: false, error: 'Scan request failed' };
+      }
+      return { ok: true, receipt, allowance, quotaBlocked: false };
+    }
+    const snapshot = await llm.extractSnapshot({ parts });
+    if (!snapshot) {
+      return { ok: false, allowance, quotaBlocked: false, error: 'Scan request failed' };
+    }
+    return { ok: true, snapshot, allowance, quotaBlocked: false };
+  } catch (err) {
+    return {
+      ok: false,
+      allowance,
+      quotaBlocked: false,
+      error: err instanceof Error ? err.message : 'Scan request failed',
+    };
+  }
+}
+
 /**
  * Shared ingestion, dual-path preprocessing, deduplication, and network cascade
  * for all scan endpoints.
@@ -257,6 +312,7 @@ async function submitScanInternal(
     mimeType?: string;
     ocrText?: string;
     prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+    categories?: Array<{ id: string; label: string; kind?: string }>;
   },
   entitlement: 'free' | 'pro' = 'free'
 ): Promise<CommonScanResult> {
@@ -286,6 +342,11 @@ async function submitScanInternal(
       scanType,
     };
     inputKind = request.ocrText && request.imageBase64 ? 'hybrid' : request.ocrText ? 'text' : 'vision';
+  }
+
+  const active = await defaultAskPipKeyStore().getActive();
+  if (active?.apiKey) {
+    return runLocalByokScan(scanType, bodyPayload, request, entitlement);
   }
 
   const payloadContent = bodyPayload.ocrText || bodyPayload.imageBase64 || '';

@@ -1,6 +1,5 @@
 import React from 'react';
 import { BottomNav } from '../src/components/BottomNav';
-import { Pip } from '../src/components/Pip';
 import { DashboardScreen } from '../src/screens/DashboardScreen';
 import * as haptics from '../src/lib/haptics';
 
@@ -73,9 +72,7 @@ describe('Home haptics', () => {
     const tree = render(
       <DashboardScreen onScan={jest.fn()} onOpenAll={jest.fn()} onOpenBreakdown={jest.fn()} />
     );
-    const mascot = tree.root.findAll((node: any) =>
-      typeof node.props.onPress === 'function' && node.findAllByType(Pip).length > 0
-    )[0];
+    const mascot = tree.root.findByProps({ testID: 'home-mascot-button' });
 
     TestRenderer.act(() => mascot.props.onPress());
 

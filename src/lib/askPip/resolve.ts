@@ -1,13 +1,16 @@
 import type { AskPipFilters } from './catalog';
+import type { Transaction } from '../types';
 
 export interface AskPipWorld {
   trips: { id: string; name: string; archived: boolean }[];
   people: { id: string; name: string }[];
   categories: { id: string; label: string }[];
+  transactions?: Transaction[];
 }
 
 export type ResolveResult =
   | { status: 'ok'; filters: AskPipFilters }
+  | { status: 'invalid'; field: 'dateRange' }
   | {
       status: 'clarify';
       field: 'trip' | 'person' | 'category';
@@ -89,6 +92,9 @@ export function resolveFilters(filters: AskPipFilters, world: AskPipWorld): Reso
   }
   if (resolved.dateTo !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(resolved.dateTo)) {
     delete resolved.dateTo;
+  }
+  if (resolved.dateFrom && resolved.dateTo && resolved.dateFrom > resolved.dateTo) {
+    return { status: 'invalid', field: 'dateRange' };
   }
 
   return { status: 'ok', filters: resolved };

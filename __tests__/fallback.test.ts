@@ -1,4 +1,4 @@
-import { FallbackProvider } from '../src/llm/fallback';
+import { FallbackProvider, llmSettingsForActiveKey } from '../src/llm/fallback';
 import type { LLMSettings } from '../src/settings/settingsStore';
 
 // Route a mocked fetch to the right provider by URL, so we can drive Groq, Gemini, and OpenRouter
@@ -211,6 +211,20 @@ describe('FallbackProvider.quickAdd', () => {
     });
     const out = await new FallbackProvider(allKeys).quickAdd(payload);
     expect(out[0].amount).toBe(9.2);
+  });
+});
+
+describe('llmSettingsForActiveKey', () => {
+  it('keeps env keys when the user has not saved one', () => {
+    expect(llmSettingsForActiveKey(null, allKeys)).toEqual(allKeys);
+  });
+
+  it('uses only the active Groq key and blanks the founder keys', () => {
+    const next = llmSettingsForActiveKey({ providerId: 'groq', apiKey: 'gsk_user' }, allKeys);
+    expect(next.groqKey).toBe('gsk_user');
+    expect(next.geminiKey).toBe('');
+    expect(next.openrouterKey).toBe('');
+    expect(next.groqModel).toBe(allKeys.groqModel);
   });
 });
 

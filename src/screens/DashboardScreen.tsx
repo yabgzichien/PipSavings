@@ -11,6 +11,7 @@ import { Pip } from '../components/Pip';
 import { TripBadge } from '../components/TripBadge';
 import { RecapEntry } from '../components/recap/RecapEntry';
 import { TaskListSheet } from '../components/TaskListSheet';
+import { HomeMascotButton } from '../components/HomeMascotButton';
 import { TourAnchor } from '../components/TourAnchor';
 import { Body, BtnLabel, Caption, Card, Display, Eyebrow, Label, PrimaryButton, Title } from '../components/ui';
 import { catColorsForHue } from '../lib/catColors';
@@ -41,7 +42,7 @@ import { usePaywall } from '../billing/paywallContext';
 import { UPSELL_STATE_KEY, shouldShowUpsell, pickLine, type UpsellState } from '../billing/upsellCadence';
 import { fireOnce, getMomentLine, reliefThresholdCrossed, type UpsellMoment } from '../billing/moments';
 import { PipUpsellCard, upsellLines } from '../components/PipUpsellCard';
-import { MascotTierMarker, ProSummaryHeader } from '../components/ProUi';
+import { ProSummaryHeader } from '../components/ProUi';
 import { TimeProgressBar } from '../components/TimeProgressBar';
 import { getMeta, setMeta } from '../db/metaRepo';
 import { listReliefTags } from '../db/reliefRepo';
@@ -392,32 +393,15 @@ export function DashboardScreen({
             <TourAnchor id="tour_recap_btn" activeId={activeTourAnchor}>
               <HeaderIcon name="chart" onPress={() => onOpenRecap()} accessibilityLabel={t('monthlyRecap')} />
             </TourAnchor>
-            <HeaderIcon name="sparkles" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
             <View ref={mascotRef} style={styles.mascotWrap}>
-              <Pressable
-                onPress={() => {
-                  haptics.tap();
-                  setTasksSheetOpen(true);
-                }}
-                style={({ pressed }) => [styles.pipBubble, { backgroundColor: theme.accentTint }, pressed && { transform: [{ scale: 0.94 }] }]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  taskStatus.pendingCount > 0
-                    ? `${taskStatus.pendingCount} ${t('exploreTasksBadgeLabel')}, ${isPro ? t('comparePro') : t('compareFree')}`
-                    : `${t('exploreTasksSheetTitle')}, ${isPro ? t('comparePro') : t('compareFree')}`
-                }
-              >
-                {sleepy ? <Pip size={44} expr="sleepy" /> : <Pip size={49} expr="idle" float />}
-                {taskStatus.pendingCount > 0 && (
-                  <View style={[styles.mascotBadge, { backgroundColor: colorTheme.red, borderColor: colorTheme.bg }]}>
-                    <Text style={styles.mascotBadgeText}>{taskStatus.pendingCount > 9 ? '9+' : taskStatus.pendingCount}</Text>
-                  </View>
-                )}
-              </Pressable>
-              <View style={styles.mascotTierMarker} pointerEvents="none">
-                <MascotTierMarker isPro={isPro} label={isPro ? t('comparePro') : t('compareFree')} />
-              </View>
+              <HomeMascotButton
+                sleepy={sleepy}
+                pendingCount={taskStatus.pendingCount}
+                isPro={isPro}
+                onPress={() => setTasksSheetOpen(true)}
+              />
             </View>
+            <HeaderIcon name="robot" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
           </View>
         </View>
 

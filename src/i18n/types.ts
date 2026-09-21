@@ -32,6 +32,7 @@ export interface Translations {
   error: string;
   success: string;
   copied: string;
+  paste: string;
   viewAll: string;
   manage: string;
   filter: string;
@@ -63,10 +64,17 @@ export interface Translations {
   askPipSuggestionMonth: string;
   askPipSettingsTitle: string;
   askPipSettingsDesc: string;
+  askPipSavedKeys: string;
+  askPipUsingKey: string;
   askPipOffline: string;
   askPipBadKey: string;
   askPipKeyOk: string;
   askPipTestingKey: string;
+  askPipGreeting: string;
+  askPipThemeDark: string;
+  askPipThemeLight: string;
+  askPipThemeSystem: string;
+  askPipTyping: string;
   askPipNeedsYouBillsTitle: string;
   askPipNeedsYouCommitmentsOverdueSub: string;
   askPipNeedsYouOwedTitle: string;

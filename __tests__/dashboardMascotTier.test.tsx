@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { DashboardScreen } from '../src/screens/DashboardScreen';
-import { Pip } from '../src/components/Pip';
 import { MascotTierMarker } from '../src/components/ProUi';
 
 jest.mock('expo-audio', () => ({
@@ -81,9 +80,7 @@ describe('home mascot tier marker', () => {
 
   it('shows Free on the mascot and keeps the explore-tasks tap target', async () => {
     const tree = await renderHome();
-    const mascot = tree.root.findAll((node: any) =>
-      typeof node.props.onPress === 'function' && node.findAllByType(Pip).length > 0
-    )[0];
+    const mascot = tree.root.findByProps({ testID: 'home-mascot-button' });
 
     expect(tree.root.findByProps({ testID: 'mascot-tier-marker' })).toBeDefined();
     expect(tree.root.findByProps({ children: 'compareFree' })).toBeDefined();
@@ -94,9 +91,7 @@ describe('home mascot tier marker', () => {
   it('shows Pro on the mascot when the subscription is active', async () => {
     mockIsPro.mockReturnValue(true);
     const tree = await renderHome();
-    const mascot = tree.root.findAll((node: any) =>
-      typeof node.props.onPress === 'function' && node.findAllByType(Pip).length > 0
-    )[0];
+    const mascot = tree.root.findByProps({ testID: 'home-mascot-button' });
 
     expect(tree.root.findByProps({ children: 'comparePro' })).toBeDefined();
     expect(String(mascot.props.accessibilityLabel)).toContain('comparePro');

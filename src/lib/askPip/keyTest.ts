@@ -11,10 +11,19 @@ export const ASK_PIP_LLM_PROVIDERS: Record<AskPipProviderId, LLMProvider> = {
 };
 
 export const ASK_PIP_PROVIDER_OPTIONS: { id: AskPipProviderId; label: string }[] = [
-  { id: 'gemini', label: 'Gemini' },
   { id: 'groq', label: 'Groq' },
+  { id: 'gemini', label: 'Gemini' },
   { id: 'openrouter', label: 'OpenRouter' },
 ];
+
+/** Detect the providers the BYOK sheet accepts. */
+export function detectAskPipProvider(raw: string): AskPipProviderId | null {
+  const key = raw.trim();
+  if (key.startsWith('AIza') && key.length > 8) return 'gemini';
+  if (key.startsWith('gsk_') && key.length > 8) return 'groq';
+  if (key.startsWith('sk-or-') && key.length > 12) return 'openrouter';
+  return null;
+}
 
 export const ASK_PIP_KEY_TEST_MS = 12_000;
 

@@ -47,3 +47,25 @@ export function normalizeAllowance(raw: any): ScanAllowance {
     blockedBy,
   };
 }
+
+export function computeCanScan(opts: {
+  isPro: boolean;
+  hasByok: boolean;
+  monthRemaining: number;
+  dailyRemaining: number;
+}): boolean {
+  if (opts.isPro || opts.hasByok) return true;
+  return opts.monthRemaining > 0 && opts.dailyRemaining > 0;
+}
+
+export function byokAllowance(tier: 'free' | 'pro'): ScanAllowance {
+  return {
+    tier,
+    monthUsed: 0,
+    monthLimit: Number.POSITIVE_INFINITY,
+    dayUsed: 0,
+    dayLimit: Number.POSITIVE_INFINITY,
+    canScan: true,
+    blockedBy: null,
+  };
+}

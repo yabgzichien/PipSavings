@@ -301,6 +301,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     trips,
     people,
     categories,
+    transactions,
     accounts,
     openShares,
     commitmentOccurrences,
@@ -314,7 +315,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     streakStartLabel,
     streakPaused,
   } = useAppData();
-  const { isPro } = useEntitlement();
+  const { isPro, refreshByok } = useEntitlement();
   const accentTheme = useAccent();
   const theme = useThemeColors();
   const { t, language, translations } = useLanguage();
@@ -394,7 +395,8 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     void Promise.all([store.getProvider(), store.getApiKey()]).then(([providerId, apiKey]) => {
       setHasAskPipKey(Boolean(providerId && apiKey));
     });
-  }, []);
+    void refreshByok();
+  }, [refreshByok]);
 
   useEffect(() => {
     refreshAskPipKey();
@@ -412,8 +414,9 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
       trips: trips.map((trip) => ({ id: trip.id, name: trip.name, archived: trip.archived })),
       people: people.map((person) => ({ id: person.id, name: person.name })),
       categories: categories.map((category) => ({ id: category.id, label: category.label })),
+      transactions,
     }),
-    [trips, people, categories],
+    [trips, people, categories, transactions],
   );
   const needsYou = useMemo(
     () =>
@@ -434,6 +437,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         throw new LLMError('auth', 'Missing Ask Pip key');
       }
       const utterance = prompt.user.match(/^Utterance: (.*)$/m)?.[1] ?? '';
+      const promptToday = prompt.user.match(/^Today: (\d{4}-\d{2}-\d{2})$/m)?.[1];
       return runAskPipModel({
         providerId,
         apiKey,
@@ -442,6 +446,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         personNames: askPipWorld.people.map((person) => person.name),
         categoryLabels: askPipWorld.categories.map((category) => category.label),
         current: currentFromPrompt(prompt.user),
+        today: promptToday,
       });
     },
     [askPipWorld],
@@ -940,6 +945,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             onDisclosePhoto={disclosePhoto}
             hasKey={hasAskPipKey}
             runModel={runChatModel}
+            onAskPipKeyChanged={refreshAskPipKey}
             world={askPipWorld}
             streak={streak}
             week={streakWeek}
@@ -957,6 +963,20 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             tripName={featuredTrip?.trip.name ?? null}
             tripId={featuredTrip?.trip.id ?? null}
             hasHoldings={accounts.some(isHolding)}
+            onOpenCalendar={() => {
+              setCalendarOrigin('home');
+              setCalendarMonth(undefined);
+              setScreen('calendar');
+            }}
+            onOpenOwed={() => {
+              setOwedOrigin('home');
+              setScreen('owed');
+            }}
+            onOpenCommitments={() => {
+              setCommitmentsOrigin('home');
+              setScreen('commitments');
+            }}
+            onGuideExploreTask={(task) => setGuidedExploreTaskId(task.id)}
           />
         )}
         {screen === 'home' && homeMode !== 'chat' && (

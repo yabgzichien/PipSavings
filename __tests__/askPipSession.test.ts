@@ -24,6 +24,14 @@ describe('reduceSession', () => {
     expect(top?.settleShareId).toBeUndefined();
   });
 
+  it('keeps split-bill text on a confirmation-first entry frame', () => {
+    const s = reduceSession(emptySession(), {
+      type: 'apply',
+      action: { type: 'start_entry', kind: 'split_bill', text: 'dinner 80' },
+    });
+    expect(currentFrame(s)).toMatchObject({ entryKind: 'split_bill', text: 'dinner 80' });
+  });
+
   it('merges follow-up filters onto the same view', () => {
     let s = emptySession();
     s = reduceSession(s, { type: 'apply', action: { type: 'show_view', view: 'tripDetail', filters: { tripId: 't1' } } });
@@ -78,6 +86,40 @@ describe('reduceSession', () => {
     expect(s.pendingClarify).toBeNull();
   });
 
+  it('keeps a greeting reply on the resting canvas', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'apply', action: { type: 'say', kind: 'greeting' } });
+    expect(s.sayKind).toBe('greeting');
+    expect(s.refuse).toBe(false);
+    expect(s.stack).toHaveLength(0);
+  });
+
+  it('stores a dark appearance pref for the shell to apply', () => {
+    let s = emptySession();
+    s = reduceSession(s, {
+      type: 'apply',
+      action: { type: 'set_pref', pref: 'colorScheme', value: 'dark' },
+    });
+    expect(s.pendingPref).toEqual({ pref: 'colorScheme', value: 'dark' });
+    expect(s.sayKind).toBe('themeDark');
+  });
+
+  it('opens Trips with a prefilled draft but does not create anything', () => {
+    const s = reduceSession(emptySession(), {
+      type: 'apply',
+      action: {
+        type: 'start_trip',
+        name: 'Singapore',
+        startDate: '2026-09-29',
+        endDate: '2026-09-30',
+      },
+    });
+    expect(currentFrame(s)).toMatchObject({
+      view: 'trips',
+      tripDraft: { name: 'Singapore', startDate: '2026-09-29', endDate: '2026-09-30' },
+    });
+  });
+
   it('stores vision on the scan frame and drops it on pop', () => {
     const vision = {
       kind: 'scan_receipt' as const,
@@ -130,6 +172,49 @@ describe('reduceSession', () => {
     s = reduceSession(s, { type: 'jump', index: 0 });
     expect(currentFrame(s)?.vision?.kind).toBe('scan_receipt');
     expect(s.stack).toHaveLength(1);
+  });
+
+  it('appends a user bubble then an assistant bubble', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'appendUser', text: 'hi' });
+    expect(s.messages).toEqual([{ id: '1', role: 'user', text: 'hi' }]);
+    s = reduceSession(s, { type: 'appendAssistant', text: 'Hello there' });
+    expect(s.messages).toEqual([
+      { id: '1', role: 'user', text: 'hi' },
+      { id: '2', role: 'assistant', text: 'Hello there' },
+    ]);
+  });
+
+  it('keeps a settings frame on the assistant bubble', () => {
+    let s = emptySession();
+    s = reduceSession(s, { type: 'appendUser', text: 'change the appearance to black' });
+    s = reduceSession(s, {
+      type: 'apply',
+      action: { type: 'set_pref', pref: 'colorScheme', value: 'dark' },
+    });
+    s = reduceSession(s, {
+      type: 'apply',
+      action: { type: 'show_view', view: 'settings', filters: {} },
+    });
+    const frame = currentFrame(s);
+    s = reduceSession(s, { type: 'appendAssistant', text: 'Appearance is now dark.', frame: frame ?? undefined });
+    const last = s.messages[s.messages.length - 1];
+    expect(last.role).toBe('assistant');
+    if (last.role === 'assistant') {
+      expect(last.frame?.view).toBe('settings');
+      expect(last.text).toBe('Appearance is now dark.');
+    }
+  });
+
+  it('caps the thread at ten turns', () => {
+    let s = emptySession();
+    for (let i = 0; i < 11; i += 1) {
+      s = reduceSession(s, { type: 'appendUser', text: `u${i}` });
+      s = reduceSession(s, { type: 'appendAssistant', text: `a${i}` });
+    }
+    expect(s.messages).toHaveLength(20);
+    expect(s.messages[0]).toMatchObject({ role: 'user', text: 'u1' });
+    expect(s.messages[19]).toMatchObject({ role: 'assistant', text: 'a10' });
   });
 
   it('scanKindChosen after refuse clears refuse like start_entry', () => {

@@ -80,6 +80,7 @@ export function ExtractScreen({
     tier,
     isPro,
     canScan,
+    hasByok,
     scansRemaining,
     scansLimit,
     dailyScansRemaining,
@@ -266,15 +267,19 @@ export function ExtractScreen({
 
         {!embedded && !isPro && (
           <View style={{ paddingHorizontal: 18, paddingTop: 4 }}>
-            <ScanQuotaBadge
-              quota={{
-                monthRemaining: scansRemaining,
-                monthTotal: scansLimit,
-                dayRemaining: dailyScansRemaining,
-                dayTotal: dailyScansLimit,
-              }}
-              t={t}
-            />
+            {hasByok ? (
+              <Text style={{ color: colorTheme.ink2 }}>{t('askPipUsingKey')}</Text>
+            ) : (
+              <ScanQuotaBadge
+                quota={{
+                  monthRemaining: scansRemaining,
+                  monthTotal: scansLimit,
+                  dayRemaining: dailyScansRemaining,
+                  dayTotal: dailyScansLimit,
+                }}
+                t={t}
+              />
+            )}
           </View>
         )}
 

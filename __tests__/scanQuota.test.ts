@@ -2,8 +2,9 @@
 import {
   FREE_DAILY_SCANS,
   FREE_MONTHLY_SCANS,
+  byokAllowance,
+  computeCanScan,
   normalizeAllowance,
-  type ScanAllowance,
 } from '../src/billing/scanQuota';
 
 describe('scanQuota constants', () => {
@@ -91,6 +92,38 @@ describe('normalizeAllowance', () => {
       monthLimit: 20,
       dayUsed: 0,
       dayLimit: 3,
+      canScan: true,
+      blockedBy: null,
+    });
+  });
+});
+
+describe('BYOK scan access', () => {
+  it('lets a free user scan when they have an active key even if quota is exhausted', () => {
+    expect(computeCanScan({
+      isPro: false,
+      hasByok: true,
+      monthRemaining: 0,
+      dailyRemaining: 0,
+    })).toBe(true);
+  });
+
+  it('still blocks a free user with no key once quota is gone', () => {
+    expect(computeCanScan({
+      isPro: false,
+      hasByok: false,
+      monthRemaining: 0,
+      dailyRemaining: 1,
+    })).toBe(false);
+  });
+
+  it('returns an unlimited allowance for a BYOK scan without promoting the user to Pro', () => {
+    expect(byokAllowance('free')).toEqual({
+      tier: 'free',
+      monthUsed: 0,
+      monthLimit: Number.POSITIVE_INFINITY,
+      dayUsed: 0,
+      dayLimit: Number.POSITIVE_INFINITY,
       canScan: true,
       blockedBy: null,
     });

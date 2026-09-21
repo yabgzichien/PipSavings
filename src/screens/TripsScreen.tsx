@@ -82,10 +82,12 @@ export function TripsScreen({
   onBack,
   onOpenTrip,
   embedded,
+  initialCreate,
 }: {
   onBack: () => void;
   onOpenTrip: (tripId: string) => void;
   embedded?: boolean;
+  initialCreate?: { name: string; startDate: string; endDate: string };
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -93,10 +95,13 @@ export function TripsScreen({
   const { t, isZh } = useLanguage();
   const { trips, addTrip, setTripArchived } = useAppData();
 
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(Boolean(initialCreate));
+  const [name, setName] = useState(initialCreate?.name ?? '');
   const [icon, setIcon] = useState<string | null>(null);
-  const [dates, setDates] = useState<DateRange>({ start: null, end: null });
+  const [dates, setDates] = useState<DateRange>({
+    start: initialCreate?.startDate ?? null,
+    end: initialCreate?.endDate ?? null,
+  });
   const [pickingDates, setPickingDates] = useState(false);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [saving, setSaving] = useState(false);

@@ -2,8 +2,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import Purchases, { type CustomerInfo } from 'react-native-purchases';
-import { FREE_DAILY_SCANS, FREE_MONTHLY_SCANS, type ScanAllowance } from './scanQuota';
+import { computeCanScan, FREE_DAILY_SCANS, FREE_MONTHLY_SCANS, type ScanAllowance } from './scanQuota';
 import { fetchAllowance, fetchServerEntitlement } from './scanProxy';
+import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
 import { readCachedTier, writeCachedTier, type Tier } from './entitlementCache';
 import { configurePurchases, fetchTier, tierFromCustomerInfo } from './purchases';
 import {
@@ -67,9 +68,11 @@ export interface EntitlementState {
   dailyScansLimit: number;
   dailyScansRemaining: number;
   canScan: boolean;
+  hasByok: boolean;
   quotaBlockedBy: 'daily' | 'monthly' | null;
   refreshAllowance: () => Promise<void>;
   refresh: () => Promise<void>;
+  refreshByok: () => Promise<void>;
 }
 
 const FALLBACK: EntitlementState = {
@@ -82,9 +85,11 @@ const FALLBACK: EntitlementState = {
   dailyScansLimit: FREE_DAILY_SCANS,
   dailyScansRemaining: FREE_DAILY_SCANS,
   canScan: true,
+  hasByok: false,
   quotaBlockedBy: null,
   refreshAllowance: async () => {},
   refresh: async () => {},
+  refreshByok: async () => {},
 };
 
 const Ctx = createContext<EntitlementState>(FALLBACK);
@@ -104,6 +109,12 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
   const [allowance, setAllowance] = useState<ScanAllowance | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [devForcePro] = useState(readDevForcePro);
+  const [hasByok, setHasByok] = useState(false);
+
+  const refreshByok = useCallback(async () => {
+    const active = await defaultAskPipKeyStore().getActive();
+    setHasByok(Boolean(active?.apiKey));
+  }, []);
 
   const tier = devForcePro ? 'pro' : mergeTiers(rcTier, isGrantActive(grant));
 
@@ -132,7 +143,8 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
     const nextGrant = await refreshGrant();
     const nextTier = mergeTiers(nextRc, isGrantActive(nextGrant));
     setAllowance(await fetchAllowance(nextTier));
-  }, [refreshGrant]);
+    await refreshByok();
+  }, [refreshGrant, refreshByok]);
 
   const refreshAllowance = useCallback(async () => {
     setAllowance(await fetchAllowance(tier));
@@ -192,12 +204,19 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
       dailyScansUsed: dayUsed,
       dailyScansLimit: dailyLimit,
       dailyScansRemaining: dailyRemaining,
-      canScan: isPro || (remaining > 0 && dailyRemaining > 0),
-      quotaBlockedBy: isPro ? null : allowance?.blockedBy ?? null,
+      canScan: computeCanScan({
+        isPro,
+        hasByok,
+        monthRemaining: remaining,
+        dailyRemaining,
+      }),
+      hasByok,
+      quotaBlockedBy: isPro || hasByok ? null : allowance?.blockedBy ?? null,
       refreshAllowance,
       refresh,
+      refreshByok,
     };
-  }, [tier, allowance, refreshAllowance, refresh]);
+  }, [tier, allowance, hasByok, refreshAllowance, refresh, refreshByok]);
 
   if (!hydrated) return null;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

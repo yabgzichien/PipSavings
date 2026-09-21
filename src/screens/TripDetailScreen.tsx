@@ -230,7 +230,7 @@ export function TripDetailScreen({
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { t, tCat, isZh, formatShortDate } = useLanguage();
+  const { t, tCat, isZh, formatShortDate, formatFullDate } = useLanguage();
   const { trips, transactions, catById, splits, shares, renameTrip, setTripArchived, setTripIcon, deleteTrip } = useAppData();
   const dc = useDisplayCurrency();
 
@@ -315,6 +315,14 @@ export function TripDetailScreen({
     });
   };
 
+  const tripDateText = trip.startDate && trip.endDate
+    ? trip.startDate === trip.endDate
+      ? formatFullDate(trip.startDate)
+      : `${formatFullDate(trip.startDate)} – ${formatFullDate(trip.endDate)}`
+    : trip.startDate || trip.endDate
+      ? formatFullDate(trip.startDate ?? trip.endDate)
+      : (isZh ? '未设置日期' : 'Dates not set');
+
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       {!embedded && (
@@ -380,6 +388,10 @@ export function TripDetailScreen({
           >
             <TripBadge trip={trip} size={44} rad={14} muted={trip.archived} />
           </Pressable>
+          <View style={styles.tripDates}>
+            <Icon name="calendar" size={14} color={colorTheme.ink2} />
+            <Caption color={colorTheme.ink2}>{tripDateText}</Caption>
+          </View>
           <Eyebrow>{t('tripRecordedExpenses')}</Eyebrow>
           <Amount value={totals.recordedExpenses} currency={dc.code} size={32} weight={700} />
           <Caption color={colorTheme.ink2} style={{ marginTop: spacing.xs }}>
@@ -509,6 +521,7 @@ const styles = StyleSheet.create({
 
   heroIcon: { alignSelf: 'flex-start', marginBottom: spacing.sm },
   hero: { padding: spacing.base, marginBottom: spacing.md, alignItems: 'flex-start' },
+  tripDates: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
 
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, borderRadius: radius.sm },
