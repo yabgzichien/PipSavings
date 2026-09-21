@@ -6,6 +6,7 @@ import { decimalsFor } from '../lib/currencies';
 import { currencyPrefix, fmtDecimals } from '../lib/format';
 import type { Category, CategorySuggestion } from '../lib/types';
 import { useAccent } from '../state/accent';
+import { OnAccentFillCtx } from '../state/onAccentFill';
 import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 import { useReducedMotion } from '../state/useReducedMotion';
 import { colors, numFont, platformShadow, radius, shadowCard, type, uiFont } from '../theme';
@@ -204,13 +205,13 @@ export function CategoryChip({
       </Text>
       {suggested && (
         <View style={[styles.learnedTag, { backgroundColor: theme.accentSoft }]}>
-          <Icon name="sparkles" size={11} color={theme.accentInk} />
+          <Icon name="sparkles" size={11} color={theme.onTint} />
           <Text style={[styles.learnedTagText, { color: theme.onTint }]}>{suggested === 'guess' ? t('aiGuess') : t('learned')}</Text>
         </View>
       )}
       {selected && (
-        <View style={[styles.checkCircle, { backgroundColor: theme.accent }]}>
-          <Icon name="check" size={13} color="#fff" stroke={2.6} />
+        <View style={[styles.checkCircle, { backgroundColor: theme.accentInk }]}>
+          <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />
         </View>
       )}
     </Pressable>
@@ -348,7 +349,9 @@ export function PrimaryButton({
         },
       ]}
     >
-      <View style={styles.btnRow}>{children}</View>
+      <OnAccentFillCtx.Provider value={theme.onAccent}>
+        <View style={styles.btnRow}>{children}</View>
+      </OnAccentFillCtx.Provider>
     </Pressable>
   );
 }
@@ -389,7 +392,8 @@ export function SecondaryButton({
 }
 
 export function BtnLabel({ children, color, style }: { children: React.ReactNode; color?: string; style?: any }) {
-  return <Text style={[styles.btnLabel, color ? { color } : undefined, style]}>{children}</Text>;
+  const theme = useAccent();
+  return <Text style={[styles.btnLabel, { color: color ?? theme.onAccent }, style]}>{children}</Text>;
 }
 
 export function TopBar({
@@ -483,7 +487,7 @@ export function ValueToggle({
         const on = mode === m;
         return (
           <Pressable key={m} onPress={() => onChange(m)} style={[styles.vtBtn, on && { backgroundColor: theme.accentInk }]}>
-            <Text style={[styles.vtText, { color: colorTheme.ink2 }, on && styles.vtTextOn]}>
+            <Text style={[styles.vtText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
               {m === 'amount' ? currencyPrefix(currency) : '%'}
             </Text>
           </Pressable>

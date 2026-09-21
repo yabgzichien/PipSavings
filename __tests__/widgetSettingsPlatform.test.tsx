@@ -61,6 +61,7 @@ jest.mock('../src/state/colorScheme', () => ({
   useThemeColors: () => require('../src/theme').LIGHT_COLORS,
   useColorSchemeMode: () => ({ mode: 'light', setMode: jest.fn(), resolvedScheme: 'light' }),
   useResolvedScheme: () => 'light',
+  useAppearanceStyle: () => ({ style: 'colour', setStyle: jest.fn() }),
 }));
 
 jest.mock('../src/state/useDisplayCurrency', () => ({

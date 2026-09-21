@@ -22,7 +22,7 @@ import {
 import type { ReceiptDraftState } from './ReceiptScanScreen';
 import { buildGroupMessage, buildPersonMessage, type SplitMessageInput, type SplitWorkings } from '../lib/splitMessage';
 import type { Category, Transaction } from '../lib/types';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
@@ -63,6 +63,7 @@ export function SavedScreen({
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const { t, tCat, isZh } = useLanguage();
   const pop = useRef(new Animated.Value(0)).current;
@@ -364,7 +365,7 @@ export function SavedScreen({
                       </View>
                     )}
                   </View>
-                  <Amount value={t.nativeAmount ?? t.amount} currency={t.currency} size={14} weight={600} color={income ? theme.accent : transfer ? colorTheme.ink2 : colorTheme.ink} />
+                  <Amount value={t.nativeAmount ?? t.amount} currency={t.currency} size={14} weight={600} color={income ? signedUp : transfer ? colorTheme.ink2 : colorTheme.ink} />
                 </View>
               );
             })}

@@ -14,7 +14,7 @@ import * as haptics from '../../lib/haptics';
 import { notify } from '../../lib/platformAlert';
 import { useAccent } from '../../state/accent';
 import { useThemeColors } from '../../state/colorScheme';
-import { colors, radius, shadowCard, spacing, uiFont } from '../../theme';
+import { radius, shadowCard, spacing, uiFont } from '../../theme';
 import { stagger } from '../../theme/motion';
 
 export function PipIntroStep({ onNext }: { onNext: () => void }) {
@@ -100,7 +100,7 @@ export function PipIntroStep({ onNext }: { onNext: () => void }) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected: on }}
                 >
-                  <Text style={[styles.langText, { color: colorTheme.ink2 }, on && styles.langTextOn]}>
+                  <Text style={[styles.langText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
                     {lang === 'en' ? 'English' : '简体中文'}
                   </Text>
                 </Pressable>
@@ -157,7 +157,7 @@ export function PipIntroStep({ onNext }: { onNext: () => void }) {
             }}
             accessibilityRole="button"
           >
-            <Icon name="sparkles" size={16} color={colors.onAccent} />
+            <Icon name="sparkles" size={16} color={theme.onAccent} />
             <BtnLabel>{t('introNext')}</BtnLabel>
           </Pressable>
         </FadeIn>

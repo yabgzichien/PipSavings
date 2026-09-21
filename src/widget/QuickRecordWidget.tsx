@@ -8,12 +8,9 @@ import { BADGE_THEMES, badgeIconSvg } from './mascot/badge';
 import { MASCOT_SIZES, STREAK_COLUMN, WIDGET_MASCOT_LANE_WIDTH, slotWidth } from './mascot/sizing';
 // Shared with the in-app preview (mascot/previewCompose.ts) so the two renderers cannot drift.
 import {
-  DIVIDER_COLOR,
   DIVIDER_HEIGHT,
   DOTS_ROW_HEIGHT,
   DOTS_ROW_WIDTH,
-  DOWN_ARROW_SVG,
-  SHELL_BG,
   SHELL_PADDING_H,
   SHELL_PADDING_V,
   SHELL_RADIUS,
@@ -21,32 +18,44 @@ import {
   EXPANDED_STREAK_COUNT_WIDTH,
   STREAK_ICON_SIZE,
   STREAK_STACK_GAP,
-  UP_ARROW_SVG,
   dotsRowSvg,
+  downArrowFragment,
   expandedStreakMetrics,
   streakSlotMetrics,
+  upArrowFragment,
 } from './mascot/chrome';
+import { resolveWidgetChrome, type WidgetChrome } from '../lib/appearanceStyle';
 
 export interface QuickRecordWidgetProps {
   streak?: number;
   dots?: boolean[];
   config?: WidgetMascotConfig;
+  chrome?: WidgetChrome;
 }
 
 function badgeIconDocument(icon: BadgeIcon, color: BadgeColor, size: number = STREAK_ICON_SIZE): string | null {
   const fragment = badgeIconSvg(icon, color);
   if (!fragment) return null;
-  return `<svg data-streak-icon width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">${fragment}</svg>`;
+  // Attribute values are required: androidsvg parses this as XML, and a boolean
+  // `data-streak-icon` is a well-formedness error. SvgWidget swallows that and draws nothing.
+  // HTML comments are stripped for the same parser (the in-app preview keeps them).
+  const xmlSafe = fragment.replace(/<!--[\s\S]*?-->/g, '');
+  return `<svg data-streak-icon="true" width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">${xmlSafe}</svg>`;
 }
 
-function Divider() {
-  return <FlexWidget style={{ width: 1, height: DIVIDER_HEIGHT, backgroundColor: DIVIDER_COLOR }} />;
+function arrowSvg(fragment: string): string {
+  return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">${fragment}</svg>`;
+}
+
+function Divider({ color }: { color: string }) {
+  return <FlexWidget style={{ width: 1, height: DIVIDER_HEIGHT, backgroundColor: color as HexColor }} />;
 }
 
 export function QuickRecordWidget({
   streak = 0,
   dots = [],
   config = DEFAULT_WIDGET_MASCOT_CONFIG,
+  chrome = resolveWidgetChrome('colour', 'light'),
 }: QuickRecordWidgetProps = {}) {
   const mascot = MASCOT_SIZES[config.mascotNotch];
   const badge = BADGE_THEMES[config.badgeColor];
@@ -74,7 +83,7 @@ export function QuickRecordWidget({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: SHELL_BG,
+    backgroundColor: chrome.bg as HexColor,
     borderRadius: SHELL_RADIUS,
     paddingHorizontal: SHELL_PADDING_H,
     paddingVertical: SHELL_PADDING_V,
@@ -155,7 +164,7 @@ export function QuickRecordWidget({
         clickActionData={{ uri: income ? 'pip://add?type=income' : 'pip://add?type=expense' }}
         accessibilityLabel={income ? 'Record Income' : 'Record Expense'}
       >
-        <SvgWidget svg={income ? UP_ARROW_SVG : DOWN_ARROW_SVG} style={{ width: size, height: size }} />
+        <SvgWidget svg={income ? arrowSvg(upArrowFragment(chrome.income)) : arrowSvg(downArrowFragment(chrome.expense))} style={{ width: size, height: size }} />
       </FlexWidget>
     );
   }
@@ -174,9 +183,9 @@ export function QuickRecordWidget({
       >
         <SvgWidget svg={mascotSvg} style={{ width: mascotW, height: mascotH }} />
       </FlexWidget>
-      {config.slot1 !== 'none' && <Divider />}
+      {config.slot1 !== 'none' && <Divider color={chrome.divider} />}
       {slot('slot1')}
-      {config.slot2 !== 'none' && <Divider />}
+      {config.slot2 !== 'none' && <Divider color={chrome.divider} />}
       {slot('slot2')}
     </FlexWidget>
   );

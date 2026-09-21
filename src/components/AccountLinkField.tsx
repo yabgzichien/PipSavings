@@ -126,7 +126,7 @@ export function AccountLinkField({
               const on = effect === e;
               return (
                 <Pressable key={e} onPress={() => onEffect(e)} style={[styles.effectBtn, on && { backgroundColor: theme.accentInk }]}>
-                  <Text style={[styles.effectText, { color: colorTheme.ink2 }, on && styles.effectTextOn]}>
+                  <Text style={[styles.effectText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
                     {e === 'subtract'
                       ? (isZh ? `偿还 ${sel.name}` : `Pays down ${sel.name}`)
                       : (isZh ? `计入 ${sel.name}` : `Adds to ${sel.name}`)}

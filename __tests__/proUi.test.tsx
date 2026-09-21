@@ -1,6 +1,7 @@
 import React from 'react';
 const TestRenderer = require('react-test-renderer');
 import { StyleSheet, Text, View } from 'react-native';
+import Svg from 'react-native-svg';
 import { MascotTierMarker, ProBadge, ProSurface, ProSummaryHeader } from '../src/components/ProUi';
 import { MascotOptionTile } from '../src/components/MascotOptionTile';
 import { GREEN_ACCENT } from '../src/state/accent';
@@ -68,6 +69,35 @@ describe('shared Pip Pro UI', () => {
       .findAllByProps({ testID: 'premium-surface' })
       .find((node: any) => node.type === View);
     expect(StyleSheet.flatten(frame!.props.style).padding).toBe(2);
+  });
+
+  it('sizes the premium edge from the laid-out frame so Android can paint the bottom', async () => {
+    let tree: any;
+    await TestRenderer.act(async () => {
+      tree = TestRenderer.create(
+        <ProSurface testID="premium-surface">
+          <Text>Financial summary</Text>
+        </ProSurface>
+      );
+    });
+
+    const frame = tree!.root
+      .findAllByProps({ testID: 'premium-surface' })
+      .find((node: any) => node.type === View && typeof node.props.onLayout === 'function');
+
+    await TestRenderer.act(async () => {
+      frame!.props.onLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width: 320, height: 72 } },
+      });
+    });
+
+    const svg = tree!.root.findByType(Svg as never);
+    expect(svg.props.width).toBe(320);
+    expect(svg.props.height).toBe(72);
+
+    const edge = tree!.root.findAll((node: any) => node.props.rx != null)[0];
+    expect(edge.props.width).toBe(320);
+    expect(edge.props.height).toBe(72);
   });
 
   it('keeps every premium edge stop saturated', async () => {

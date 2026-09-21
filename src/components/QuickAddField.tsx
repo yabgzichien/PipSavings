@@ -89,10 +89,10 @@ export function QuickAddField({
           hitSlop={6}
           style={[
             styles.submit,
-            { backgroundColor: canSubmit ? theme.accent : colorTheme.surface2 },
+            { backgroundColor: canSubmit ? theme.accentInk : colorTheme.surface2 },
           ]}
         >
-          <Icon name="check" size={17} color={canSubmit ? '#fff' : colorTheme.ink3} stroke={2.4} />
+          <Icon name="check" size={17} color={canSubmit ? theme.onAccent : colorTheme.ink3} stroke={2.4} />
         </Pressable>
       </View>
       {recommendations.length > 0 && !busy && (

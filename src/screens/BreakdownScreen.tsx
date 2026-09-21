@@ -13,7 +13,7 @@ import { fmtMoney } from '../lib/format';
 import { categoryComparisons, hasComparisonData } from '../lib/recap';
 import type { Category, TxnType } from '../lib/types';
 import { useAppData } from '../state/store';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
@@ -35,6 +35,7 @@ export function BreakdownScreen({
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const scheme = useResolvedScheme();
   const { t, tCat, formatMonthLabel, isZh } = useLanguage();
@@ -128,7 +129,7 @@ export function BreakdownScreen({
                 <Text style={[styles.pieEyebrow, { color: colorTheme.ink2 }]}>
                   {isZh ? `${new Date().getMonth() + 1}月` : monthName()}
                 </Text>
-                <Amount value={total} currency={dc.code} size={22} weight={700} color={kind === 'income' ? theme.accent : colorTheme.ink} />
+                <Amount value={total} currency={dc.code} size={22} weight={700} color={kind === 'income' ? signedUp : colorTheme.ink} />
               </View>
             </View>
 

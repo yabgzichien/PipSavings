@@ -1,21 +1,28 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useColorScheme as useOSColorScheme } from 'react-native';
 import { getMeta, setMeta } from '../db/metaRepo';
-import { DARK_COLORS, LIGHT_COLORS, type StructuralColors } from '../theme';
+import {
+  APPEARANCE_STYLE_KEY,
+  DEFAULT_APPEARANCE_STYLE,
+  parseAppearanceStyle,
+  resolveStructuralColors,
+  type AppearanceStyle,
+  type DarkSurfaces,
+} from '../lib/appearanceStyle';
+import { LIGHT_COLORS, type StructuralColors } from '../theme';
 
 export type ColorSchemeMode = 'light' | 'dark' | 'system';
 export type ResolvedScheme = 'light' | 'dark';
-
-const COLOR_SCHEME_MODE_KEY = 'color_scheme_mode';
-
-type DarkSurfaces = { bg: string; surface: string; surface2: string };
+export const COLOR_SCHEME_MODE_KEY = 'color_scheme_mode';
 
 interface ColorSchemeCtx {
   mode: ColorSchemeMode;
   setMode: (mode: ColorSchemeMode) => void;
   resolvedScheme: ResolvedScheme;
+  style: AppearanceStyle;
+  setStyle: (style: AppearanceStyle) => void;
   colors: StructuralColors;
-  /** Called by AccentProvider to inject accent-hued bg/surface/surface2 when dark mode is active. */
+  /** Called by AccentProvider to inject accent-hued bg/surface/surface2 when Colour dark is active. */
   setDarkSurfaces: (s: DarkSurfaces | null) => void;
 }
 
@@ -23,22 +30,27 @@ const Ctx = createContext<ColorSchemeCtx>({
   mode: 'light',
   setMode: () => {},
   resolvedScheme: 'light',
+  style: DEFAULT_APPEARANCE_STYLE,
+  setStyle: () => {},
   colors: LIGHT_COLORS,
   setDarkSurfaces: () => {},
 });
 
-/** Persisted light/dark/system preference, resolved against the OS scheme, exposing the
- *  matching structural palette. Mirrors src/state/accent.tsx's provider shape. Defaults to
- *  'light' (not 'system') until the user explicitly picks a mode in Settings, so a first
- *  launch on a dark-OS device doesn't surprise them with dark mode unasked. */
+/** Persisted light/dark/system preference plus Colour/Monochrome style, resolved against the OS
+ *  scheme, exposing the matching structural palette. Defaults to light + colour until the user
+ *  picks otherwise, so a first launch on a dark-OS device doesn't surprise them. */
 export function ColorSchemeProvider({ children }: { children: React.ReactNode }) {
   const osScheme = useOSColorScheme();
   const [mode, setModeState] = useState<ColorSchemeMode>('light');
+  const [style, setStyleState] = useState<AppearanceStyle>(DEFAULT_APPEARANCE_STYLE);
   const [darkSurfaces, setDarkSurfaces] = useState<DarkSurfaces | null>(null);
 
   useEffect(() => {
     getMeta(COLOR_SCHEME_MODE_KEY).then((saved) => {
       if (saved === 'light' || saved === 'dark' || saved === 'system') setModeState(saved);
+    });
+    getMeta(APPEARANCE_STYLE_KEY).then((saved) => {
+      setStyleState(parseAppearanceStyle(saved));
     });
   }, []);
 
@@ -47,23 +59,29 @@ export function ColorSchemeProvider({ children }: { children: React.ReactNode })
     void setMeta(COLOR_SCHEME_MODE_KEY, next);
   };
 
+  const setStyle = (next: AppearanceStyle) => {
+    setStyleState(next);
+    void setMeta(APPEARANCE_STYLE_KEY, next);
+  };
+
   const value = useMemo<ColorSchemeCtx>(() => {
     const resolvedScheme: ResolvedScheme = mode === 'system' ? (osScheme === 'dark' ? 'dark' : 'light') : mode;
-    const baseDark = darkSurfaces ? { ...DARK_COLORS, ...darkSurfaces } : DARK_COLORS;
     return {
       mode,
       setMode,
       resolvedScheme,
-      colors: resolvedScheme === 'dark' ? baseDark : LIGHT_COLORS,
+      style,
+      setStyle,
+      colors: resolveStructuralColors(resolvedScheme, style, darkSurfaces),
       setDarkSurfaces,
     };
-  }, [mode, osScheme, darkSurfaces]);
+  }, [mode, osScheme, style, darkSurfaces]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** The resolved structural palette (light or dark) for the current mode.
- *  In dark mode, bg/surface/surface2 are accent-hued (set by AccentProvider). */
+/** The resolved structural palette (light or dark, colour or monochrome).
+ *  In Colour dark mode, bg/surface/surface2 are accent-hued (set by AccentProvider). */
 export function useThemeColors(): StructuralColors {
   return useContext(Ctx).colors;
 }
@@ -79,7 +97,13 @@ export function useColorSchemeMode(): { mode: ColorSchemeMode; setMode: (mode: C
   return { mode, setMode, resolvedScheme };
 }
 
+/** Read/set Colour vs Monochrome. Independent of light/dark. */
+export function useAppearanceStyle(): { style: AppearanceStyle; setStyle: (style: AppearanceStyle) => void } {
+  const { style, setStyle } = useContext(Ctx);
+  return { style, setStyle };
+}
+
 /** Used by AccentProvider to inject accent-tinted dark surfaces into the structural palette. */
-export function useSetDarkSurfaces(): (s: { bg: string; surface: string; surface2: string } | null) => void {
+export function useSetDarkSurfaces(): (s: DarkSurfaces | null) => void {
   return useContext(Ctx).setDarkSurfaces;
 }

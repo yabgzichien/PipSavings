@@ -269,7 +269,7 @@ export function TripsScreen({
         {!creating && (
           <PrimaryButton onPress={openCreate} height={50}>
             <Icon name="plus" size={17} color="#fff" />
-            <Text style={styles.newTripLabel}>{t('newTrip')}</Text>
+            <Text style={[styles.newTripLabel, { color: theme.onAccent }]}>{t('newTrip')}</Text>
           </PrimaryButton>
         )}
 

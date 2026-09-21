@@ -87,6 +87,7 @@ jest.mock('../src/state/accent', () => ({
     accentSoft: '#b3d9d9',
     onTint: '#004d4d',
   }),
+  useSignedUp: () => '#008080',
 }));
 
 jest.mock('../src/state/colorScheme', () => ({

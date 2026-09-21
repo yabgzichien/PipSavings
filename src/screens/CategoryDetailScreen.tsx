@@ -16,7 +16,7 @@ import { fmtMoney } from '../lib/format';
 import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import type { Category, Transaction } from '../lib/types';
 import { EXPENSE_ICONS, INCOME_ICONS, isCustomIcon } from './CategoriesScreen';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
@@ -80,6 +80,7 @@ export function CategoryDetailScreen({
   const insets = useSafeAreaInsets();
   const { width: winWidth } = useWindowDimensions();
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const scheme = useResolvedScheme();
   const isDark = scheme === 'dark';
@@ -269,7 +270,7 @@ export function CategoryDetailScreen({
               accessibilityLabel={formatMonthLabel(mk, false)}
               accessibilityState={{ selected: on }}
             >
-              <Label weight={on ? 700 : 500} color={on ? '#fff' : colorTheme.ink2}>
+              <Label weight={on ? 700 : 500} color={on ? theme.onAccent : colorTheme.ink2}>
                 {formatMonthLabel(mk, false)}
               </Label>
             </Pressable>
@@ -391,7 +392,7 @@ export function CategoryDetailScreen({
                         {formatShortDate(t.date ?? t.createdAt)}
                       </Caption>
                     </View>
-                    <Amount value={t.nativeAmount ?? t.amount} currency={t.currency} size={15} weight={600} color={income ? theme.accent : transfer ? colorTheme.ink2 : colorTheme.ink} />
+                    <Amount value={t.nativeAmount ?? t.amount} currency={t.currency} size={15} weight={600} color={income ? signedUp : transfer ? colorTheme.ink2 : colorTheme.ink} />
                     <Icon name="pencil" size={15} color={colorTheme.ink3} />
                   </Pressable>
                 );

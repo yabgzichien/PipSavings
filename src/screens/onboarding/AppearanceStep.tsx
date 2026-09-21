@@ -7,8 +7,9 @@ import { Pip } from '../../components/Pip';
 import { Body, BtnLabel, Card, Label, PrimaryButton, Title } from '../../components/ui';
 import { useLanguage } from '../../i18n';
 import * as haptics from '../../lib/haptics';
+import { inkSwatchCheck, inkSwatchFill } from '../../lib/appearanceStyle';
 import { useAccent, useAccentPreset } from '../../state/accent';
-import { type ColorSchemeMode, useColorSchemeMode, useThemeColors } from '../../state/colorScheme';
+import { type ColorSchemeMode, useAppearanceStyle, useColorSchemeMode, useResolvedScheme, useThemeColors } from '../../state/colorScheme';
 import { spacing, uiFont } from '../../theme';
 import { stagger } from '../../theme/motion';
 
@@ -23,7 +24,9 @@ const THEME_MODE_OPTIONS: { mode: ColorSchemeMode; key: 'themeLight' | 'themeDar
 export function AppearanceStep({ onNext }: { onNext: () => void }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
+  const scheme = useResolvedScheme();
   const { mode, setMode } = useColorSchemeMode();
+  const { style, setStyle } = useAppearanceStyle();
   const { presetId, setPresetId, presets } = useAccentPreset();
   const { t } = useLanguage();
 
@@ -55,7 +58,7 @@ export function AppearanceStep({ onNext }: { onNext: () => void }) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                 >
-                  <Text style={[styles.modeText, { color: colorTheme.ink2 }, selected && styles.selectedModeText]}>
+                  <Text style={[styles.modeText, { color: colorTheme.ink2 }, selected && { color: theme.onAccent }]}>
                     {t(option.key)}
                   </Text>
                 </Pressable>
@@ -69,9 +72,28 @@ export function AppearanceStep({ onNext }: { onNext: () => void }) {
           <AccentSwatchRow
             presets={presets}
             presetId={presetId}
-            onSelect={(id) => { haptics.tap(); setPresetId(id); }}
+            onSelect={(id) => {
+              haptics.tap();
+              setStyle('colour');
+              setPresetId(id);
+            }}
+            onSelectInk={() => {
+              haptics.tap();
+              setStyle('monochrome');
+            }}
             selectedBorderColor={colorTheme.ink}
+            ink={{
+              selected: style === 'monochrome',
+              fill: inkSwatchFill(scheme),
+              checkColor: inkSwatchCheck(scheme),
+              label: t('accentInk'),
+            }}
           />
+          {style === 'monochrome' ? (
+            <Body color={colorTheme.ink2} style={{ marginTop: 12 }}>
+              {t('accentMonoHint', { name: presets.find((p) => p.id === presetId)?.name ?? presets[0].name })}
+            </Body>
+          ) : null}
         </Card>
       </FadeIn>
 
@@ -95,6 +117,5 @@ const styles = StyleSheet.create({
   modeToggle: { flexDirection: 'row', borderRadius: 999, padding: 3, borderWidth: 1 },
   modeButton: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
   modeText: { fontFamily: uiFont(700), fontSize: 13 },
-  selectedModeText: { color: '#fff' },
   footer: { marginTop: spacing.lg },
 });

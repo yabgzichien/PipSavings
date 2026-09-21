@@ -77,6 +77,14 @@ describe('contentWidth', () => {
     expect(contentWidth(none)).toBeGreaterThan(contentWidth(cfg()));
   });
 
+  it('counts the expanded streak column rather than a compact slot when fire is selected', () => {
+    // Layout is padding 16 + mascot lane 74 + streak column 68. Treating this as a 34dp
+    // compact slot under-reports overflow, so the customizer stays quiet while the home
+    // widget clips the 7-day row.
+    expect(contentWidth(cfg({ slot1: 'streak', slot2: 'none' }))).toBe(158);
+    expect(contentWidth(cfg({ slot1: 'none', slot2: 'streak' }))).toBe(158);
+  });
+
   it('grows with the mascot notch in every layout case', () => {
     for (const [slot1, slot2] of [
       ['income', 'expense'],

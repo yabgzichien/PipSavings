@@ -44,6 +44,7 @@ jest.mock('../src/billing/upsellCadence', () => ({
   UPSELL_STATE_KEY: 'upsell',
   shouldShowUpsell: () => false,
   pickLine: () => 0,
+  firstActivityAt: () => null,
   upsellLines: () => [],
 }));
 jest.mock('../src/state/store', () => ({

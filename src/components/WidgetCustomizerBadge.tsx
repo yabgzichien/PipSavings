@@ -1,8 +1,7 @@
 import React from 'react';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 import { useAccent } from '../state/accent';
-import { useThemeColors } from '../state/colorScheme';
-import { DARK_COLORS } from '../theme';
+import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 
 /**
  * An on-brand, illustrative icon for the "Widget mascot" setting row.
@@ -21,7 +20,7 @@ export function WidgetCustomizerBadge({
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const isDark = colorTheme.bg === DARK_COLORS.bg;
+  const isDark = useResolvedScheme() === 'dark';
 
   return (
     <Svg width={size} height={size} viewBox="0 0 38 38" fill="none">

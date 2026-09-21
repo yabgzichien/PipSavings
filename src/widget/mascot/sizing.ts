@@ -75,6 +75,16 @@ export function contentWidth(c: WidgetMascotConfig): number {
     return H_PADDING + mascot + COLUMN_GAP + STREAK_COLUMN;
   }
 
+  // One slot is the streak and the other is empty: QuickRecordWidget draws the expanded
+  // column (icon + count + 7-day row), not a compact 34dp slot. Using the compact width
+  // here made the customizer under-report overflow for the layout that actually clips.
+  const expandedStreak =
+    (c.slot1 === 'streak' && c.slot2 === 'none') ||
+    (c.slot2 === 'streak' && c.slot1 === 'none');
+  if (expandedStreak) {
+    return H_PADDING + Math.max(mascot, WIDGET_MASCOT_LANE_WIDTH) + STREAK_COLUMN;
+  }
+
   const slots = (w1 > 0 ? DIVIDER + w1 : 0) + (w2 > 0 ? DIVIDER + w2 : 0);
   return H_PADDING + mascot + slots;
 }

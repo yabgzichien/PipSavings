@@ -88,12 +88,12 @@ export function AppAlertModal() {
                   accessibilityRole="button"
                 >
                   {busyAction === 'neutral' ? (
-                    <ActivityIndicator size="small" color={request.neutralAction?.style === 'primary' ? colors.onAccent : theme.accentInk} />
+                    <ActivityIndicator size="small" color={request.neutralAction?.style === 'primary' ? theme.onAccent : theme.accentInk} />
                   ) : (
                     <Text
                       style={[
                         styles.btnNeutralText,
-                        { color: request.neutralAction?.style === 'primary' ? colors.onAccent : theme.accentInk },
+                        { color: request.neutralAction?.style === 'primary' ? theme.onAccent : theme.accentInk },
                       ]}
                     >
                       {request.neutralAction.label}
@@ -116,13 +116,13 @@ export function AppAlertModal() {
                   style={({ pressed }) => [styles.btn, styles.btnDanger, { backgroundColor: destructive ? colorTheme.red : theme.accentInk }, (pressed || busy) && { opacity: 0.9 }]}
                   accessibilityRole="button"
                 >
-                  {busyAction === 'confirm' ? <ActivityIndicator size="small" color={colors.onAccent} /> : <Text style={styles.btnDangerText}>{request.confirmLabel}</Text>}
+                  {busyAction === 'confirm' ? <ActivityIndicator size="small" color={destructive ? colors.onAccent : theme.onAccent} /> : <Text style={[styles.btnDangerText, { color: destructive ? colors.onAccent : theme.onAccent }]}>{request.confirmLabel}</Text>}
                 </Pressable>
               </View>
             </View>
           ) : (
             <Pressable onPress={dismiss} style={({ pressed }) => [styles.btn, styles.btnOk, { backgroundColor: theme.accentInk }, pressed && { opacity: 0.9 }]} accessibilityRole="button">
-              <Text style={styles.btnOkText}>OK</Text>
+              <Text style={[styles.btnOkText, { color: theme.onAccent }]}>OK</Text>
             </Pressable>
           )}
         </View>

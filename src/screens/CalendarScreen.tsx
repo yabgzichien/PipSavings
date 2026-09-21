@@ -7,12 +7,13 @@ import type { Transaction } from '../lib/types';
 import { daysLeftInYear, yearProgressPct } from '../lib/dates';
 import { YEAR_PROGRESS_SEEN_KEY, yearProgressCaption } from '../lib/timeProgress';
 import { TimeProgressBar } from '../components/TimeProgressBar';
+import { calendarDayCellChrome } from '../lib/calendarCellChrome';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
-import { colors, numFont, platformShadow, shadowCard, spacing, uiFont } from '../theme';
+import { numFont, platformShadow, shadowCard, spacing, uiFont } from '../theme';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ function MiniMonth({
                   style={[
                     styles.miniCellDot,
                     isToday && !isSelected && { borderWidth: 1.5, borderColor: theme.accent },
-                    isSelected && { backgroundColor: theme.accent },
+                    isSelected && { backgroundColor: theme.accentInk },
                   ]}
                 >
                   <Text
@@ -241,7 +242,7 @@ function MiniMonth({
                       styles.miniCellText,
                       { color: cell.inMonth ? colorTheme.ink : colorTheme.ink3 },
                       !cell.inMonth && styles.miniCellTextDim,
-                      isSelected && styles.miniCellTextSelected,
+                      isSelected && [styles.miniCellTextSelected, { color: theme.onAccent }],
                     ]}
                   >
                     {cell.day}
@@ -411,34 +412,39 @@ function DayCell({
   const net = dayData ? dayData.net : 0;
   const netPositive = net >= 0;
   const isNoSpendCheckIn = !hasIncome && !hasExpense && Boolean(checkInKind);
+  const chrome = calendarDayCellChrome({
+    selected,
+    incomeOnly: Boolean(hasIncome && !hasExpense),
+    expenseOnly: Boolean(hasExpense && !hasIncome),
+    netPositive,
+    theme,
+    colors: colorTheme,
+  });
 
   return (
     <Pressable
       style={[
         styles.cell,
-        { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 },
-        selected && { backgroundColor: theme.accent, borderColor: theme.accent },
+        { backgroundColor: chrome.backgroundColor, borderColor: chrome.borderColor },
         isToday && !selected && [styles.cellToday, { borderColor: theme.accent }],
-        hasIncome && !hasExpense && [styles.cellIncomeOnly, { borderColor: theme.accentSoft }],
-        hasExpense && !hasIncome && styles.cellExpenseOnly,
         isNoSpendCheckIn && !selected && { borderColor: theme.accentSoft, backgroundColor: colorTheme.surface },
       ]}
       onPress={() => onPress(day)}
       accessibilityRole="button"
       accessibilityLabel={`Day ${day}`}
     >
-      <Text style={[styles.cellDay, { color: colorTheme.ink }, selected && styles.cellDaySelected]}>
+      <Text style={[styles.cellDay, { color: chrome.dayColor }, selected && styles.cellDaySelected]}>
         {day}
       </Text>
       {isNoSpendCheckIn && (
         <View style={{ alignItems: 'center', marginTop: 2 }}>
-          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={selected ? '#fff' : theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={chrome.checkColor} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
             <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
             <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
           </Svg>
           <Text
             numberOfLines={1}
-            style={[styles.cellIncome, { color: selected ? '#fff' : theme.accent, fontSize: 8.5, marginTop: 1 }]}
+            style={[styles.cellIncome, { color: chrome.checkColor, fontSize: 8.5, marginTop: 1 }]}
           >
             0
           </Text>
@@ -448,7 +454,7 @@ function DayCell({
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
-          style={[styles.cellIncome, { color: theme.accentInk }]}
+          style={[styles.cellIncome, { color: chrome.incomeColor }]}
         >
           {compactAmt(dayData!.income, dc.code)}
         </Text>
@@ -457,17 +463,17 @@ function DayCell({
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
-          style={[styles.cellExpense, { color: colorTheme.red }]}
+          style={[styles.cellExpense, { color: chrome.expenseColor }]}
         >
           {compactAmt(dayData!.expense, dc.code)}
         </Text>
       )}
       {(hasIncome || hasExpense) && (
-        <View style={[styles.cellNet, { backgroundColor: netPositive ? theme.accentSoft : '#fce8e6' }]}>
+        <View style={[styles.cellNet, { backgroundColor: chrome.netBg }]}>
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            style={[styles.cellNetText, { color: netPositive ? theme.accentInk : colorTheme.red }]}
+            style={[styles.cellNetText, { color: chrome.netColor }]}
           >
             {netPositive ? '+' : '−'}{compactAmt(Math.abs(net), dc.code)}
           </Text>
@@ -743,8 +749,8 @@ export function CalendarScreen({
         accessibilityLabel="Add a transaction"
       >
         <Svg width={26} height={26} viewBox="0 0 24 24">
-          <Line x1={12} y1={5} x2={12} y2={19} stroke={colors.onAccent} strokeWidth={2.4} strokeLinecap="round" />
-          <Line x1={5} y1={12} x2={19} y2={12} stroke={colors.onAccent} strokeWidth={2.4} strokeLinecap="round" />
+          <Line x1={12} y1={5} x2={12} y2={19} stroke={theme.onAccent} strokeWidth={2.4} strokeLinecap="round" />
+          <Line x1={5} y1={12} x2={19} y2={12} stroke={theme.onAccent} strokeWidth={2.4} strokeLinecap="round" />
         </Svg>
       </Pressable>
     </View>
@@ -753,9 +759,6 @@ export function CalendarScreen({
 
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-
-const CELL_INCOME_BG = '#e8f5ee';
-const CELL_EXPENSE_BG = '#fce8e6';
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -875,15 +878,13 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   cellEmpty: { flex: 1, minHeight: 62 },
-  cellIncomeOnly: { backgroundColor: CELL_INCOME_BG },
-  cellExpenseOnly: { backgroundColor: CELL_EXPENSE_BG, borderColor: '#f5ceca' },
   cellToday: { borderWidth: 1.5 },
   cellDay: {
     fontFamily: uiFont(600),
     fontSize: 12,
     lineHeight: 16,
   },
-  cellDaySelected: { color: '#fff', fontFamily: uiFont(700) },
+  cellDaySelected: { fontFamily: uiFont(700) },
   cellIncome: {
     fontFamily: numFont(600),
     fontSize: 11,
@@ -1046,7 +1047,6 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   miniCellTextSelected: {
-    color: '#fff',
     fontFamily: numFont(700),
   },
 });

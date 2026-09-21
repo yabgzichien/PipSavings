@@ -15,7 +15,7 @@ import { confirmAction } from '../lib/platformAlert';
 import { suggestMultiSettlement, type MultiSettlementMatch } from '../lib/split';
 import { DROP, type Category, type CategorySuggestion, type ExtractedTxn, type SplitDraft, type TxnType } from '../lib/types';
 import type { IconName } from '../components/Icon';
-import { useAccent, useAccentAlert } from '../state/accent';
+import { useAccent, useAccentAlert, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
@@ -673,6 +673,7 @@ export function CategorizeScreen({
 /** Tap the amount to edit it inline. */
 function AmountEditor({ value, currency, income, onChange }: { value: number; currency: string; income: boolean; onChange: (n: number) => void }) {
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value.toFixed(2));
@@ -707,7 +708,7 @@ function AmountEditor({ value, currency, income, onChange }: { value: number; cu
 
   return (
     <Pressable onPress={() => setEditing(true)} hitSlop={8} style={styles.amountTap}>
-      <Amount value={value} size={26} weight={700} color={income ? theme.accent : colorTheme.ink} />
+      <Amount value={value} size={26} weight={700} color={income ? signedUp : colorTheme.ink} />
       <Icon name="pencil" size={15} color={colorTheme.ink3} />
     </Pressable>
   );

@@ -17,7 +17,7 @@ import { outstanding } from '../lib/split';
 import { expenseIdsFromSelection, reassignedFromOtherTrips, type Trip } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
 import type { AccentTheme } from '../state/accent';
-import { useAccent } from '../state/accent';
+import { useAccent, useSignedUp } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
@@ -94,6 +94,7 @@ export const TxnRow = React.memo(function TxnRow({
   onLongPress: (id: string) => void;
 }) {
   const { t, tCat, formatShortDate, isZh } = useLanguage();
+  const signedUp = useSignedUp();
   const income = txn.type === 'income';
   const transfer = txn.type === 'transfer';
   const catLabel = tCat(cat);
@@ -116,7 +117,7 @@ export const TxnRow = React.memo(function TxnRow({
     >
       {selectMode && (
         <View style={[styles.checkbox, { borderColor: colorTheme.line }, isSel && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-          {isSel && <Icon name="check" size={13} color="#fff" stroke={2.6} />}
+          {isSel && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
         </View>
       )}
       {brand ? (
@@ -171,7 +172,7 @@ export const TxnRow = React.memo(function TxnRow({
           </View>
         )}
       </View>
-      <Amount value={txn.nativeAmount ?? txn.amount} currency={txn.currency} size={15} weight={600} color={income ? theme.accent : transfer ? colorTheme.ink2 : colorTheme.ink} />
+      <Amount value={txn.nativeAmount ?? txn.amount} currency={txn.currency} size={15} weight={600} color={income ? signedUp : transfer ? colorTheme.ink2 : colorTheme.ink} />
       {!selectMode && <Icon name="pencil" size={15} color={colorTheme.ink3} />}
     </Pressable>
   );

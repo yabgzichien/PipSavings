@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Polyline } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccent } from '../state/accent';
-import { colors, platformShadow, uiFont } from '../theme';
+import { platformShadow, uiFont } from '../theme';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
 import { TourAnchor } from './TourAnchor';
@@ -145,8 +145,8 @@ export function BottomNav({
                 accessibilityLabel={t('tabAdd')}
               >
                 <Svg width={26} height={26} viewBox="0 0 24 24">
-                  <Line x1={12} y1={5} x2={12} y2={19} stroke={colors.onAccent} strokeWidth={2.4} strokeLinecap="round" />
-                  <Line x1={5} y1={12} x2={19} y2={12} stroke={colors.onAccent} strokeWidth={2.4} strokeLinecap="round" />
+                  <Line x1={12} y1={5} x2={12} y2={19} stroke={theme.onAccent} strokeWidth={2.4} strokeLinecap="round" />
+                  <Line x1={5} y1={12} x2={19} y2={12} stroke={theme.onAccent} strokeWidth={2.4} strokeLinecap="round" />
                 </Svg>
               </Pressable>
             </TourAnchor>

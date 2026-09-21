@@ -22,7 +22,7 @@ import { useAppData } from '../state/store';
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
-import { colors, radius, uiFont } from '../theme';
+import { radius, uiFont } from '../theme';
 
 // The current calendar year is always offered even when no schedule is registered for it yet:
 // `scheduleForYA` falls forward to the latest known figures, so the year is usable, and hiding
@@ -130,7 +130,7 @@ export function TaxScreen({ onBack, embedded }: { onBack: () => void; embedded?:
                 y === ya && { backgroundColor: theme.accent, borderColor: theme.accent },
               ]}
             >
-              <Text style={[styles.yaChipText, { color: y === ya ? colors.onAccent : colorTheme.ink }]}>YA {y}</Text>
+              <Text style={[styles.yaChipText, { color: y === ya ? theme.onAccent : colorTheme.ink }]}>YA {y}</Text>
             </Pressable>
           ))}
         </View>

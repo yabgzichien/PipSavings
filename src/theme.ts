@@ -47,19 +47,17 @@ export const LIGHT_COLORS: StructuralColors = {
   redSoft: '#f5dfdd',
 } as const;
 
-/** Dark counterpart. `bg`/`ink` are anchored to the app's existing "dark card" tokens
- *  (`shotInk` below) rather than invented from scratch — those were already a hand-picked
- *  dark-surface pair in this brand's hue. Every value here (and every accent preset's `dark`
- *  variant in accentPresets.ts) is checked by tools/contrastAudit/audit.js. */
+/** Dark counterpart. Near-black neutrals — accent hues colour chrome (buttons, chips),
+ *  never the shell. Amber/red stay semantic. Checked by tools/contrastAudit/audit.js. */
 export const DARK_COLORS: StructuralColors = {
-  bg: '#0a1810',
-  surface: '#192419',
-  surface2: '#111c14',
-  ink: '#eaf3ee',
-  ink2: '#99a79f',
-  ink3: '#8a988f', // AA on surface (4.62:1)
-  line: 'rgba(234,243,238,0.10)',
-  line2: 'rgba(234,243,238,0.06)',
+  bg: '#0a0a0a',
+  surface: '#181818',
+  surface2: '#111111',
+  ink: '#ededed',
+  ink2: '#9a9a9a',
+  ink3: '#8f8f8f',
+  line: 'rgba(237,237,237,0.10)',
+  line2: 'rgba(237,237,237,0.06)',
   amber: '#e5ae00',
   red: '#ff8c78',
   amberTint: '#2b2413',
@@ -67,6 +65,48 @@ export const DARK_COLORS: StructuralColors = {
   redTint: '#321f1c',
   redSoft: '#512923',
 } as const;
+
+/** Hue-stripped light stack for Monochrome style. Same contrast roles as LIGHT_COLORS;
+ *  amber/red stay — they are semantic, not chrome. */
+export const MONO_LIGHT_COLORS: StructuralColors = {
+  bg: '#eeeeee',
+  surface: '#ffffff',
+  surface2: '#f6f6f6',
+  ink: '#161616',
+  ink2: '#5c5c5c',
+  ink3: '#6a6a6a',
+  line: 'rgba(20,20,20,0.08)',
+  line2: 'rgba(20,20,20,0.05)',
+  amber: LIGHT_COLORS.amber,
+  red: LIGHT_COLORS.red,
+  amberTint: LIGHT_COLORS.amberTint,
+  amberSoft: LIGHT_COLORS.amberSoft,
+  redTint: LIGHT_COLORS.redTint,
+  redSoft: LIGHT_COLORS.redSoft,
+};
+
+/** Neutral near-black stack for Monochrome dark. Not OLED-only, not two-colour. */
+export const MONO_DARK_COLORS: StructuralColors = {
+  bg: '#0a0a0a',
+  surface: '#181818',
+  surface2: '#111111',
+  ink: '#ededed',
+  ink2: '#9a9a9a',
+  ink3: '#8f8f8f',
+  line: 'rgba(237,237,237,0.10)',
+  line2: 'rgba(237,237,237,0.06)',
+  amber: DARK_COLORS.amber,
+  red: DARK_COLORS.red,
+  amberTint: DARK_COLORS.amberTint,
+  amberSoft: DARK_COLORS.amberSoft,
+  redTint: DARK_COLORS.redTint,
+  redSoft: DARK_COLORS.redSoft,
+};
+
+/** Light-mode up/income in Monochrome (and the widget's existing arrow). */
+export const SEMANTIC_UP_LIGHT = '#1f8a5b';
+/** Dark-mode up/income in Monochrome — lifted so amount text clears AA on cards. */
+export const SEMANTIC_UP_DARK = '#3dcc7a';
 
 export const colors = {
   ...LIGHT_COLORS,

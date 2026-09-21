@@ -1,12 +1,12 @@
-import type { AccentTheme } from './accent';
+import type { AccentTheme } from '../lib/appearanceStyle';
 import { DARK_COLORS } from '../theme';
 
 export interface AccentPreset {
   id: string;
   name: string;
   theme: { light: AccentTheme; dark: AccentTheme };
-  /** Accent-hued bg/surface/surface2 injected into DARK_COLORS when this preset is active.
-   *  Each value is oklch(~5-14%, ~0.025, accent-hue) — very dark, very low chroma, hue-matched. */
+  /** Unused at runtime: dark Colour no longer washes bg/surface with the accent hue.
+   *  Kept on the preset so stored ids and icon previews stay stable. */
   darkSurfaces: { bg: string; surface: string; surface2: string };
 }
 
@@ -46,8 +46,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'green',
     name: 'Green',
     theme: {
-      light: { accent: '#1f8a5b', accentInk: '#1c6b48', accentSoft: '#dbece5', accentTint: '#eff7f4', onTint: '#1c6b48' },
-      dark: { accent: '#1f8a5b', accentInk: '#1c6b48', accentSoft: '#19422c', accentTint: '#1a2f23', onTint: DARK_COLORS.ink },
+      light: { accent: '#1f8a5b', accentInk: '#1c6b48', accentSoft: '#dbece5', accentTint: '#eff7f4', onTint: '#1c6b48', onAccent: '#ffffff' },
+      dark: { accent: '#1f8a5b', accentInk: '#1c6b48', accentSoft: '#19422c', accentTint: '#1a2f23', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#0a1810', surface: '#192419', surface2: '#111c14' },
   },
@@ -55,8 +55,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'teal',
     name: 'Teal',
     theme: {
-      light: { accent: '#008a84', accentInk: '#006d68', accentSoft: '#daeceb', accentTint: '#eef7f6', onTint: '#006d68' },
-      dark: { accent: '#008a84', accentInk: '#006d68', accentSoft: '#00423f', accentTint: '#122f2d', onTint: DARK_COLORS.ink },
+      light: { accent: '#008a84', accentInk: '#006d68', accentSoft: '#daeceb', accentTint: '#eef7f6', onTint: '#006d68', onAccent: '#ffffff' },
+      dark: { accent: '#008a84', accentInk: '#006d68', accentSoft: '#00423f', accentTint: '#122f2d', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#081919', surface: '#152727', surface2: '#0f2020' },
   },
@@ -64,8 +64,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'blue',
     name: 'Blue',
     theme: {
-      light: { accent: '#197cb3', accentInk: '#1c628c', accentSoft: '#dceaf4', accentTint: '#eff6fb', onTint: '#1c628c' },
-      dark: { accent: '#197cb3', accentInk: '#1c628c', accentSoft: '#173c54', accentTint: '#192c39', onTint: DARK_COLORS.ink },
+      light: { accent: '#197cb3', accentInk: '#1c628c', accentSoft: '#dceaf4', accentTint: '#eff6fb', onTint: '#1c628c', onAccent: '#ffffff' },
+      dark: { accent: '#197cb3', accentInk: '#1c628c', accentSoft: '#173c54', accentTint: '#192c39', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#0c1422', surface: '#192232', surface2: '#121b2a' },
   },
@@ -73,8 +73,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'indigo',
     name: 'Indigo',
     theme: {
-      light: { accent: '#5670bb', accentInk: '#455992', accentSoft: '#e2e8f6', accentTint: '#f2f5fc', onTint: '#455992' },
-      dark: { accent: '#5670bb', accentInk: '#455992', accentSoft: '#2b3758', accentTint: '#22293b', onTint: DARK_COLORS.ink },
+      light: { accent: '#5670bb', accentInk: '#455992', accentSoft: '#e2e8f6', accentTint: '#f2f5fc', onTint: '#455992', onAccent: '#ffffff' },
+      dark: { accent: '#5670bb', accentInk: '#455992', accentSoft: '#2b3758', accentTint: '#22293b', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#0e1022', surface: '#1c1e36', surface2: '#141629' },
   },
@@ -82,8 +82,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'violet',
     name: 'Violet',
     theme: {
-      light: { accent: '#7e63b1', accentInk: '#634f8a', accentSoft: '#e9e5f4', accentTint: '#f6f4fb', onTint: '#634f8a' },
-      dark: { accent: '#7e63b1', accentInk: '#634f8a', accentSoft: '#3c3154', accentTint: '#2b2639', onTint: DARK_COLORS.ink },
+      light: { accent: '#7e63b1', accentInk: '#634f8a', accentSoft: '#e9e5f4', accentTint: '#f6f4fb', onTint: '#634f8a', onAccent: '#ffffff' },
+      dark: { accent: '#7e63b1', accentInk: '#634f8a', accentSoft: '#3c3154', accentTint: '#2b2639', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#120f22', surface: '#1f1c35', surface2: '#17142a' },
   },
@@ -91,8 +91,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'rose',
     name: 'Rose',
     theme: {
-      light: { accent: '#9f5790', accentInk: '#7c4671', accentSoft: '#f1e3ed', accentTint: '#faf3f8', onTint: '#7c4671' },
-      dark: { accent: '#9f5790', accentInk: '#7c4671', accentSoft: '#4c2c45', accentTint: '#342330', onTint: DARK_COLORS.ink },
+      light: { accent: '#9f5790', accentInk: '#7c4671', accentSoft: '#f1e3ed', accentTint: '#faf3f8', onTint: '#7c4671', onAccent: '#ffffff' },
+      dark: { accent: '#9f5790', accentInk: '#7c4671', accentSoft: '#4c2c45', accentTint: '#342330', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#180e1b', surface: '#27182e', surface2: '#1e1224' },
   },
@@ -100,8 +100,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     id: 'slate',
     name: 'Slate',
     theme: {
-      light: { accent: '#4f6774', accentInk: '#374b55', accentSoft: '#dde6eb', accentTint: '#eff4f7', onTint: '#374b55' },
-      dark: { accent: '#4f6774', accentInk: '#374b55', accentSoft: '#0e3e52', accentTint: '#162d37', onTint: DARK_COLORS.ink },
+      light: { accent: '#4f6774', accentInk: '#374b55', accentSoft: '#dde6eb', accentTint: '#eff4f7', onTint: '#374b55', onAccent: '#ffffff' },
+      dark: { accent: '#4f6774', accentInk: '#374b55', accentSoft: '#0e3e52', accentTint: '#162d37', onTint: DARK_COLORS.ink, onAccent: '#ffffff' },
     },
     darkSurfaces: { bg: '#0c1520', surface: '#192232', surface2: '#121a28' },
   },

@@ -368,7 +368,7 @@ function PlanCard({
     <ProSurface innerStyle={styles.planSelected}>{content}</ProSurface>
   ) : (
     <View style={[styles.planPlain, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-      {content}
+      <View style={styles.planClip}>{content}</View>
     </View>
   );
 }
@@ -384,14 +384,15 @@ const styles = StyleSheet.create({
   contextLine: { lineHeight: 22, paddingHorizontal: spacing.base, textAlign: 'center' },
   featuresSection: { gap: spacing.sm },
   sectionHeader: { paddingHorizontal: spacing.xs },
-  featuresCard: { borderRadius: radius.md, borderWidth: 1, overflow: 'hidden', paddingHorizontal: spacing.base, paddingVertical: spacing.xs },
+  featuresCard: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.base, paddingVertical: spacing.xs },
   featureRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md },
   featureDivider: { borderBottomWidth: StyleSheet.hairlineWidth },
   featureIconWrap: { alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, height: 40, justifyContent: 'center', width: 40 },
   featureTextCol: { flex: 1, gap: spacing.xs },
   featureDesc: { lineHeight: 16 },
   planGroup: { gap: spacing.sm },
-  planPlain: { borderRadius: radius.md, borderWidth: 1, overflow: 'hidden' },
+  planPlain: { borderRadius: radius.md, borderWidth: 1 },
+  planClip: { borderRadius: radius.md - 1, overflow: 'hidden' },
   planSelected: { minHeight: PAYWALL_LAYOUT.plan },
   planInner: { justifyContent: 'center', minHeight: PAYWALL_LAYOUT.plan, paddingHorizontal: spacing.base, paddingVertical: spacing.md },
   planRadioRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { QuickRecordWidget } from '../src/widget/QuickRecordWidget';
-import { DEFAULT_WIDGET_MASCOT_CONFIG } from '../src/widget/mascot/config';
+import { DEFAULT_WIDGET_MASCOT_CONFIG, type BadgeIcon } from '../src/widget/mascot/config';
 import { MASCOT_SIZES, BUTTON_SIZES, STREAK_COLUMN } from '../src/widget/mascot/sizing';
 import { expandedStreakMetrics } from '../src/widget/mascot/chrome';
 
@@ -33,6 +33,33 @@ function findElement(el: any, predicate: (node: any) => boolean): any | undefine
   return React.Children.toArray(el.props?.children ?? [])
     .map((child) => findElement(child, predicate))
     .find(Boolean);
+}
+
+/** Android SvgWidget feeds the string to androidsvg's XML parser. A valueless attribute is
+ *  well-formed HTML and what the in-app WebView preview accepts — and a parse error on device,
+ *  where SvgWidget swallows SVGParseException and draws nothing. */
+function valuelessXmlAttributes(xml: string): string[] {
+  const found: string[] = [];
+  for (const tag of xml.match(/<[^!?][^>]*>/g) ?? []) {
+    if (tag.startsWith('</')) continue;
+    const body = tag.replace(/^<\/?/, '').replace(/\/?>$/, '');
+    const tokens = body.match(/[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?/g) ?? [];
+    for (const token of tokens.slice(1)) {
+      if (!token.includes('=')) found.push(token);
+    }
+  }
+  return found;
+}
+
+function collectSvgDocuments(el: any): string[] {
+  const out: string[] = [];
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.props?.svg === 'string') out.push(node.props.svg);
+    React.Children.toArray(node.props?.children ?? []).forEach(walk);
+  };
+  walk(el);
+  return out;
 }
 
 describe('QuickRecordWidget layout', () => {
@@ -171,5 +198,36 @@ describe('QuickRecordWidget layout', () => {
   it('falls back to defaults when no config is passed', () => {
     const found = byUri(QuickRecordWidget({ streak: 0 }));
     expect(Object.keys(found)).toHaveLength(3);
+  });
+});
+
+describe('QuickRecordWidget Android SVG documents', () => {
+  const ICONS: BadgeIcon[] = ['flame', 'star', 'leaf', 'sprout'];
+
+  it('emits well-formed XML for every badge icon in the expanded streak column', () => {
+    // A boolean `data-streak-icon` (no ="...") is valid in the WebView preview and a parse
+    // error for androidsvg. SvgWidget then draws a blank ImageView, so switching icons does
+    // nothing — they all share this wrapper.
+    for (const badgeIcon of ICONS) {
+      const svgs = collectSvgDocuments(
+        QuickRecordWidget({
+          streak: 0,
+          dots: [false, false, false, false, false, false, false],
+          config: cfg({ slot1: 'streak', slot2: 'none', badgeIcon }),
+        })
+      );
+      const badgeDoc = svgs.find((svg) => svg.includes('data-streak-icon'));
+      expect(badgeDoc).toBeDefined();
+      expect(valuelessXmlAttributes(badgeDoc!)).toEqual([]);
+    }
+  });
+
+  it('emits well-formed XML for a compact streak slot badge too', () => {
+    const svgs = collectSvgDocuments(
+      QuickRecordWidget({ streak: 6, config: cfg({ slot1: 'income', slot2: 'streak', badgeIcon: 'sprout' }) })
+    );
+    const badgeDoc = svgs.find((svg) => svg.includes('data-streak-icon'));
+    expect(badgeDoc).toBeDefined();
+    expect(valuelessXmlAttributes(badgeDoc!)).toEqual([]);
   });
 });

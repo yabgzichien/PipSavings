@@ -39,7 +39,7 @@ import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCur
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
-import { UPSELL_STATE_KEY, shouldShowUpsell, pickLine, type UpsellState } from '../billing/upsellCadence';
+import { UPSELL_STATE_KEY, firstActivityAt, shouldShowUpsell, pickLine, type UpsellState } from '../billing/upsellCadence';
 import { fireOnce, getMomentLine, reliefThresholdCrossed, type UpsellMoment } from '../billing/moments';
 import { PipUpsellCard, upsellLines } from '../components/PipUpsellCard';
 import { ProSummaryHeader } from '../components/ProUi';
@@ -153,23 +153,38 @@ export function DashboardScreen({
   const [upsell, setUpsell] = useState<{ line: string; index: number } | null>(null);
   const [proCardMoment, setProCardMoment] = useState<UpsellMoment | null>(null);
   const [reliefAmount, setReliefAmount] = useState<string>('1,000');
+  const activityAt = firstActivityAt(transactions);
 
   useEffect(() => {
     if (isPro) return;
     void (async () => {
       try {
+        const now = Date.now();
         const raw = await getMeta(UPSELL_STATE_KEY);
         const state = raw ? (JSON.parse(raw) as UpsellState) : null;
-        if (!shouldShowUpsell(state, Date.now())) return;
+        if (!shouldShowUpsell(state, now, activityAt)) {
+          if (state?.firstSeenAt == null) {
+            await setMeta(UPSELL_STATE_KEY, JSON.stringify({
+              ...(state?.lastShownAt != null ? { lastShownAt: state.lastShownAt } : {}),
+              lastIndex: state?.lastIndex ?? 0,
+              firstSeenAt: now,
+            }));
+          }
+          return;
+        }
         const lines = upsellLines(t);
         const index = pickLine(lines, state?.lastIndex ?? 0);
         setUpsell({ line: lines[index], index });
-        await setMeta(UPSELL_STATE_KEY, JSON.stringify({ lastShownAt: Date.now(), lastIndex: index }));
+        await setMeta(UPSELL_STATE_KEY, JSON.stringify({
+          lastShownAt: now,
+          lastIndex: index,
+          firstSeenAt: state?.firstSeenAt ?? activityAt ?? now,
+        }));
       } catch {
         // Non-critical, ignore
       }
     })();
-  }, [isPro, t]);
+  }, [isPro, t, activityAt]);
 
   useEffect(() => {
     if (isPro) return;
@@ -808,17 +823,17 @@ function StreakCard({
                 >
                   {done ? (
                     kind === 'checkin' ? (
-                      <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                      <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={theme.onAccent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                         <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
                         <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
                       </Svg>
                     ) : (
                       <Svg width={10} height={8} viewBox="0 0 10 8" fill="none">
-                        <Path d="M1 4l2.8 3L9 1" stroke="#fff" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+                        <Path d="M1 4l2.8 3L9 1" stroke={theme.onAccent} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
                       </Svg>
                     )
                   ) : i === todayIndex ? (
-                    <TodayDotSpinner color={theme.accent} trackColor={theme.accentSoft} />
+                    <TodayDotSpinner color={theme.accent} trackColor={colorTheme.ink3} />
                   ) : null}
                 </View>
               </View>

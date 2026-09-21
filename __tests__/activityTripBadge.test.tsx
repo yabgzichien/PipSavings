@@ -16,6 +16,8 @@ import { GREEN_ACCENT } from '../src/state/accent';
 jest.mock('../src/state/colorScheme', () => ({
   useThemeColors: () => require('../src/theme').LIGHT_COLORS,
   useResolvedScheme: () => 'light',
+  useAppearanceStyle: () => ({ style: 'colour', setStyle: () => {} }),
+  useColorSchemeMode: () => ({ mode: 'light', setMode: () => {}, resolvedScheme: 'light' }),
 }));
 
 jest.mock('../src/lib/haptics', () => ({ tap: jest.fn() }));

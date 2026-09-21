@@ -679,7 +679,7 @@ function ChoiceChip({ label, active, onPress, theme, themeColors }: {
       onPress={onPress}
       style={[styles.choiceChip, { backgroundColor: active ? theme.accent : themeColors.surface2, borderColor: active ? theme.accent : themeColors.line2 }]}
     >
-      <Text style={[styles.choiceChipText, { color: active ? '#fff' : themeColors.ink }]}>{label}</Text>
+      <Text style={[styles.choiceChipText, { color: active ? theme.onAccent : themeColors.ink }]}>{label}</Text>
     </Pressable>
   );
 }

@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { StyleProp, StyleSheet, View, ViewStyle, type LayoutChangeEvent } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -35,10 +35,29 @@ export function ProSurface({
 }) {
   const theme = useAccent();
   const colors = useThemeColors();
+  const [box, setBox] = useState<{ width: number; height: number } | null>(null);
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setBox((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
+  };
 
   return (
-    <View testID={testID} style={[styles.surfaceFrame, style]}>
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+    <View testID={testID} onLayout={onLayout} style={[styles.surfaceFrame, style]}>
+      {!box ? (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.accent, borderRadius: radius.md }]}
+        />
+      ) : null}
+      <Svg
+        pointerEvents="none"
+        style={box ? styles.surfaceEdge : StyleSheet.absoluteFillObject}
+        width={box?.width ?? 0}
+        height={box?.height ?? 0}
+        viewBox={box ? `0 0 ${box.width} ${box.height}` : undefined}
+        preserveAspectRatio="none"
+      >
         <Defs>
           <LinearGradient id="pipProEdge" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={theme.accentInk} />
@@ -47,7 +66,7 @@ export function ProSurface({
             <Stop offset="1" stopColor={theme.accentInk} />
           </LinearGradient>
         </Defs>
-        <Rect width="100%" height="100%" rx={radius.md} fill="url(#pipProEdge)" />
+        {box ? <Rect width={box.width} height={box.height} rx={radius.md} fill="url(#pipProEdge)" /> : null}
       </Svg>
       <View style={[styles.surfaceInner, { backgroundColor: colors.surface }, innerStyle]}>
         {children}
@@ -116,6 +135,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: 2,
   },
+  surfaceEdge: { position: 'absolute', top: 0, left: 0 },
   surfaceInner: {
     borderRadius: radius.md - 2,
     overflow: 'hidden',

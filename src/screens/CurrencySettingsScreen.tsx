@@ -18,7 +18,7 @@ import { useLanguage } from '../i18n';
 import { canActivateCurrency } from '../billing/currencyEntitlements';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
-import { colors, radius, uiFont } from '../theme';
+import { radius, uiFont } from '../theme';
 
 export function CurrencySettingsScreen({ onBack, embedded }: { onBack: () => void; embedded?: boolean }) {
   const insets = useSafeAreaInsets();
@@ -126,7 +126,7 @@ export function CurrencySettingsScreen({ onBack, embedded }: { onBack: () => voi
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
                   >
-                    <Text style={[styles.entryChipText, { color: on ? colors.onAccent : colorTheme.ink }]}>{code}</Text>
+                    <Text style={[styles.entryChipText, { color: on ? theme.onAccent : colorTheme.ink }]}>{code}</Text>
                   </Pressable>
                 );
               })}

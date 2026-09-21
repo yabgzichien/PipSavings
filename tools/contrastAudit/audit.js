@@ -96,6 +96,8 @@ const consoleAlert = hasConsoleTokens ? readPaletteBlock(consoleTokensSrc, 'ALER
 const pipFixed = readPaletteBlock(pipThemeSrc, 'colors', '');
 const pipLight = readPaletteBlock(pipThemeSrc, 'LIGHT_COLORS', ': StructuralColors');
 const pipDark = readPaletteBlock(pipThemeSrc, 'DARK_COLORS', ': StructuralColors');
+const pipMonoLight = readPaletteBlock(pipThemeSrc, 'MONO_LIGHT_COLORS', ': StructuralColors');
+const pipMonoDark = readPaletteBlock(pipThemeSrc, 'MONO_DARK_COLORS', ': StructuralColors');
 const pipTheme = { ...pipLight, ...pipFixed }; // light-mode structural + fixed accent/onAccent
 
 // Same shadowing problem as CLEAN/ALERT above, but N-ways per preset AND per light/dark: the
@@ -148,12 +150,14 @@ function pipPairs(t) {
 // color); only `accentSoft`/`accentTint` differ, and dark-mode call sites use the structural
 // `ink` color (not accentInk) as the readable text/icon on top of those dark tints.
 function accentPresetPairs(preset) {
+  const lightOn = preset.light.onAccent || '#ffffff';
+  const darkOn = preset.dark.onAccent || '#ffffff';
   return [
-    [`AccentPreset ${preset.id} (light): onAccent on accentInk (buttons)`, '#ffffff', preset.light.accentInk, false],
+    [`AccentPreset ${preset.id} (light): onAccent on accentInk (buttons)`, lightOn, preset.light.accentInk, false],
     [`AccentPreset ${preset.id} (light): accentInk on surface`, preset.light.accentInk, pipLight.surface, false],
     [`AccentPreset ${preset.id} (light): accentInk on accentSoft (chips)`, preset.light.accentInk, preset.light.accentSoft, false],
     [`AccentPreset ${preset.id} (light): accentInk on accentTint (tint bg)`, preset.light.accentInk, preset.light.accentTint, false],
-    [`AccentPreset ${preset.id} (dark): onAccent on accentInk (buttons)`, '#ffffff', preset.dark.accentInk, false],
+    [`AccentPreset ${preset.id} (dark): onAccent on accentInk (buttons)`, darkOn, preset.dark.accentInk, false],
     [`AccentPreset ${preset.id} (dark): ink on accentSoft (chips)`, pipDark.ink, preset.dark.accentSoft, false],
     [`AccentPreset ${preset.id} (dark): ink on accentTint (tint bg)`, pipDark.ink, preset.dark.accentTint, false],
   ];
@@ -169,6 +173,7 @@ function structuralPairs(label, t) {
     [`${label} amber on surface`, t.amber, t.surface, false],
     [`${label} amber on amberTint (refer pill)`, t.amber, t.amberTint, false],
     [`${label} red on redTint (decline pill)`, t.red, t.redTint, false],
+    [`${label} ink on redTint (expense wash)`, t.ink, t.redTint, false],
     [`${label} red on surface`, t.red, t.surface, false],
   ];
 }
@@ -188,6 +193,12 @@ function consolePairs(label, p) {
 const PAIRS = [
   ...pipPairs(pipTheme),
   ...structuralPairs('PipComp dark', pipDark),
+  ...structuralPairs('PipComp mono light', pipMonoLight),
+  ...structuralPairs('PipComp mono dark', pipMonoDark),
+  ['PipComp mono light: onAccent on black buttons', '#ffffff', '#000000', false],
+  ['PipComp mono dark: onAccent on white buttons', '#000000', '#ffffff', false],
+  ['PipComp mono light: signed-up on surface (large amounts)', '#1f8a5b', pipMonoLight.surface, true],
+  ['PipComp mono dark: signed-up on surface', '#3dcc7a', pipMonoDark.surface, false],
   ...accentPresets.flatMap(accentPresetPairs),
   ...(hasConsoleTokens ? [
     ...consolePairs('LenderConsole CLEAN', consoleClean),
