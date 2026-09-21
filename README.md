@@ -1,8 +1,8 @@
-# Pip — Personal Finance & Budgeting
+# PipSavings — Personal Finance & Budgeting
 
 > **Know your money. Without typing it in, without anyone else seeing it.**
 
-Pip is a privacy-first, 100% on-device personal finance and budgeting application built with Expo (React Native), TypeScript, and SQLite. It replaces the friction of manual bookkeeping with instant AI-assisted capture from receipts and e-wallet screenshots, paired with smart budgeting, net worth tracking, bill splitting, and localized Malaysian financial tools.
+PipSavings (“Pip”) is a privacy-first, local-first personal finance and budgeting application built with Expo (React Native), TypeScript, and SQLite. It replaces the friction of manual bookkeeping with instant AI-assisted capture from receipts and e-wallet screenshots, paired with smart budgeting, net worth tracking, bill splitting, and localized Malaysian financial tools.
 
 ---
 
@@ -49,9 +49,9 @@ Pip is a privacy-first, 100% on-device personal finance and budgeting applicatio
 - **Android Home Screen Widget**: At-a-glance streak and activity tracking right from your phone's home screen.
 
 ### 10. Privacy & Security
-- **100% On-Device**: All transactions, accounts, budgets, and receipts live in a local SQLite database (`expo-sqlite`).
-- **No Accounts Required**: No signup, no login credentials, and no external server syncing.
-- **No Behavioural Analytics**: Pip does not track what you tap, which screens you visit, or how you use the app. The only thing that ever leaves the device is an anonymous crash report — the error's type and the code location that broke, never your transactions, amounts, merchants, or receipts. Reports carry a random install ID with no link to your identity, and you can turn them off entirely in **Settings → Data → Crash Diagnostics**. See [`src/lib/diagnostics.ts`](src/lib/diagnostics.ts) and [`src/lib/diagnosticsScrub.ts`](src/lib/diagnosticsScrub.ts) — those two files are the complete surface of what can be transmitted.
+- **Local-first ledger**: All transactions, accounts, budgets, and saved receipts live in a SQLite database on the device (`expo-sqlite`). The database is not encrypted at rest.
+- **No Accounts Required**: No signup and no bank login. Optional Google Drive backup uses your own Drive appData folder.
+- **What can leave the device**: optional AI scans (Cloudflare + vision models), Play/RevenueCat subscription checks, Yahoo price/FX quotes, and crash reports. Crash diagnostics is **on by default** in production builds; turn it off in **Settings → Data → Crash Diagnostics**. Bug reports leave only if you tap Send. See [`src/lib/diagnostics.ts`](src/lib/diagnostics.ts) and [`src/lib/diagnosticsScrub.ts`](src/lib/diagnosticsScrub.ts).
 
 ---
 
@@ -73,12 +73,16 @@ Pip is a privacy-first, 100% on-device personal finance and budgeting applicatio
 ├── App.tsx                     # Main application entry and screen router
 ├── app.json                    # Expo configuration and plugin definitions
 ├── assets/                     # Icons, splash screens, and demo fixtures
+├── legal/                      # Hosted Privacy Policy and Terms of Use (GitHub Pages)
 ├── docs/                       # Architectural specs, UI plans, and design briefs
 │   ├── Bugs.md                 # Codebase audit and known bug tracker
 │   ├── PerformanceOptimization.md # Audit on rendering and query performance
 │   ├── business-plan.md        # Product positioning and strategy
 │   ├── deploy.md               # Deployment guide (Web & Android)
 │   ├── income-expense-structure.md # Spec on income baseline & expense models
+│   ├── privacy-policy.md       # Privacy policy (source)
+│   ├── terms.md                # Terms of use (source)
+│   ├── play-data-safety.md     # Google Play Data safety fill-in sheet
 │   ├── store-description.md    # Play Store copy
 │   ├── store-screenshots-brief.md # Store graphic design specifications
 │   ├── superpowers/            # Feature specs (multi-currency, tax relief, wizard)
@@ -171,6 +175,22 @@ npm run typecheck
 npm run audit:contrast
 npm run audit:type
 ```
+
+---
+
+## Legal
+
+PipSavings (“Pip”) legal documents:
+
+- [Privacy Policy](docs/privacy-policy.md)
+- [Terms of Use](docs/terms.md)
+
+Hosted copies (what the app and Google Play open):
+
+- [Privacy Policy](https://yabgzichien.github.io/PipFinance/privacy.html)
+- [Terms of Use](https://yabgzichien.github.io/PipFinance/terms.html)
+
+Contact: [zichienyang@gmail.com](mailto:zichienyang@gmail.com)
 
 ---
 

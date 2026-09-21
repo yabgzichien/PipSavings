@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — PipSavings</title>
+  <style>
+    body { font: 17px/1.55 system-ui, sans-serif; max-width: 42rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; color: #16201b; background: #f4f7f5; }
+    h1 { font-size: 1.75rem; margin-bottom: 0.35rem; }
+    h2 { font-size: 1.12rem; margin-top: 1.75rem; }
+    .meta { color: #4f6774; margin-bottom: 1.25rem; }
+    a { color: #1f8a5b; }
+  </style>
+</head>
+<body>
+  <p><a href="./index.html">PipSavings</a> · Privacy Policy · <a href="./terms.html">Terms of Use</a></p>
+  <h1>Privacy Policy for PipSavings</h1>
+  <p class="meta">Last updated: 17 September 2026</p>
+  <p>PipSavings (“Pip”) is a personal bookkeeping app for Android. Contact: <a href="mailto:zichienyang@gmail.com">zichienyang@gmail.com</a>. Pip is not directed at children.</p>
+
+  <h2>What stays on your phone</h2>
+  <p>Pip does not require an account. Your ledger (transactions, receipts, budgets, accounts, tax tags) is stored in a local SQLite database. <strong>It is not encrypted at rest.</strong> Uninstall, or Settings → Danger zone → Reset all data, deletes it.</p>
+  <p>Camera, photos, and notifications are used only for scans, saving a story image, or reminders you turn on.</p>
+
+  <h2>What can leave the phone</h2>
+  <p><strong>Crash reports (on by default).</strong> In a production build, a crash may send Sentry a scrubbed stack trace, a random install ID, and device model. Turn this off in Settings → Data → Crash Diagnostics.</p>
+  <p><strong>Bug reports.</strong> Settings → About → Report a bug sends the text you type to Sentry only when you tap Send.</p>
+  <p><strong>Scans (optional).</strong> A scan image is sent over HTTPS to our Cloudflare proxy, then to an external AI service to extract merchant, date, amount, and category. We do not keep the image. We may cache the extracted JSON against a request hash (quota retries). External AI models may use scan images and extracted rows. Pip does not train its own models. A hashed install token is stored to enforce scan limits and promo codes.</p>
+  <p><strong>Pip Pro.</strong> Google Play handles payment. We never see your card. RevenueCat (and our proxy) receive an anonymous app user ID to confirm Pro.</p>
+  <p><strong>Google Drive backup (optional).</strong> Google Sign-In may provide the <strong>email</strong> of the account you pick (kept on device). The backup zip of your ledger goes to your Drive, not to our servers, and is not encrypted by Pip.</p>
+  <p><strong>Live prices (optional).</strong> Ticker or currency codes are sent to Yahoo Finance for public quotes, not your quantities.</p>
+  <p>We do not sell your data and we do not show ads. Off-device traffic uses HTTPS.</p>
+
+  <h2>Parties that may receive data</h2>
+  <p>Google Play, Google (Drive / Sign-In), Cloudflare, external AI services, RevenueCat, Sentry, Yahoo Finance.</p>
+
+  <h2>Deletion</h2>
+  <p>There is no Pip account. Delete local data in Settings or by uninstalling. Turn off crash diagnostics to drop that install ID. Clear app data to drop the scan token. Remove Drive backups in that Google account.</p>
+
+  <h2>Changes</h2>
+  <p>We may update this policy. The date at the top will change.</p>
+</body>
+</html>
