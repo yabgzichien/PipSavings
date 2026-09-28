@@ -9,7 +9,7 @@ describe('Ask Pip privacy policy', () => {
 
   it('names Ask Pip as the BYOK exception and keeps the ledger on device in both copies', () => {
     for (const doc of [policy, html]) {
-      expect(doc).toContain('Last updated: 20 September 2026');
+      expect(doc).toContain('Last updated: 27 September 2026');
       expect(doc).toMatch(/Ask Pip \(optional, your API key\)/);
       expect(doc).toMatch(/directly/);
       expect(doc).toMatch(/Gemini \/ Groq \/ OpenRouter/);

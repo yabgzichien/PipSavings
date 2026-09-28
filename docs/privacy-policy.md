@@ -1,6 +1,6 @@
 # Privacy Policy for PipSavings
 
-Last updated: 20 September 2026
+Last updated: 27 September 2026
 
 PipSavings (“Pip”) is a personal bookkeeping app for Android. Contact: **zichienyang@gmail.com**. Pip is not directed at children.
 
@@ -24,7 +24,7 @@ Camera, photos, and notifications are used only for scans, saving a story image,
 
 **Live prices (optional).** Ticker or currency codes are sent to Yahoo Finance for public quotes, not your quantities.
 
-**Ask Pip (optional, your API key).** Prompts and attached images go **directly** to the user-configured provider (Gemini / Groq / OpenRouter). Pip does not proxy them and does not keep them. Dashboard use and the local ledger stay on device.
+**Ask Pip (optional, your API key).** Your API key is stored on your device. When you use Ask Pip, your message, attached photos or files (or text read from them), and relevant trip, person, and category names go **directly** to your selected provider (Gemini / Groq / OpenRouter). Pip does not proxy them and does not keep them on its servers. The provider and any underlying model handle inputs and outputs under their own terms and privacy policies. Dashboard use and the full local ledger stay on device.
 
 We do not sell your data and we do not show ads. Off-device traffic uses HTTPS.
 
@@ -34,7 +34,7 @@ Google Play, Google (Drive / Sign-In), Cloudflare, external AI services, Gemini,
 
 ## Deletion
 
-There is no Pip account. Delete local data in Settings or by uninstalling. Turn off crash diagnostics to drop that install ID. Clear app data to drop the scan token. Remove Drive backups in that Google account.
+There is no Pip account. Delete local data in Settings or by uninstalling. Remove saved API keys in Ask Pip's key settings. Turn off crash diagnostics to drop that install ID. Clear app data to drop the scan token. Remove Drive backups in that Google account.
 
 ## Changes
 

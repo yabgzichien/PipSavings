@@ -1,12 +1,16 @@
 # Terms of Use for PipSavings
 
-Last updated: 17 September 2026
+Last updated: 27 September 2026
 
 PipSavings (“Pip”) is a personal bookkeeping app for Android. By using Pip you agree to these terms. Contact: **zichienyang@gmail.com**.
 
 Pip stores records on your device. It is **not financial advice** and **not tax advice**. It does not file with LHDN, connect to your bank, or make trades. The Tax screen is only a Malaysian personal-relief tracker for your records. You are responsible for what you record and file.
 
-Crash diagnostics is on by default until you turn it off. Optional scans, Drive backup, and live prices are described in the Privacy Policy.
+Crash diagnostics is on by default until you turn it off. Optional scans, Drive backup, live prices, and Ask Pip are described in the Privacy Policy.
+
+## Ask Pip
+
+Ask Pip is optional and uses an API key you provide. You must be allowed to use that key, meet your selected provider's age and eligibility rules, and follow the provider's and model's terms. You are responsible for keeping the key secure and for any provider fees, quotas, or limits. Provider availability and data handling are controlled by the provider, not Pip.
 
 ## Subscriptions
 
@@ -23,7 +27,7 @@ Do not abuse the scan service, share promo codes publicly, or bypass quota or su
 
 ## “As is”
 
-Pip is provided **as is**. Totals, rates, scan results, and tax tags may be wrong. To the fullest extent permitted by law we are not liable for loss of data, missed tax claims, or other damages. If that limit is unenforceable, our liability is the amount you paid for Pip Pro in the prior 12 months, or RM50, whichever is greater.
+Pip is provided **as is**. Totals, rates, scan results, Ask Pip results, and tax tags may be wrong. Review any prefilled record before saving it. To the fullest extent permitted by law we are not liable for loss of data, missed tax claims, or other damages. If that limit is unenforceable, our liability is the amount you paid for Pip Pro in the prior 12 months, or RM50, whichever is greater.
 
 You must be 13 or older. These terms are governed by the laws of Malaysia.
 

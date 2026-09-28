@@ -74,7 +74,7 @@ describe('privacy policy', () => {
 
   it('names Ask Pip as a BYOK exception in markdown and hosted HTML', () => {
     for (const doc of [policy, html]) {
-      expect(doc).toContain('Last updated: 20 September 2026');
+      expect(doc).toContain('Last updated: 27 September 2026');
       expect(doc).toMatch(/Ask Pip \(optional, your API key\)/);
       expect(doc).toMatch(/Gemini \/ Groq \/ OpenRouter/);
       expect(doc).toMatch(/does not proxy them and does not keep them/);
