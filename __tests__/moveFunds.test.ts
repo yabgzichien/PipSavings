@@ -70,8 +70,12 @@ describe('deriveMove', () => {
     expect(deriveMove(5420, 37.4, { kind: 'newFrom', newFrom: 5600 })).toBeNull();
   });
 
-  it('returns null when From would go negative', () => {
-    expect(deriveMove(100, 37.4, { kind: 'amount', amount: 200 })).toBeNull();
+  it('allows From to go negative so a transfer can overdraw', () => {
+    expect(deriveMove(100, 37.4, { kind: 'amount', amount: 200 })).toEqual({
+      amount: 200,
+      newFrom: -100,
+      newTo: 237.4,
+    });
   });
 });
 
@@ -87,8 +91,8 @@ describe('validateMove', () => {
     expect(validateMove({ from, to, amount: 0, fromBalance: 5420 })).toBe('zero');
   });
 
-  it('rejects an amount larger than the source balance', () => {
-    expect(validateMove({ from, to, amount: 200, fromBalance: 100 })).toBe('insufficient');
+  it('allows an amount larger than the source balance', () => {
+    expect(validateMove({ from, to, amount: 200, fromBalance: 100 })).toBeNull();
   });
 
   it('rejects a non-cash or archived account', () => {

@@ -125,6 +125,41 @@ describe('Worker proxy endpoint', () => {
     expect(json.allowance.monthUsed).toBe(1);
   });
 
+  it('rejects browser-origin scan requests before consuming quota', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn();
+    const req = new Request('https://proxy.pip.local/scan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://app.pipfinance.com',
+        'x-installation-id': 'browser-device',
+        'x-idempotency-key': 'browser-scan',
+      },
+      body: JSON.stringify({
+        imageBase64: 'mockBase64',
+        mimeType: 'image/png',
+      }),
+    });
+
+    try {
+      const res = await worker.fetch(req, { DB: db, GROQ_API_KEY: 'gsk_server_key' });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: 'BYOK is required for web scans' });
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+
+      const allowanceRes = await worker.fetch(
+        new Request('https://proxy.pip.local/allowance', {
+          headers: { 'x-installation-id': 'browser-device' },
+        }),
+        { DB: db },
+      );
+      expect((await allowanceRes.json()).dayUsed).toBe(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('blocks scan request with 429 when daily quota is exhausted', async () => {
     // Perform 3 successful scans
     for (let i = 1; i <= 3; i++) {
@@ -240,7 +275,7 @@ describe('Worker proxy endpoint', () => {
   });
 
   it('rejects oversized ocrText with HTTP 413', async () => {
-    const hugeText = 'A'.repeat(9 * 1024);
+    const hugeText = 'A'.repeat(49 * 1024);
     const req = new Request('https://proxy.pip.local/scan', {
       method: 'POST',
       headers: {
@@ -254,7 +289,7 @@ describe('Worker proxy endpoint', () => {
     const res = await worker.fetch(req, { DB: db });
     expect(res.status).toBe(413);
     const json = await res.json();
-    expect(json.error).toContain('8KB');
+    expect(json.error).toContain('48KB');
   });
 
   it('rejects request missing both ocrText and imageBase64/mimeType with HTTP 400', async () => {

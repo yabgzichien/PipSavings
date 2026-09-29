@@ -52,6 +52,20 @@ export function occurrenceMyr(nativeAmount: number, fxRate: number): number {
   return round2(nativeAmount * fxRate);
 }
 
+/**
+ * Rows for the month timeline. On the current month the Overdue section already lists every
+ * overdue occurrence (and keeps a just-paid one there for the rest of the session), so those
+ * ids must not be drawn again underneath it.
+ */
+export function monthTimelineOccurrences<T extends { id: string }>(
+  monthOccurrences: T[],
+  overdueIds: ReadonlySet<string>,
+  isCurrentMonth: boolean
+): T[] {
+  if (!isCurrentMonth) return monthOccurrences;
+  return monthOccurrences.filter((o) => !overdueIds.has(o.id));
+}
+
 export interface NewOccurrence {
   commitmentId: string;
   dueDate: string;

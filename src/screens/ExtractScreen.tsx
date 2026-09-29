@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AccountChipIcon,
@@ -17,16 +17,19 @@ import { BASE_CURRENCY } from '../lib/currency';
 import { visibleChoices } from '../lib/chipRow';
 import { tap } from '../lib/haptics';
 import { useModalHandoff } from '../lib/modalHandoff';
+import { notify, notifyWarning } from '../lib/platformAlert';
 import { suggestForMerchant } from '../lib/recommend';
 import type { ExtractedTxn } from '../lib/types';
 import { llmErrorMessage } from '../llm';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
+import { ZoomableImageViewer } from '../components/ZoomableImageViewer';
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
 import { submitScan } from '../billing/scanProxy';
 import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
+import type { TallRead } from '../lib/prepareScanImage';
 import type { OcrOutcome } from '../lib/receiptOcr';
 import { PipUpsellCard } from '../components/PipUpsellCard';
 import { fireOnce, getMomentLine, type UpsellMoment } from '../billing/moments';
@@ -49,6 +52,7 @@ const FOUND_HOLD_MS = motionDuration.enter;
 export function ExtractScreen({
   image,
   prefetchedOcr,
+  prefetchedTallOcr,
   cachedItems,
   linkId: initialLinkId = null,
   onBack,
@@ -59,6 +63,7 @@ export function ExtractScreen({
   image: PickedImage;
   /** OCR started on ScanKind — skip a second ML Kit pass. */
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+  prefetchedTallOcr?: Promise<TallRead | null>;
   cachedItems?: ExtractedTxn[];
   linkId?: string | null;
   onBack: () => void;
@@ -155,7 +160,9 @@ export function ExtractScreen({
     return () => clearInterval(id);
   }, [phase]);
 
-  // run extraction once on mount (skip when reviewing cached results)
+  // A scan belongs to the selected URI. Allowance refreshes, translations and parent
+  // callbacks change on resume/rerender; they must not restart a paid scan or replace
+  // successful results with an error. Capture those inputs when this image starts.
   useEffect(() => {
     if (cachedItems) {
       onItemsExtracted?.(cachedItems);
@@ -169,6 +176,10 @@ export function ExtractScreen({
     }
     let alive = true;
     const start = Date.now();
+    setPhase('scanning');
+    setError('');
+    setItems([]);
+    setElapsedMs(null);
     (async () => {
       try {
         let rows: ExtractedTxn[] = [];
@@ -178,6 +189,7 @@ export function ExtractScreen({
             imageBase64: image.base64,
             mimeType: image.mime,
             prefetchedOcr,
+            prefetchedTallOcr,
           },
           tier
         );
@@ -188,11 +200,21 @@ export function ExtractScreen({
           setPhase('error');
           return;
         }
+        if (proxyResult.webByokRequired) {
+          if (!alive) return;
+          notifyWarning(t('webByokTitle'), t('webByokBody'));
+          setError(t('webByokBody'));
+          setPhase('error');
+          return;
+        }
         if (!proxyResult.ok || !proxyResult.items || proxyResult.items.length === 0) {
           if (!alive) return;
           setError(proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image."));
           setPhase('error');
           return;
+        }
+        if (proxyResult.byokRateLimited && proxyResult.serverFallbackAttempted) {
+          notify(t('scanByokLimitTitle'), t('scanByokLimitBody'));
         }
         rows = proxyResult.items;
         if (!alive) return;
@@ -217,7 +239,7 @@ export function ExtractScreen({
     return () => {
       alive = false;
     };
-  }, [image, cachedItems, onItemsExtracted, canScan, tier, openPaywall, refreshAllowance, t]);
+  }, [image.uri, cachedItems]);
 
   useEffect(() => {
     if (phase !== 'found') return;
@@ -476,14 +498,12 @@ export function ExtractScreen({
         }}
       />
 
-      <Modal visible={viewingPhoto} transparent animationType="fade" onRequestClose={() => setViewingPhoto(false)}>
-        <Pressable style={styles.viewerBackdrop} onPress={() => setViewingPhoto(false)}>
-          <Image source={{ uri: image.uri }} style={styles.viewerImage} resizeMode="contain" />
-          <Pressable onPress={() => setViewingPhoto(false)} style={[styles.viewerClose, { top: insets.top + 12 }]} hitSlop={10}>
-            <Icon name="x" size={22} color="#fff" />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <ZoomableImageViewer
+        visible={viewingPhoto}
+        uri={image.uri}
+        topInset={insets.top}
+        onClose={() => setViewingPhoto(false)}
+      />
     </View>
   );
 }
@@ -493,9 +513,6 @@ const styles = StyleSheet.create({
   accountChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   preview: { overflow: 'hidden', padding: 0 },
   previewImg: { width: '100%', height: PREVIEW_H },
-  viewerBackdrop: { flex: 1, backgroundColor: 'rgba(10,14,12,0.92)', alignItems: 'center', justifyContent: 'center' },
-  viewerImage: { width: '100%', height: '80%' },
-  viewerClose: { position: 'absolute', right: 18, padding: 8 },
   scanline: {
     position: 'absolute',
     left: 0,

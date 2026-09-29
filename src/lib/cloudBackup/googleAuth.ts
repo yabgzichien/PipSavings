@@ -13,6 +13,11 @@
 export const GOOGLE_DRIVE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_DRIVE_CLIENT_ID ?? '';
 export const isGoogleDriveConfigured = GOOGLE_DRIVE_CLIENT_ID.length > 0;
 
+/** Drive backup UI, restore, and auto-backup. iOS stays on the iCloud stub. */
+export function isGoogleDrivePlatform(os: string): boolean {
+  return os === 'android' || os === 'web';
+}
+
 /** Kept for older APKs that stored a PKCE refresh token. New sign-ins use native Google Sign-In. */
 export const GOOGLE_DRIVE_REDIRECT_URI = 'com.yabg.pip:/oauth2redirect';
 

@@ -16,6 +16,7 @@ import { rateFor, ratesFromCache } from '../lib/fx';
 import { defaultLinkEffect } from '../lib/networth';
 import { notify } from '../lib/platformAlert';
 import { type ScannedReceipt } from '../lib/parseReceipt';
+import { recognizeTallImage, type TallRead } from '../lib/prepareScanImage';
 import { recognizeReceiptText, type OcrOutcome } from '../lib/receiptOcr';
 import { resolveQuickAdd, resolveQuickAddWithoutAmount } from '../lib/quickAdd';
 import { type QuickDraft } from '../lib/quickParse';
@@ -61,6 +62,11 @@ type AddFlowProps = {
    *  trip the moment it's created, and the manual-entry title says so, so the trip is never a
    *  silent side effect. */
   initialTripId?: string | null;
+  /** Bumped when a trip's add screen is closed, so the already-mounted form clears without
+   *  remounting. The trip screen keeps this flow alive so the next Add expense is instant. */
+  entrySession?: number;
+  /** False while the flow is pre-mounted behind a trip. Hardware back must not close it then. */
+  visible?: boolean;
 };
 
 /**
@@ -89,6 +95,8 @@ function AddFlowPhases({
   onAmountValidChange,
   onCategoryChosen,
   initialTripId = null,
+  entrySession = 0,
+  visible = true,
 }: AddFlowProps) {
   const { commitCategorized, recordBalanceLink, settleShare, accounts, memory, entryCategories, catById, applyReliefDetection, markTaskDone, trips, setTransactionsTrip } = useAppData();
   const colorTheme = useThemeColors();
@@ -151,6 +159,7 @@ function AddFlowPhases({
     uri: string;
     generation: number;
     promise: Promise<OcrOutcome>;
+    tallPromise: Promise<TallRead | null>;
   } | null>(null);
 
   const clearOcrPrefetch = () => {
@@ -161,10 +170,13 @@ function AddFlowPhases({
   const startOcrPrefetch = (uri: string) => {
     ocrGenerationRef.current += 1;
     const generation = ocrGenerationRef.current;
-    const promise = recognizeReceiptText(uri).catch(
-      (): OcrOutcome => ({ status: 'unavailable' })
+    // Start the band read while the user chooses the scan kind. Keep both promises
+    // attached to this selection so Back/new picks cannot reuse another image's OCR.
+    const tallPromise = recognizeTallImage(uri).catch(() => null);
+    const promise = tallPromise.then((tall): Promise<OcrOutcome> | OcrOutcome =>
+      tall ? tall.outcome : recognizeReceiptText(uri).catch((): OcrOutcome => ({ status: 'unavailable' }))
     );
-    ocrPrefetchRef.current = { uri, generation, promise };
+    ocrPrefetchRef.current = { uri, generation, promise, tallPromise };
   };
 
   const getActiveOcrPrefetch = (): Promise<OcrOutcome> | undefined => {
@@ -175,11 +187,24 @@ function AddFlowPhases({
     return slot.promise;
   };
 
+  const getActiveTallOcrPrefetch = (): Promise<TallRead | null> | undefined => {
+    const slot = ocrPrefetchRef.current;
+    return slot && image && slot.uri === image.uri && slot.generation === ocrGenerationRef.current
+      ? slot.tallPromise : undefined;
+  };
+
   const tripName = initialTripId ? trips.find((tr) => tr.id === initialTripId)?.name ?? null : null;
 
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
   const [quickPrefill, setQuickPrefill] = useState<QuickDraft | null>(null);
+  const sessionSeen = useRef(entrySession);
+  if (sessionSeen.current !== entrySession) {
+    sessionSeen.current = entrySession;
+    const nextPhase: Phase = initialPhase ?? (tutorialMode === 'manual' || initialType ? 'manual' : 'attach');
+    if (phase !== nextPhase) setPhase(nextPhase);
+    if (quickPrefill) setQuickPrefill(null);
+  }
   // A quick-add batch was typed, not read off a screenshot, so it must not be saved as
   // 'extracted' — that would mislabel typed rows in the data-confidence weighting.
   const [batchSource, setBatchSource] = useState<TxnSource>('extracted');
@@ -226,6 +251,7 @@ function AddFlowPhases({
   };
 
   useBackHandler(() => {
+    if (!visible) return false;
     if (phase === 'receipt' || phase === 'extract') {
       backToKind();
       return true;
@@ -560,6 +586,7 @@ function AddFlowPhases({
       <ReceiptScanScreen
         initialImage={image ?? undefined}
         prefetchedOcr={getActiveOcrPrefetch()}
+        prefetchedTallOcr={getActiveTallOcrPrefetch()}
         cachedReceipt={cachedReceipt}
         initialDraft={receiptResult?.resumeState ?? null}
         onScanned={setCachedReceipt}
@@ -613,6 +640,7 @@ function AddFlowPhases({
         initialCategorySource={phase === 'split' ? receiptSuggestion?.source ?? null : quickPrefill?.categorySource ?? null}
         initialSplit={phase === 'split' ? receiptResult?.draft ?? null : null}
         initialTripId={initialTripId}
+        entrySession={entrySession}
         isTutorial={tutorialMode === 'manual'}
         activeTourAnchor={activeTourAnchor}
         onAmountValidChange={onAmountValidChange}
@@ -626,6 +654,7 @@ function AddFlowPhases({
         key={`${image.uri}:${cached ? 'c' : 'f'}`}
         image={image}
         prefetchedOcr={getActiveOcrPrefetch()}
+        prefetchedTallOcr={getActiveTallOcrPrefetch()}
         cachedItems={cached}
         linkId={linkId}
         onBack={backToKind}

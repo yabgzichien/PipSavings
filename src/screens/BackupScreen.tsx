@@ -8,13 +8,15 @@ import { Card, Eyebrow, TopBar } from '../components/ui';
 import { getMeta, setMeta } from '../db/metaRepo';
 import { buildBackupZip } from '../lib/backupBundle';
 import { InvalidBackupError, formatRelativeBackupTime as formatRelative, peekBackupZip } from '../lib/backupRestore';
+import { enableAutoBackup } from '../lib/cloudBackup/autoBackupPref';
+import { isGoogleDrivePlatform } from '../lib/cloudBackup/googleAuth';
 import { useCloudBackup } from '../lib/cloudBackup/useCloudBackup';
 import { saveOrDownloadExport } from '../lib/financialExport';
 import { confirmAction, notify } from '../lib/platformAlert';
+import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
-import { useLanguage } from '../i18n';
 import { uiFont } from '../theme';
 
 const LOCAL_BACKUP_AT_KEY = 'local_backup_last_at';
@@ -23,7 +25,7 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { isZh } = useLanguage();
+  const { isZh, t } = useLanguage();
   const appData = useAppData();
   const cloud = useCloudBackup();
 
@@ -110,6 +112,32 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
     } finally {
       setRestoringFile(false);
     }
+  };
+
+  const handleEnableAutoBackup = async () => {
+    if (cloud.autoEnabled) return;
+    setBackingUpCloud(true);
+    try {
+      const result = await enableAutoBackup({
+        buildZip: () => buildBackupZip(appData),
+        backupToDrive: cloud.backupToDrive,
+        persist: cloud.setAutoEnabled,
+      });
+      if (result === 'cancelled') return;
+    } catch (e: any) {
+      notify(isZh ? '云备份失败' : 'Cloud backup failed', e?.message);
+    } finally {
+      setBackingUpCloud(false);
+    }
+  };
+
+  const handleAutoBackupChange = (enabled: boolean) => {
+    if (enabled === cloud.autoEnabled) return;
+    if (!enabled) {
+      void cloud.setAutoEnabled(false);
+      return;
+    }
+    void handleEnableAutoBackup();
   };
 
   const handleCloudBackupNow = async () => {
@@ -203,7 +231,7 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
           </Pressable>
         </Card>
 
-        {Platform.OS === 'android' && (
+        {isGoogleDrivePlatform(Platform.OS) && (
           <>
             <Eyebrow style={{ marginTop: 24, marginBottom: 10 }}>{isZh ? '云备份' : 'Cloud backup'}</Eyebrow>
             <Card style={{ padding: 16, gap: 12 }}>
@@ -226,6 +254,36 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
               </View>
 
               {cloud.error && <Text style={[styles.errorText, { color: '#b3261e' }]}>{cloud.error}</Text>}
+
+              <View style={styles.autoBlock}>
+                <Text style={[styles.title, { color: colorTheme.ink }]}>{t('autoBackup')}</Text>
+                <Text style={[styles.sub, { color: colorTheme.ink2 }]}>{t('autoBackupDesc')}</Text>
+                <View style={[styles.modeToggle, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line2 }]}>
+                  {[false, true].map((value) => {
+                    const selected = cloud.autoEnabled === value;
+                    const busy = backingUpCloud || cloud.status === 'backing-up' || cloud.status === 'connecting';
+                    return (
+                      <Pressable
+                        key={String(value)}
+                        onPress={() => handleAutoBackupChange(value)}
+                        disabled={!cloud.isConfigured || busy}
+                        style={[
+                          styles.modeBtn,
+                          selected && { backgroundColor: theme.accentInk },
+                          (!cloud.isConfigured || busy) && { opacity: 0.5 },
+                        ]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected, disabled: !cloud.isConfigured || busy }}
+                        accessibilityLabel={value ? t('on') : t('off')}
+                      >
+                        <Text style={[styles.modeText, { color: colorTheme.ink2 }, selected && { color: '#fff' }]}>
+                          {value ? t('on') : t('off')}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
 
               <Pressable
                 onPress={handleCloudBackupNow}
@@ -318,4 +376,8 @@ const styles = StyleSheet.create({
   secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: 999, borderWidth: 1 },
   secondaryBtnText: { fontFamily: uiFont(600), fontSize: 13.5 },
   disconnectText: { fontFamily: uiFont(600), fontSize: 12.5, textDecorationLine: 'underline', paddingVertical: 6 },
+  autoBlock: { gap: 8 },
+  modeToggle: { flexDirection: 'row', borderRadius: 999, padding: 3, borderWidth: 1 },
+  modeBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
+  modeText: { fontFamily: uiFont(700), fontSize: 13 },
 });

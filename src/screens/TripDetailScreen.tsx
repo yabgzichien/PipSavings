@@ -407,7 +407,7 @@ export function TripDetailScreen({
             accessibilityRole="button"
           >
             <Icon name="plus" size={16} color="#fff" />
-            <Text style={styles.actionBtnLabel}>{isZh ? '添加支出' : 'Add expense'}</Text>
+            <Text style={styles.actionBtnLabel} numberOfLines={2}>{isZh ? '添加支出' : 'Add expense'}</Text>
           </Pressable>
           <Pressable
             onPress={() => setPickerOpen(true)}
@@ -415,7 +415,7 @@ export function TripDetailScreen({
             accessibilityRole="button"
           >
             <Icon name="folder" size={16} color={colorTheme.ink} />
-            <Text style={[styles.actionBtnLabel, { color: colorTheme.ink }]}>{t('addExistingExpenses')}</Text>
+            <Text style={[styles.actionBtnLabel, { color: colorTheme.ink }]} numberOfLines={2}>{t('addExistingExpenses')}</Text>
           </Pressable>
         </View>
 
@@ -524,9 +524,9 @@ const styles = StyleSheet.create({
   tripDates: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
 
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, borderRadius: radius.sm },
+  actionBtn: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm },
   actionBtnSecondary: { borderWidth: 1 },
-  actionBtnLabel: { fontFamily: uiFont(700), fontSize: 13.5, color: '#fff' },
+  actionBtnLabel: { flexShrink: 1, textAlign: 'center', fontFamily: uiFont(700), fontSize: 13.5, color: '#fff' },
 
   listCard: { overflow: 'hidden' },
   divider: { borderTopWidth: 1 },

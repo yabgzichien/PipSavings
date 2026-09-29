@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { submitSnapshotScan } from '../billing/scanProxy';
 import { useEntitlement } from '../billing/entitlement';
-import { notify } from '../lib/platformAlert';
+import { useLanguage } from '../i18n';
+import { notify, notifyWarning } from '../lib/platformAlert';
 import { useAccent } from '../state/accent';
 import { colors, uiFont } from '../theme';
 import { Icon } from './Icon';
@@ -12,6 +13,7 @@ import { Icon } from './Icon';
 /** Snap or pick a screenshot of a balance; the vision model reads the amount and reports it back. */
 export function ScanBalanceButton({ onResult }: { onResult: (amount: number) => void }) {
   const theme = useAccent();
+  const { t } = useLanguage();
   const { isPro } = useEntitlement();
   const [busy, setBusy] = useState(false);
 
@@ -30,9 +32,16 @@ export function ScanBalanceButton({ onResult }: { onResult: (amount: number) => 
         notify('Scan limit reached', 'You have reached your free scan limit.');
         return;
       }
+      if (snapRes.webByokRequired) {
+        notifyWarning(t('webByokTitle'), t('webByokBody'));
+        return;
+      }
       if (!snapRes.ok || !snapRes.snapshot) {
         notify('Hmm', "I couldn't read a clear amount. Try a clearer screenshot or type it in.");
         return;
+      }
+      if (snapRes.byokRateLimited && snapRes.serverFallbackAttempted) {
+        notify(t('scanByokLimitTitle'), t('scanByokLimitBody'));
       }
       if (snapRes.snapshot.kind === 'balance' && snapRes.snapshot.amount != null) {
         onResult(snapRes.snapshot.amount);

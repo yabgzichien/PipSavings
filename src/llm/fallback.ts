@@ -16,6 +16,7 @@ import type {
 } from './types';
 import { loadSettings, type LLMSettings } from '../settings/settingsStore';
 import { defaultAskPipKeyStore, type AskPipProviderId } from '../lib/askPip/keyStore';
+import { Platform } from 'react-native';
 
 /** The methods a screen can request. */
 export type Capability =
@@ -125,12 +126,21 @@ export class FallbackProvider {
   }
 }
 
-/** Build the fallback provider from the user's active key when present, else env keys. */
+/** Build from the active user key, or native-only app keys when no user key is selected. */
 export function llmSettingsForActiveKey(
   active: { providerId: AskPipProviderId; apiKey: string } | null,
   env: LLMSettings,
+  platform: typeof Platform.OS = Platform.OS,
 ): LLMSettings {
-  if (!active?.apiKey) return env;
+  if (!active?.apiKey) {
+    if (platform !== 'web') return env;
+    return {
+      ...env,
+      geminiKey: '',
+      groqKey: '',
+      openrouterKey: '',
+    };
+  }
   return {
     geminiKey: active.providerId === 'gemini' ? active.apiKey : '',
     geminiModel: env.geminiModel,

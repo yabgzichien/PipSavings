@@ -26,6 +26,20 @@ export function formatOriginalAnnualPrice(monthlyPkg: PurchasesPackage | null): 
   return `${currencyPrefix(currency)} ${raw.toFixed(2)}`;
 }
 
+/** Percent saved by paying yearly instead of twelve monthly charges. Null when the store
+ *  prices are missing or the yearly plan is not actually cheaper. */
+export function annualSavingsPercent(
+  annualPrice: number | null | undefined,
+  monthlyPrice: number | null | undefined
+): number | null {
+  if (typeof annualPrice !== 'number' || typeof monthlyPrice !== 'number') return null;
+  if (!(annualPrice > 0) || !(monthlyPrice > 0)) return null;
+  const fullYear = monthlyPrice * 12;
+  if (!(fullYear > annualPrice)) return null;
+  const pct = Math.round((1 - annualPrice / fullYear) * 100);
+  return pct > 0 ? pct : null;
+}
+
 export function annualPerMonthText(annualPkg: PurchasesPackage | null): string | null {
   const formatted = annualPkg?.product?.pricePerMonthString?.trim();
   return formatted || null;

@@ -68,6 +68,7 @@ export function ManualEntryScreen({
   onAmountValidChange,
   onCategoryChosen,
   embedded,
+  entrySession = 0,
 }: {
   categories: Category[];
   onBack: () => void;
@@ -107,6 +108,8 @@ export function ManualEntryScreen({
    *  the actual "Add expense" button rather than exposing its own separate Next. */
   onCategoryChosen?: () => void;
   embedded?: boolean;
+  /** Changes when the trip screen reopens this form. Clears the fields without remounting. */
+  entrySession?: number;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -326,6 +329,27 @@ export function ManualEntryScreen({
   // Seed the default account selection once accounts are known, creating a
   // default "Cash" account if the user has none yet.
   const seededRef = useRef(Boolean(initialAccountId));
+  const sessionSeen = useRef(entrySession);
+  if (sessionSeen.current !== entrySession) {
+    sessionSeen.current = entrySession;
+    setMerchant(initialMerchant ?? '');
+    setAmountText(initialAmount ? initialAmount.toFixed(decimalsFor(initialCurrency ?? BASE_CURRENCY)) : '');
+    setDateText(initialDate ?? todayISO());
+    setDateFocused(false);
+    setType(initialType ?? 'expense');
+    setCat(initialCategoryId ?? null);
+    setCatTouched(false);
+    setRemark('');
+    setSplit(initialSplit ?? null);
+    setSplitting(false);
+    setTripId(initialTripId);
+    setTripPickerOpen(false);
+    setAmountOpen(false);
+    setDateEditing(false);
+    setFromAccountId(initialAccountId ?? defaultAcctId);
+    setToAccountId(null);
+    seededRef.current = Boolean(initialAccountId) || Boolean(defaultAcctId);
+  }
   useEffect(() => {
     if (seededRef.current) return;
     if (defaultAcctId) {

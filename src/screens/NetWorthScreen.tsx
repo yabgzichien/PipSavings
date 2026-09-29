@@ -23,6 +23,7 @@ import { TickerSearchModal } from '../components/TickerSearchModal';
 import { InfoButton } from '../components/InfoButton';
 import { Amount, Body, BtnLabel, Caption, Card, Display, Eyebrow, Label, PrimaryButton, Title, type ValueMode } from '../components/ui';
 import { refreshFxRates } from '../db/currencyRepo';
+import { getMeta, setMeta } from '../db/metaRepo';
 import { listFxRates } from '../db/fxRepo';
 import { shortDate } from '../lib/dates';
 import { BASE_CURRENCY, round2 } from '../lib/currency';
@@ -59,6 +60,7 @@ import { searchInvestments } from '../prices';
 import type { Account, BalanceEntry, PriceQuote } from '../lib/types';
 import { useAppData } from '../state/store';
 import { useAccent, useSignedUp } from '../state/accent';
+import { AmountsHiddenProvider, HIDDEN_AMOUNT, useAmountsHidden } from '../state/amountsHidden';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
@@ -118,6 +120,8 @@ function lastMonths(n: number): string[] {
   return out;
 }
 
+const NET_WORTH_HIDDEN_KEY = 'net_worth_amounts_hidden';
+
 export function NetWorthScreen({
   onOpenHistory,
   onOpenOwed,
@@ -151,6 +155,7 @@ export function NetWorthScreen({
   const profitMode: ValueMode = 'amount';
   const [expandedClasses, setExpandedClasses] = useState<string[]>([]);
   const [showBalanceReview, setShowBalanceReview] = useState(false);
+  const [amountsHidden, setAmountsHidden] = useState(false);
   // Cached FX rates (code → MYR rate) and each rate's own cache timestamp (code → asOf), for
   // converting native account balances into MYR and showing a staleness hint. Loaded once on
   // mount; empty until then, so a MYR-only user's screen renders exactly as before this load
@@ -159,6 +164,27 @@ export function NetWorthScreen({
   const [fxAsOf, setFxAsOf] = useState<Record<string, string>>({});
 
   const hasHoldings = useMemo(() => accounts.some(isHolding), [accounts]);
+
+  useEffect(() => {
+    let alive = true;
+    void getMeta(NET_WORTH_HIDDEN_KEY)
+      .then((value) => {
+        if (alive) setAmountsHidden(value === '1');
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggleAmountsHidden = () => {
+    tap();
+    setAmountsHidden((current) => {
+      const next = !current;
+      void setMeta(NET_WORTH_HIDDEN_KEY, next ? '1' : '0');
+      return next;
+    });
+  };
 
   const doRefresh = async () => {
     setRefreshing(true);
@@ -309,6 +335,7 @@ export function NetWorthScreen({
   }
 
   return (
+    <AmountsHiddenProvider hidden={amountsHidden}>
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       {!embedded && (
         <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
@@ -337,6 +364,7 @@ export function NetWorthScreen({
               isEstimate={isEstimate}
               breakdown={nativeBreakdown}
               dc={dc}
+              onToggleHidden={toggleAmountsHidden}
             />
 
             {freshness.staleAccountIds.length > 0 && (
@@ -491,6 +519,7 @@ export function NetWorthScreen({
         onAddMore={(coin) => { setGroupSymbol(null); setPresetCoin(coin); setAdding(true); }}
       />
     </View>
+    </AmountsHiddenProvider>
   );
 }
 
@@ -501,6 +530,7 @@ function SummaryBlock({
   isEstimate,
   breakdown,
   dc,
+  onToggleHidden,
 }: {
   net: number;
   delta: number | null;
@@ -508,10 +538,12 @@ function SummaryBlock({
   isEstimate: boolean;
   breakdown: string;
   dc: DisplayCurrency;
+  onToggleHidden: () => void;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const { isZh } = useLanguage();
+  const { t, isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
   const wentUp = (delta ?? 0) >= 0;
   const comparison = delta == null
     ? null
@@ -521,21 +553,32 @@ function SummaryBlock({
   return (
     <View style={styles.summary}>
       <Body color={colorTheme.ink2}>{isEstimate ? (isZh ? '预估净资产' : 'Estimated net worth') : (isZh ? '净资产' : 'Net worth')}</Body>
-      <Display
-        numeric
-        style={styles.summaryValue}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.72}
-      >
-        {net < 0 ? '−' : ''}{fmtMoney(dc.convert(Math.abs(net)), dc.code)}
-      </Display>
-      {comparison && (
+      <View style={styles.summaryAmountRow}>
+        <Display
+          numeric
+          style={[styles.summaryValue, styles.summaryAmount]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.72}
+        >
+          {amountsHidden ? HIDDEN_AMOUNT : `${net < 0 ? '−' : ''}${fmtMoney(dc.convert(Math.abs(net)), dc.code)}`}
+        </Display>
+        <Pressable
+          onPress={onToggleHidden}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={amountsHidden ? t('netWorthShowAmounts') : t('netWorthHideAmounts')}
+          style={styles.summaryEye}
+        >
+          <Icon name={amountsHidden ? 'eyeOff' : 'eye'} size={22} color={colorTheme.ink2} />
+        </Pressable>
+      </View>
+      {!amountsHidden && comparison && (
         <View style={styles.summaryDelta}>
           <Label color={wentUp ? theme.accent : colorTheme.red}>{comparison}</Label>
         </View>
       )}
-      {breakdown ? <Caption color={colorTheme.ink2} style={styles.currencyBreakdown}>{breakdown}</Caption> : null}
+      {!amountsHidden && breakdown ? <Caption color={colorTheme.ink2} style={styles.currencyBreakdown}>{breakdown}</Caption> : null}
     </View>
   );
 }
@@ -626,6 +669,7 @@ function TrendSection({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
   const [selectedIndex, setSelectedIndex] = useState(() => Math.max(0, values.length - 1));
 
   useEffect(() => {
@@ -653,9 +697,10 @@ function TrendSection({
               color={selectedValue < 0 ? colorTheme.red : colorTheme.ink2}
               style={styles.trendReadout}
             >
-              {selectedMonth} · {fmtMoney(dc.convert(selectedValue), dc.code)}
+              {selectedMonth} · {amountsHidden ? HIDDEN_AMOUNT : fmtMoney(dc.convert(selectedValue), dc.code)}
             </Caption>
           )}
+          {!amountsHidden && (
           <JournalTrendChart
             values={values}
             lineColor={theme.accent}
@@ -663,6 +708,7 @@ function TrendSection({
             selectedIndex={selected}
             onSelectIndex={setSelectedIndex}
           />
+          )}
           <View style={styles.trendMonths}>
             {months.map((month, index) => (
               <Pressable
@@ -791,6 +837,7 @@ function MoversSection({ movers, prevMonth, dc }: { movers: ClassMover[]; prevMo
   const colorTheme = useThemeColors();
   const theme = useAccent();
   const signedUp = useSignedUp();
+  const amountsHidden = useAmountsHidden();
   const { isZh } = useLanguage();
   return (
     <View style={styles.section}>
@@ -805,7 +852,7 @@ function MoversSection({ movers, prevMonth, dc }: { movers: ClassMover[]; prevMo
             <View key={mover.cls} style={[styles.moverRow, index > 0 && { borderTopColor: colorTheme.line, borderTopWidth: 1 }]}>
               <Body>{formatClassLabel(mover.cls, isZh, mover.label)}</Body>
               <Label numeric color={up ? signedUp : colorTheme.red}>
-                {up ? '+' : '−'}{fmtMoney(dc.convert(Math.abs(mover.delta)), dc.code)}
+                {amountsHidden ? HIDDEN_AMOUNT : `${up ? '+' : '−'}${fmtMoney(dc.convert(Math.abs(mover.delta)), dc.code)}`}
               </Label>
             </View>
           );
@@ -818,17 +865,18 @@ function MoversSection({ movers, prevMonth, dc }: { movers: ClassMover[]; prevMo
 function AccountTotals({ assets, liabilities, dc }: { assets: number; liabilities: number; dc: DisplayCurrency }) {
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
   return (
     <View style={styles.section}>
       <Body weight={700} style={styles.sectionTitle}>{isZh ? '账户' : 'Accounts'}</Body>
       <View style={[styles.totalsRow, { borderBottomColor: colorTheme.line }]}>
         <View style={styles.totalItem}>
           <Caption color={colorTheme.ink2}>{isZh ? '资产' : 'Assets'}</Caption>
-          <Amount value={assets} currency={dc.code} size={16} />
+          {amountsHidden ? <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{HIDDEN_AMOUNT}</Text> : <Amount value={assets} currency={dc.code} size={16} />}
         </View>
         <View style={[styles.totalItem, styles.totalItemEnd, { borderLeftColor: colorTheme.line }]}>
           <Caption color={colorTheme.ink2}>{isZh ? '负债' : 'Liabilities'}</Caption>
-          <Amount value={liabilities} currency={dc.code} size={16} color={liabilities > 0 ? colorTheme.red : colorTheme.ink} />
+          {amountsHidden ? <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{HIDDEN_AMOUNT}</Text> : <Amount value={liabilities} currency={dc.code} size={16} color={liabilities > 0 ? colorTheme.red : colorTheme.ink} />}
         </View>
       </View>
     </View>
@@ -859,6 +907,7 @@ function AccountClassSummary({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
   const icon = (CLASS_BY_ID[group.cls]?.icon ?? 'wallet') as IconName;
   const isReceivable = group.cls === RECEIVABLE_CLS;
   const count = isReceivable && debtsCount !== undefined ? debtsCount : group.accounts.length;
@@ -886,12 +935,16 @@ function AccountClassSummary({
                 : (isZh ? `${count} 个账户` : `${count} account${count === 1 ? '' : 's'}`)}
           </Caption>
         </View>
+        {amountsHidden ? (
+          <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{HIDDEN_AMOUNT}</Text>
+        ) : (
         <Amount
           value={group.kind === 'liability' ? -group.total : group.total}
           currency={dc.code}
           size={14}
           color={group.kind === 'liability' && group.total > 0 ? colorTheme.red : colorTheme.ink}
         />
+        )}
         <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={16} color={colorTheme.ink3} />
       </Pressable>
       {onMove ? (
@@ -992,6 +1045,7 @@ function ReceivableClassCard({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
 
   return (
     <View style={[styles.classCard, { backgroundColor: colorTheme.surface2, paddingHorizontal: 12, paddingVertical: 12 }]}>
@@ -1030,7 +1084,7 @@ function ReceivableClassCard({
                     </Text>
                   </View>
                   <Text style={[styles.debtAmountText, { color: theme.accent }]}>
-                    {fmtMoney(dc.convert(debt.outstanding), dc.code)}
+                    {amountsHidden ? HIDDEN_AMOUNT : fmtMoney(dc.convert(debt.outstanding), dc.code)}
                   </Text>
                 </View>
 
@@ -1230,6 +1284,7 @@ function ManualRowD({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
+  const amountsHidden = useAmountsHidden();
   const inst = matchInstitution(name);
   const brand = inst ? (matchBrand(inst.id) || matchBrand(inst.name)) : matchBrand(name);
   const isCustomImage = customIcon && (
@@ -1287,8 +1342,8 @@ function ManualRowD({
         <Text style={[styles.rowSub, { color: colorTheme.ink2 }]} numberOfLines={1}>{subText}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{fmtMoney(nativeValue, currency)}</Text>
-        {foreign && (
+        <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{amountsHidden ? HIDDEN_AMOUNT : fmtMoney(nativeValue, currency)}</Text>
+        {foreign && !amountsHidden && (
           <Text style={[styles.rowFx, { color: colorTheme.ink3 }]} numberOfLines={1}>
             {unconvertible ? 'rate unavailable' : fxSubtitle(currency, myrValue, fxAsOf, dc)}
           </Text>
@@ -1318,6 +1373,7 @@ function HoldingRowD({
   const theme = useAccent();
   const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
+  const amountsHidden = useAmountsHidden();
   const badge = badgeFor(grp.sub, grp.symbol);
   const cryptoBrand = grp.sub === 'crypto' ? matchCrypto(grp.symbol) || matchCrypto(grp.ticker) || matchCrypto(grp.name) : null;
   const unitPx = price ? toQuantityUnitPrice(grp.symbol, price.priceMYR) : null;
@@ -1339,9 +1395,9 @@ function HoldingRowD({
         <Text style={[styles.rowName, { color: colorTheme.ink }]} numberOfLines={1}>{grp.name}</Text>
         <View style={styles.holdMetaRow}>
           <Text style={[styles.holdMeta, { color: colorTheme.ink2 }]} numberOfLines={1}>
-            {grp.quantity} {unitPx != null ? `× ${currencyPrefix(dc.code)} ${fmtPx(dc.convert(unitPx))}` : grp.ticker}
+            {amountsHidden ? HIDDEN_AMOUNT : `${grp.quantity} ${unitPx != null ? `× ${currencyPrefix(dc.code)} ${fmtPx(dc.convert(unitPx))}` : grp.ticker}`}
           </Text>
-          {ch != null && (
+          {ch != null && !amountsHidden && (
             <Text style={[styles.chChip, { color: chUp ? theme.onTint : colorTheme.red, backgroundColor: chUp ? theme.accentTint : colorTheme.redTint }]}>
               {chUp ? '+' : ''}{ch.toFixed(2)}%
             </Text>
@@ -1349,8 +1405,8 @@ function HoldingRowD({
         </View>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{fmtMoney(dc.convert(grp.value), dc.code)}</Text>
-        {profit && (
+        <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{amountsHidden ? HIDDEN_AMOUNT : fmtMoney(dc.convert(grp.value), dc.code)}</Text>
+        {profit && !amountsHidden && (
           <Text style={[styles.rowProfit, { color: up ? signedUp : colorTheme.red }]}>
             {up ? '+' : '−'}
             {profitMode === 'percent' && profit.pct != null
@@ -1390,6 +1446,7 @@ function LiabilityRowD({
   customIcon?: string | null;
 }) {
   const colorTheme = useThemeColors();
+  const amountsHidden = useAmountsHidden();
   const inst = matchInstitution(name);
   const brand = inst ? (matchBrand(inst.id) || matchBrand(inst.name)) : matchBrand(name);
   const isCustomImage = customIcon && (
@@ -1426,8 +1483,8 @@ function LiabilityRowD({
         </View>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.rowVal, { color: colorTheme.red }]}>-{fmtMoney(nativeValue, currency)}</Text>
-        {foreign && (
+        <Text style={[styles.rowVal, { color: colorTheme.red }]}>{amountsHidden ? HIDDEN_AMOUNT : `-${fmtMoney(nativeValue, currency)}`}</Text>
+        {foreign && !amountsHidden && (
           <Text style={[styles.rowFx, { color: colorTheme.ink3 }]} numberOfLines={1}>
             {unconvertible ? 'rate unavailable' : fxSubtitle(currency, myrValue, fxAsOf, dc)}
           </Text>
@@ -1464,6 +1521,7 @@ function AccountRow({
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
+  const amountsHidden = useAmountsHidden();
   return (
     <Pressable onPress={onPress} style={[styles.acctRow, styles.divider, { borderTopColor: colorTheme.line2 }]}>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -1471,8 +1529,8 @@ function AccountRow({
         {meta ? <Text style={[styles.acctMeta, { color: colorTheme.ink2 }]} numberOfLines={1}>{meta}</Text> : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.acctVal, { color: colorTheme.ink2 }]}>{fmtMoney(dc.convert(value), dc.code)}</Text>
-        {profit && (
+        <Text style={[styles.acctVal, { color: colorTheme.ink2 }]}>{amountsHidden ? HIDDEN_AMOUNT : fmtMoney(dc.convert(value), dc.code)}</Text>
+        {profit && !amountsHidden && (
           <Text style={[styles.profit, { color: profit.profit >= 0 ? theme.accent : RED2 }]}>
             {profit.profit >= 0 ? '+' : '−'}
             {profitMode === 'percent' && profit.pct != null
@@ -1509,6 +1567,7 @@ function HoldingGroupSheet({
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
+  const amountsHidden = useAmountsHidden();
   if (lots.length === 0) return <Modal visible={false} transparent />;
 
   const grp = groupHoldings(lots, accountValues)[0];
@@ -1531,12 +1590,12 @@ function HoldingGroupSheet({
             <Text style={[styles.holdingTicker, { color: theme.accent, backgroundColor: theme.accentTint }]}>{grp.ticker}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[styles.holdingPrice, { color: colorTheme.ink2 }]}>
-                {grp.quantity} {grp.ticker}{price ? ` · ${fmtMoney(dc.convert(price.priceMYR), dc.code)} each` : ''}
+                {amountsHidden ? HIDDEN_AMOUNT : `${grp.quantity} ${grp.ticker}${price ? ` · ${fmtMoney(dc.convert(price.priceMYR), dc.code)} each` : ''}`}
               </Text>
-              <Text style={[styles.holdingValue, { color: colorTheme.ink }]}>= {fmtMoney(dc.convert(grp.value), dc.code)}</Text>
+              <Text style={[styles.holdingValue, { color: colorTheme.ink }]}>{amountsHidden ? HIDDEN_AMOUNT : `= ${fmtMoney(dc.convert(grp.value), dc.code)}`}</Text>
             </View>
           </View>
-          {totalP && (
+          {totalP && !amountsHidden && (
             <Text style={[styles.profitLine, { color: totalP.profit >= 0 ? theme.accent : RED2 }]}>
               {totalP.profit >= 0 ? '▲ +' : '▼ −'}{fmtMoney(dc.convert(Math.abs(totalP.profit)), dc.code)}
               {totalP.pct != null ? ` (${totalP.profit >= 0 ? '+' : '−'}${Math.abs(totalP.pct).toFixed(1)}%)` : ''} on {fmtMoney(dc.convert(grp.cost as number), dc.code)} invested
@@ -2576,6 +2635,9 @@ const styles = StyleSheet.create({
 
   /* net-worth journal */
   summary: { marginHorizontal: spacing.lg, paddingTop: spacing.sm, marginBottom: spacing.lg },
+  summaryAmountRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  summaryAmount: { flex: 1 },
+  summaryEye: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   summaryValue: { marginTop: spacing.xs },
   summaryDelta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   currencyBreakdown: { marginTop: spacing.sm },

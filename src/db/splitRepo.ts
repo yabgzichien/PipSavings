@@ -51,6 +51,7 @@ interface PaymentRow {
   matched_merchant: string | null;
   account_id: string | null;
   bank_label?: string | null;
+  credited_native?: number | null;
   created_at: string;
 }
 
@@ -91,6 +92,7 @@ function toPayment(r: PaymentRow): SplitPayment {
     matchedMerchant: r.matched_merchant,
     accountId: r.account_id,
     bankLabel: r.bank_label ?? null,
+    creditedNative: r.credited_native ?? null,
     createdAt: r.created_at,
   };
 }
@@ -341,7 +343,8 @@ export async function recordPayment(
   evidence: PaymentEvidence,
   matchedMerchant: string | null,
   accountId: string | null,
-  bankLabel: string | null = null
+  bankLabel: string | null = null,
+  creditedNative: number | null = null
 ): Promise<{ paid: number; status: ShareStatus; applied: number } | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<ShareRow>('SELECT * FROM split_shares WHERE id = ? LIMIT 1', shareId);
@@ -360,8 +363,8 @@ export async function recordPayment(
   const now = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO split_payments (id, share_id, amount, paid_on, evidence, matched_merchant, account_id, created_at, bank_label)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO split_payments (id, share_id, amount, paid_on, evidence, matched_merchant, account_id, created_at, bank_label, credited_native)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       genId(),
       shareId,
       applied,
@@ -370,7 +373,8 @@ export async function recordPayment(
       matchedMerchant,
       accountId,
       now,
-      bankLabel
+      bankLabel,
+      creditedNative
     );
     await db.runAsync('UPDATE split_shares SET paid = ?, status = ? WHERE id = ?', next.paid, next.status, shareId);
   });
@@ -383,10 +387,15 @@ export async function recordPayment(
  */
 export async function revertPayment(
   shareId: string
-): Promise<{ revertedAmount: number; accountId: string | null } | null> {
+): Promise<{ revertedAmount: number; accountId: string | null; creditedNative: number | null } | null> {
   const db = await getDb();
-  const payments = await db.getAllAsync<{ id: string; amount: number; account_id: string | null }>(
-    'SELECT id, amount, account_id FROM split_payments WHERE share_id = ? ORDER BY created_at DESC',
+  const payments = await db.getAllAsync<{
+    id: string;
+    amount: number;
+    account_id: string | null;
+    credited_native: number | null;
+  }>(
+    'SELECT id, amount, account_id, credited_native FROM split_payments WHERE share_id = ? ORDER BY created_at DESC',
     shareId
   );
   if (!payments || payments.length === 0) {
@@ -407,7 +416,11 @@ export async function revertPayment(
     const status = sumPaid >= owed && owed > 0 ? 'settled' : 'open';
     await db.runAsync('UPDATE split_shares SET paid = ?, status = ? WHERE id = ?', sumPaid, status, shareId);
   });
-  return { revertedAmount: lastPayment.amount, accountId: lastPayment.account_id };
+  return {
+    revertedAmount: lastPayment.amount,
+    accountId: lastPayment.account_id,
+    creditedNative: lastPayment.credited_native ?? null,
+  };
 }
 
 /**

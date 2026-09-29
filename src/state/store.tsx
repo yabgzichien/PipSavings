@@ -419,8 +419,9 @@ export interface AppData {
     evidence: PaymentEvidence,
     matchedMerchant: string | null,
     accountId: string | null,
-    bankLabel?: string | null
-  ) => Promise<void>;
+    bankLabel?: string | null,
+    creditNative?: number | null
+  ) => Promise<boolean>;
   /** Undo settlement of a share, reopening the debt. */
   unsettleShare: (shareId: string) => Promise<void>;
   /** Give up on a share: the uncollected money becomes the payer's own expense after all. */
@@ -1963,10 +1964,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       evidence: PaymentEvidence,
       matchedMerchant: string | null,
       accountId: string | null,
-      bankLabel: string | null = null
-    ) => {
+      bankLabel: string | null = null,
+      creditNative: number | null = null
+    ): Promise<boolean> => {
       const share = shares.find((s) => s.id === shareId);
       const split = share ? splits.find((sp) => sp.id === share.splitId) : undefined;
+      const explicitCredit = creditNative != null && Number.isFinite(creditNative) && creditNative > 0;
       const myrAmount =
         split && split.currency !== BASE_CURRENCY && split.fxRate != null
           ? receivableMyr(amount, split.fxRate)
@@ -1976,32 +1979,61 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       // nothing recorded, rather than marking the share settled with no matching balance
       // movement. The conversion is repeated afterwards against `result.applied` — this first
       // pass exists only to make the failure land before anything is written.
+      // An explicit wallet credit is already in the account's currency, so it skips that conversion.
       let rates: Record<string, number> | null = null;
-      if (accountId) {
+      if (accountId && !explicitCredit) {
         try {
           rates = ratesFromCache(await listFxRates());
           nativeForAccount(myrAmount, accountId, rates);
         } catch (e) {
           notify("Couldn't record this payment", e instanceof Error ? e.message : 'A currency conversion failed.');
-          return;
+          return false;
         }
       }
-      const result = await dbRecordPayment(shareId, amount, paidOn, evidence, matchedMerchant, accountId, bankLabel);
-      if (!result) return;
+      const result = await dbRecordPayment(
+        shareId,
+        amount,
+        paidOn,
+        evidence,
+        matchedMerchant,
+        accountId,
+        bankLabel,
+        explicitCredit ? creditNative : null,
+      );
+      if (!result || result.applied <= 0) return false;
+      // The chat card settles the outstanding figure it showed. A smaller apply means the debt
+      // changed underneath the card, so the payment is rolled back and the wallet is left alone.
+      if (explicitCredit && result.applied + 0.001 < amount) {
+        await dbRevertPayment(shareId);
+        await refreshSplitState();
+        return false;
+      }
       // Credit what the payment ACTUALLY moved, not what was asked for. `recordPayment` caps
       // at the outstanding balance, so a second "Mark settled" on an already-square share (the
       // button has no in-flight guard, and a tap that doesn't feel like it registered invites
       // another) applies nothing and writes no payment row. Crediting `amount` regardless put
       // the money into the account twice, leaving cash and net worth overstated with nothing
       // in the payment history to account for it.
-      if (accountId && rates && result.applied > 0) {
-        const appliedMyr =
-          split && split.currency !== BASE_CURRENCY && split.fxRate != null
-            ? receivableMyr(result.applied, split.fxRate)
-            : result.applied;
-        await recordBalanceLink(accountId, nativeForAccount(appliedMyr, accountId, rates), 'add', paidOn);
+      if (accountId && result.applied > 0) {
+        try {
+          if (explicitCredit) {
+            await recordBalanceLink(accountId, creditNative as number, 'add', paidOn);
+          } else if (rates) {
+            const appliedMyr =
+              split && split.currency !== BASE_CURRENCY && split.fxRate != null
+                ? receivableMyr(result.applied, split.fxRate)
+                : result.applied;
+            await recordBalanceLink(accountId, nativeForAccount(appliedMyr, accountId, rates), 'add', paidOn);
+          }
+        } catch (e) {
+          await dbRevertPayment(shareId);
+          await refreshSplitState();
+          notify("Couldn't record this payment", e instanceof Error ? e.message : 'A currency conversion failed.');
+          return false;
+        }
       }
       await refreshSplitState();
+      return true;
     },
     [shares, splits, refreshSplitState, recordBalanceLink, nativeForAccount]
   );
@@ -2016,18 +2048,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const split = share ? splits.find((sp) => sp.id === share.splitId) : undefined;
       const result = await dbRevertPayment(shareId);
       if (result && result.accountId && result.revertedAmount > 0) {
-        let rates: Record<string, number> | null = null;
-        try {
-          rates = ratesFromCache(await listFxRates());
-        } catch {
-          // ignore rate error if falling back
+        if (result.creditedNative != null && result.creditedNative > 0) {
+          await recordBalanceLink(result.accountId, result.creditedNative, 'subtract', todayKey());
+        } else {
+          let rates: Record<string, number> | null = null;
+          try {
+            rates = ratesFromCache(await listFxRates());
+          } catch {
+            // ignore rate error if falling back
+          }
+          const revertedMyr =
+            split && split.currency !== BASE_CURRENCY && split.fxRate != null
+              ? receivableMyr(result.revertedAmount, split.fxRate)
+              : result.revertedAmount;
+          const nativeAmt = rates ? nativeForAccount(revertedMyr, result.accountId, rates) : revertedMyr;
+          await recordBalanceLink(result.accountId, nativeAmt, 'subtract', todayKey());
         }
-        const revertedMyr =
-          split && split.currency !== BASE_CURRENCY && split.fxRate != null
-            ? receivableMyr(result.revertedAmount, split.fxRate)
-            : result.revertedAmount;
-        const nativeAmt = rates ? nativeForAccount(revertedMyr, result.accountId, rates) : revertedMyr;
-        await recordBalanceLink(result.accountId, nativeAmt, 'subtract', todayKey());
       }
       await refreshSplitState();
     },

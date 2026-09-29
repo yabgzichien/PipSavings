@@ -1,5 +1,6 @@
 import {
   annualPerMonthText,
+  annualSavingsPercent,
   firstChargeDate,
   formatOriginalAnnualPrice,
   planPackagesFromOffering,
@@ -32,6 +33,18 @@ describe('formatOriginalAnnualPrice', () => {
         product: { price: 9.9, priceString: 'RM9.90', currencyCode: 'MYR' },
       } as never)
     ).toBe('RM118.80');
+  });
+});
+
+describe('annualSavingsPercent', () => {
+  it('rounds the gap between the yearly price and twelve monthly charges', () => {
+    expect(annualSavingsPercent(71.99, 10.99)).toBe(45);
+  });
+
+  it('is null until both store prices exist, or when yearly is not cheaper', () => {
+    expect(annualSavingsPercent(null, 10.99)).toBeNull();
+    expect(annualSavingsPercent(71.99, undefined)).toBeNull();
+    expect(annualSavingsPercent(120, 10)).toBeNull();
   });
 });
 

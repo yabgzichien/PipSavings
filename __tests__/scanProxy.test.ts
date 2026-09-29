@@ -210,6 +210,52 @@ describe('submitScan', () => {
   });
 
 
+  it('re-reads a transcript in pieces when the first extract kept only a few rows', async () => {
+    const lines = Array.from({ length: 16 }, (_, i) => `Shop ${i} RM ${(i + 1).toFixed(2)}`);
+    const itemsFor = (start: number, end: number) =>
+      lines.slice(start, end).map((line, index) => ({
+        merchant: `Shop ${start + index}`,
+        amount: start + index + 1,
+        type: 'expense' as const,
+        date: '2026-09-01',
+        currency: 'MYR',
+      }));
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          items: itemsFor(0, 2),
+          allowance: { tier: 'free', monthUsed: 1, dayUsed: 1 },
+        }),
+      } as never)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          items: itemsFor(0, 12),
+          allowance: { tier: 'free', monthUsed: 2, dayUsed: 2 },
+        }),
+      } as never)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          items: itemsFor(10, 16),
+          allowance: { tier: 'free', monthUsed: 3, dayUsed: 3 },
+        }),
+      } as never);
+
+    const res = await submitScan({ ocrText: lines.join('\n') });
+    expect(res.ok).toBe(true);
+    expect(res.items).toHaveLength(16);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
   it('handles worker quota rejection (e.g. daily limit hit)', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
@@ -236,6 +282,19 @@ describe('submitScan', () => {
     expect(res.quotaBlocked).toBe(true);
     expect(res.allowance.blockedBy).toBe('daily');
     expect(res.allowance.canScan).toBe(false);
+  });
+
+  it('marks the worker web-view rejection as requiring BYOK', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: 'BYOK is required for web scans' }),
+    } as never);
+
+    const res = await submitScan({ imageBase64: 'base64data', mimeType: 'image/jpeg' });
+
+    expect(res.ok).toBe(false);
+    expect(res.webByokRequired).toBe(true);
   });
 
   it('handles worker quota rejection for monthly limit hit', async () => {

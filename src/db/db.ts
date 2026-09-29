@@ -383,6 +383,14 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
     // column already present
   }
 
+  // The wallet credit from a chat repayment, in the destination account's currency.
+  // Null on older payments, which still reverse through the stored debt rate.
+  try {
+    await db.execAsync('ALTER TABLE split_payments ADD COLUMN credited_native REAL');
+  } catch {
+    // column already present
+  }
+
   // Migration (2026-09-14, net worth history chart): provenance on balance readings so the
   // history chart can distinguish a user-verified balance from a linked/price-derived one,
   // plus an archive timestamp so archived accounts stay in historical months then drop out.

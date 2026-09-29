@@ -59,6 +59,43 @@ describe('onboardingWizard', () => {
     });
   });
 
+  describe('Cloud backup step (withCloudBackup = true)', () => {
+    it('sits between notifications and widget when the demo is off', () => {
+      expect(getWizardNavInfo('backup', false, false, true)).toEqual({
+        title: 'Backup',
+        stepNumber: 4,
+        totalSteps: 5,
+        progressPct: 80,
+      });
+      expect(getWizardNavInfo('widget', false, false, true)).toEqual({
+        title: 'Widget',
+        stepNumber: 5,
+        totalSteps: 5,
+        progressPct: 100,
+      });
+      expect(getPreviousWizardStep('backup', false, false, true)).toBe('notifications');
+      expect(getPreviousWizardStep('widget', false, false, true)).toBe('backup');
+    });
+
+    it('keeps the same place after the demo', () => {
+      expect(getWizardNavInfo('backup', false, true, true)?.stepNumber).toBe(5);
+      expect(getWizardNavInfo('widget', false, true, true)).toEqual({
+        title: 'Widget',
+        stepNumber: 6,
+        totalSteps: 6,
+        progressPct: 100,
+      });
+      expect(getPreviousWizardStep('notifications', false, true, true)).toBe('demo');
+      expect(getPreviousWizardStep('backup', false, true, true)).toBe('notifications');
+      expect(getPreviousWizardStep('widget', false, true, true)).toBe('backup');
+    });
+
+    it('does not appear when withCloudBackup is false', () => {
+      expect(getWizardNavInfo('backup', false, false, false)).toBeNull();
+      expect(getPreviousWizardStep('widget', false, false, false)).toBe('notifications');
+    });
+  });
+
   describe('End-to-end flow traversal simulations', () => {
     it('simulates advanced import through appearance, demo, notifications, and widget', () => {
       let currentStep: WizardStep = 'intro';
@@ -273,6 +310,12 @@ describe('onboardingWizard', () => {
       expect(translate('zh', 'wizardRecurringTitle')).toBe('周期账单');
       expect(translate('en', 'wizardNotificationsTitle')).toBe('Notifications');
       expect(translate('zh', 'wizardNotificationsTitle')).toBe('通知提醒');
+      expect(translate('en', 'wizardBackupTitle')).toBe('Backup');
+      expect(translate('zh', 'wizardBackupTitle')).toBe('备份');
+      expect(translate('en', 'wizardBackupIdleTitle')).toBe('Keep a copy');
+      expect(translate('zh', 'wizardBackupIdleTitle')).toBe('留一份副本');
+      expect(translate('en', 'autoBackup')).toBe('Auto-backup');
+      expect(translate('zh', 'autoBackup')).toBe('自动备份');
       expect(translate('en', 'wizardWidgetTitle')).toBe('Widget');
       expect(translate('zh', 'wizardWidgetTitle')).toBe('小组件');
 
@@ -299,6 +342,7 @@ describe('onboardingWizard', () => {
         'appearance',
         'demo',
         'notifications',
+        'backup',
         'widget',
       ];
       expect((validSteps as string[]).includes('paywall')).toBe(false);

@@ -19,6 +19,7 @@ import { Icon } from './Icon';
 import { Pip } from './Pip';
 import { Caption, Card, Eyebrow, Title } from './ui';
 import { InvalidBackupError, formatRelativeBackupTime, peekBackupZip } from '../lib/backupRestore';
+import { isGoogleDrivePlatform } from '../lib/cloudBackup/googleAuth';
 import { useCloudBackup } from '../lib/cloudBackup/useCloudBackup';
 import * as haptics from '../lib/haptics';
 import { restore } from '../billing/purchases';
@@ -215,7 +216,7 @@ export function RestoreBackupModal({
           </Card>
 
           {/* Card 2: Cloud Backup */}
-          {Platform.OS === 'android' && (
+          {isGoogleDrivePlatform(Platform.OS) && (
             <>
               <Eyebrow style={{ marginBottom: 8, marginTop: 18 }}>
                 {isZh ? '云端备份' : 'Cloud backup'}

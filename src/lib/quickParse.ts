@@ -112,6 +112,12 @@ export const CURRENCY_ALIASES: Record<string, string> = {
   pnd: 'GBP',
   英镑: 'GBP',
 
+  // Turkish lira
+  tl: 'TRY',
+  lira: 'TRY',
+  'turkish lira': 'TRY',
+  '₺': 'TRY',
+
   // CHF, AUD, CAD, NZD
   chf: 'CHF',
   法郎: 'CHF',
@@ -149,6 +155,11 @@ export const CURRENCY_ALIASES: Record<string, string> = {
   dong: 'VND',
   越盾: 'VND',
   bnd: 'BND',
+  aed: 'AED',
+  dirham: 'AED',
+  dirhams: 'AED',
+  dhs: 'AED',
+  'uae dirham': 'AED',
   inr: 'INR',
   rupee: 'INR',
   rupees: 'INR',
@@ -181,6 +192,27 @@ export function resolveCurrencyToken(raw: string): string | null {
     return upper;
   }
   return null;
+}
+
+function resolveStandaloneCurrencyToken(raw: string): string | null {
+  // TRY is a valid ISO code but "try" is also a common English verb. Require uppercase
+  // when it stands alone; attached forms such as try450 remain unambiguous currency input.
+  if (raw.trim() === 'try') return null;
+  return resolveCurrencyToken(raw);
+}
+
+function stripMultiwordCurrencyAliases(input: string, current: string | null): { text: string; currency: string | null } {
+  let text = input;
+  let currency = current;
+  for (const [alias, code] of Object.entries(CURRENCY_ALIASES)) {
+    if (!alias.includes(' ') || !/^[a-z ]+$/i.test(alias)) continue;
+    const pattern = new RegExp(`\\b${alias.trim().split(/\s+/).join('\\s+')}\\b`, 'gi');
+    text = text.replace(pattern, () => {
+      if (!currency) currency = code;
+      return ' ';
+    });
+  }
+  return { text, currency };
 }
 
 /** Stops a pasted paragraph from spawning a hundred drafts. Not a meaningful number. */
@@ -274,8 +306,10 @@ function parseSegment(segment: string, opts: QuickParseOptions): SegmentParse {
   // or standalone currency code/alias (e.g. "usd 20 dinner", "dinner 3 in sgd").
   let currency: string | null = null;
 
+  ({ text: rest, currency } = stripMultiwordCurrencyAliases(rest, currency));
+
   // 1. Suffix attached to number: "3sdg", "15cny", "50rmb", "50元", "50新币", "20€", "100¥"
-  rest = rest.replace(/(\b\d+(?:[.,]\d+)*)\s*([A-Za-z$€£¥￥₩฿₹₫₱]{1,7}|[\u4e00-\u9fff]{1,4})(?:\b|\s|$)/gi, (whole, num, token) => {
+  rest = rest.replace(/(\b\d+(?:[.,]\d+)*)\s*([A-Za-z$€£¥￥₩฿₹₫₱₺]{1,7}|[\u4e00-\u9fff]{1,4})(?:\b|\s|$)/gi, (whole, num, token) => {
     const resolved = resolveCurrencyToken(token);
     if (resolved && !currency) {
       currency = resolved;
@@ -285,7 +319,7 @@ function parseSegment(segment: string, opts: QuickParseOptions): SegmentParse {
   });
 
   // 2. Prefix attached to number: "€50", "$15", "¥100", "cny50", "sdg3", "新币50"
-  rest = rest.replace(/(?:^|\s|\b)([A-Za-z$€£¥￥₩฿₹₫₱]{1,7}|[\u4e00-\u9fff]{1,4})\s*(\d+(?:[.,]\d+)*\b)/gi, (whole, token, num) => {
+  rest = rest.replace(/(?:^|\s|\b)([A-Za-z$€£¥￥₩฿₹₫₱₺]{1,7}|[\u4e00-\u9fff]{1,4})\s*(\d+(?:[.,]\d+)*\b)/gi, (whole, token, num) => {
     const resolved = resolveCurrencyToken(token);
     if (resolved && !currency) {
       currency = resolved;
@@ -295,8 +329,8 @@ function parseSegment(segment: string, opts: QuickParseOptions): SegmentParse {
   });
 
   // 3. Standalone currency code or alias: "usd 20 dinner", "dinner 3 in sgd", "50 cny dinner"
-  rest = rest.replace(/\b([A-Za-z$€£¥￥₩฿₹₫₱]{1,7})\b/gi, (whole, token) => {
-    const resolved = resolveCurrencyToken(token);
+  rest = rest.replace(/\b([A-Za-z$€£¥￥₩฿₹₫₱₺]{1,7})\b/gi, (whole, token) => {
+    const resolved = resolveStandaloneCurrencyToken(token);
     if (resolved) {
       if (!currency) currency = resolved;
       return ' ';
@@ -344,7 +378,7 @@ function parseSegment(segment: string, opts: QuickParseOptions): SegmentParse {
 
   // --- label: whatever survives, minus currency symbols and punctuation noise.
   const label = rest
-    .replace(/[$€£¥₩฿₹₽₸]/g, ' ')
+    .replace(/[$€£¥₩฿₹₽₸₺]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -385,8 +419,9 @@ export function parseQuickSegmentWithoutAmount(segment: string, opts: QuickParse
 
   // --- currency: any supported currency code, alias, or symbol
   let currency: string | null = null;
-  rest = rest.replace(/\b([A-Za-z$€£¥￥₩฿₹₫₱]{1,7})\b/gi, (whole, token) => {
-    const resolved = resolveCurrencyToken(token);
+  ({ text: rest, currency } = stripMultiwordCurrencyAliases(rest, currency));
+  rest = rest.replace(/\b([A-Za-z$€£¥￥₩฿₹₫₱₺]{1,7})\b/gi, (whole, token) => {
+    const resolved = resolveStandaloneCurrencyToken(token);
     if (resolved && !currency) {
       currency = resolved;
       return ' ';
@@ -429,7 +464,7 @@ export function parseQuickSegmentWithoutAmount(segment: string, opts: QuickParse
 
   // --- label: whatever survives, minus currency symbols and punctuation noise.
   let label = rest
-    .replace(/[$€£¥￥₩฿₹₫₱₸]/g, ' ')
+    .replace(/[$€£¥￥₩฿₹₫₱₸₺]/g, ' ')
     .replace(/[,\-_:;!?#@%&*+=/\\|<>(){}[\]~`"']/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -465,7 +500,7 @@ export function isNumberOnlyInput(text: string, activeCurrencies: string[] = [])
   if (!/\d/.test(trimmed)) return false;
 
   // Strip currency symbols: $, €, £, ¥, ₩, ฿, ₹, ₽, ₸, etc.
-  let stripped = trimmed.replace(/[$€£¥￥₩฿₹₫₱₸]/g, ' ');
+  let stripped = trimmed.replace(/[$€£¥￥₩฿₹₫₱₸₺]/g, ' ');
 
   // Strip Chinese currency terms
   stripped = stripped.replace(/(新币|坡币|马币|令吉|人民币|块钱|美金|美元|日元|日币|韩元|韩币|泰铢|台币|新台币|港币|港元|欧元|英镑|澳币|澳元|加币|加元|纽币|新西兰元|法郎|瑞士法郎|元|块)/g, ' ');
@@ -491,5 +526,3 @@ export function isNumberOnlyInput(text: string, activeCurrencies: string[] = [])
 
   return stripped.length === 0;
 }
-
-

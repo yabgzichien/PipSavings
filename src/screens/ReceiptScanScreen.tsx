@@ -22,9 +22,10 @@ import { scanDocument } from '../lib/documentScanner';
 import { currencyPrefix, fmtMoney } from '../lib/format';
 import { llmErrorMessage } from '../llm';
 import { derivedSurcharges, type ScannedReceipt } from '../lib/parseReceipt';
-import { notify } from '../lib/platformAlert';
+import { notify, notifyWarning } from '../lib/platformAlert';
 import { saveReceiptImage } from '../lib/receiptStorage';
 import type { OcrOutcome } from '../lib/receiptOcr';
+import type { TallRead } from '../lib/prepareScanImage';
 import { scanReceiptImage } from '../lib/scanReceipt';
 import { getScanStage } from '../lib/scanningNarration';
 import { ScanProgressBar } from '../components/ScanProgressBar';
@@ -88,6 +89,7 @@ const PREVIEW_H = 280;
 export function ReceiptScanScreen({
   initialImage,
   prefetchedOcr,
+  prefetchedTallOcr,
   cachedReceipt,
   initialDraft,
   onScanned,
@@ -102,6 +104,7 @@ export function ReceiptScanScreen({
   initialImage?: PickedImage;
   /** OCR started on ScanKind for `initialImage` — skip a second ML Kit pass on first read. */
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+  prefetchedTallOcr?: Promise<TallRead | null>;
   /** A previous read of this same image, handed back in when the user backed out to the kind
    *  question and returned. Lets the screen skip straight to 'assign' instead of paying for
    *  another LLM round-trip (and the "reading" loading beat) to re-read a receipt already read. */
@@ -236,7 +239,7 @@ export function ReceiptScanScreen({
     setChargedText((scanned.total ?? fallbackTotal).toFixed(2));
   };
 
-  const read = async (image: PickedImage, ocr?: OcrOutcome | Promise<OcrOutcome>) => {
+  const read = async (image: PickedImage, ocr?: OcrOutcome | Promise<OcrOutcome>, tallOcr?: Promise<TallRead | null>) => {
     if (!canScan) {
       openPaywall('scan_quota', 'add');
       return;
@@ -245,7 +248,11 @@ export function ReceiptScanScreen({
     setPhase('reading');
     setError('');
     try {
-      const scanned = await scanReceiptImage(image, isPro ? 'pro' : 'free', ocr);
+      const outcome = await scanReceiptImage(image, isPro ? 'pro' : 'free', ocr, tallOcr);
+      const scanned = outcome.receipt;
+      if (outcome.usedPipAllowance) {
+        notify(t('scanByokLimitTitle'), t('scanByokLimitBody'));
+      }
       applyScan(scanned);
       onScanned?.(scanned);
       void refreshAllowance();
@@ -263,7 +270,12 @@ export function ReceiptScanScreen({
       // "try again" or the photo-less manual-split escape hatch. Reporting it as a scan (even an
       // empty one) marks it as read, the same as a success, so backing out and back in resumes
       // what was typed instead of re-running the same failing read and losing it.
-      setError(llmErrorMessage(e));
+      if (e?.webByokRequired) {
+        notifyWarning(t('webByokTitle'), t('webByokBody'));
+        setError(t('webByokBody'));
+      } else {
+        setError(llmErrorMessage(e));
+      }
       applyScan(EMPTY_SCAN);
       onScanned?.(EMPTY_SCAN);
       setPhase('assign');
@@ -281,7 +293,7 @@ export function ReceiptScanScreen({
       else applyScan(cachedReceipt);
       return;
     }
-    if (initialImage) read(initialImage, prefetchedOcr);
+    if (initialImage) read(initialImage, prefetchedOcr, prefetchedTallOcr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -25,6 +25,7 @@ export function AppAlertModal() {
   if (!request) return <Modal visible={false} transparent />;
 
   const destructive = request.kind === 'confirm';
+  const warning = request.kind === 'notify' && request.tone === 'warning';
 
   const handleConfirm = async () => {
     if (request.kind !== 'confirm' || confirmingRef.current) return;
@@ -64,9 +65,15 @@ export function AppAlertModal() {
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
       <Pressable style={styles.backdrop} onPress={busy ? undefined : dismiss} />
       <View style={styles.center} pointerEvents="box-none">
-        <View style={[styles.card, { backgroundColor: colorTheme.surface }]}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.accentSoft }, destructive && [styles.iconCircleDanger, { backgroundColor: colorTheme.red + '1a' }]]}>
-            <Icon name={destructive ? 'alert' : 'check'} size={18} color={destructive ? colorTheme.red : theme.accent} stroke={2.4} />
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: warning ? colorTheme.amberTint : colorTheme.surface },
+            warning && { borderWidth: 1, borderColor: colorTheme.amberSoft },
+          ]}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: warning ? colorTheme.amberSoft : theme.accentSoft }, destructive && [styles.iconCircleDanger, { backgroundColor: colorTheme.red + '1a' }]]}>
+            <Icon name={destructive || warning ? 'alert' : 'check'} size={18} color={destructive ? colorTheme.red : warning ? colorTheme.amber : theme.accent} stroke={2.4} />
           </View>
           <Text style={[styles.title, { color: colorTheme.ink }]}>{request.title}</Text>
           {request.message ? <Text style={[styles.message, { color: colorTheme.ink2 }]}>{request.message}</Text> : null}
@@ -121,8 +128,8 @@ export function AppAlertModal() {
               </View>
             </View>
           ) : (
-            <Pressable onPress={dismiss} style={({ pressed }) => [styles.btn, styles.btnOk, { backgroundColor: theme.accentInk }, pressed && { opacity: 0.9 }]} accessibilityRole="button">
-              <Text style={[styles.btnOkText, { color: theme.onAccent }]}>OK</Text>
+            <Pressable onPress={dismiss} style={({ pressed }) => [styles.btn, styles.btnOk, { backgroundColor: warning ? colorTheme.amber : theme.accentInk }, pressed && { opacity: 0.9 }]} accessibilityRole="button">
+              <Text style={[styles.btnOkText, { color: warning ? colorTheme.surface : theme.onAccent }]}>OK</Text>
             </Pressable>
           )}
         </View>

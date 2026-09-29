@@ -1,4 +1,4 @@
-import { groupLinesSpatially } from '../src/lib/receiptOcr';
+import { groupLinesSpatially, preferOcrText } from '../src/lib/receiptOcr';
 
 describe('groupLinesSpatially', () => {
   it('reassembles a printed item/qty/price row from three separate line boxes', () => {
@@ -34,6 +34,12 @@ describe('groupLinesSpatially', () => {
       { lines: [{ text: 'no frame' }] },
     ];
     expect(groupLinesSpatially(blocks)).toBe('has frame');
+  });
+
+  it('keeps the raw transcript when spatial grouping dropped lines', () => {
+    expect(preferOcrText('only top', 'only top\nMBO FRUITSHOP\nSUNSHINE BAKERY')).toBe(
+      'only top\nMBO FRUITSHOP\nSUNSHINE BAKERY'
+    );
   });
 
   it('returns an empty string for no recognized lines', () => {

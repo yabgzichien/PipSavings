@@ -137,6 +137,39 @@ describe('parseQuickText — currency', () => {
   it('reads rm as the base currency', () => {
     expect(parseQuickText('rm 9.20 lunch', opts).drafts[0].currency).toBe('MYR');
   });
+
+  it('reads Turkish lira codes, names, and symbols', () => {
+    expect(parseQuickText('TRY 450 taxi', opts).drafts[0]).toMatchObject({
+      currency: 'TRY', amount: 450, label: 'taxi',
+    });
+    expect(parseQuickText('450 lira taxi', opts).drafts[0]).toMatchObject({
+      currency: 'TRY', amount: 450, label: 'taxi',
+    });
+    expect(parseQuickText('Turkish lira 450 taxi', opts).drafts[0]).toMatchObject({
+      currency: 'TRY', amount: 450, label: 'taxi',
+    });
+    expect(parseQuickText('₺450 taxi', opts).drafts[0]).toMatchObject({
+      currency: 'TRY', amount: 450, label: 'taxi',
+    });
+  });
+
+  it('does not mistake the lowercase English word try for Turkish lira', () => {
+    expect(parseQuickText('try new cafe 30', opts).drafts[0]).toMatchObject({
+      currency: null, amount: 30, label: 'try new cafe',
+    });
+  });
+
+  it('reads UAE dirham codes and common names', () => {
+    expect(parseQuickText('AED 30 dinner', opts).drafts[0]).toMatchObject({
+      currency: 'AED', amount: 30, label: 'dinner',
+    });
+    expect(parseQuickText('30 dirham dinner', opts).drafts[0]).toMatchObject({
+      currency: 'AED', amount: 30, label: 'dinner',
+    });
+    expect(parseQuickText('UAE dirham 30 dinner', opts).drafts[0]).toMatchObject({
+      currency: 'AED', amount: 30, label: 'dinner',
+    });
+  });
 });
 
 describe('parseQuickText — dates', () => {
@@ -254,4 +287,3 @@ describe('isNumberOnlyInput', () => {
     expect(isNumberOnlyInput('$')).toBe(false);
   });
 });
-

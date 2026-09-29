@@ -24,6 +24,29 @@ export function AskPipChatBubble({
   const accent = useAccent();
   const colors = useThemeColors();
   const mine = role === 'user';
+  const hosted = !mine && children != null;
+
+  if (hosted) {
+    return (
+      <FadeIn duration={duration.enter} offset={8} style={styles.rowHosted}>
+        <View
+          style={[
+            styles.hostedBubble,
+            { backgroundColor: colors.surface, borderColor: colors.line },
+          ]}
+        >
+          {text ? (
+            <Body color={colors.ink} style={styles.hostedCopy}>
+              {text}
+            </Body>
+          ) : null}
+          <View style={[styles.card, styles.cardHosted, { backgroundColor: colors.bg }]}>
+            {children}
+          </View>
+        </View>
+      </FadeIn>
+    );
+  }
 
   return (
     <FadeIn duration={duration.enter} offset={8} style={mine ? styles.rowMine : styles.rowPip}>
@@ -125,6 +148,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingRight: spacing.lg,
   },
+  rowHosted: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  hostedBubble: {
+    width: '100%',
+    alignSelf: 'stretch',
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  hostedCopy: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   bubble: {
     maxWidth: '100%',
     flexShrink: 1,
@@ -139,6 +177,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  cardHosted: {
+    width: '100%',
+    borderWidth: 0,
+    borderRadius: 0,
   },
   typingBubble: {
     borderWidth: StyleSheet.hairlineWidth,

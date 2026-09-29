@@ -14,7 +14,9 @@ import {
 import {
   ASK_PIP_SYSTEM_PROMPT,
   buildAskPipUserPrompt,
+  type AskPipPromptAttachment,
 } from '../../llm/askPipPrompt';
+import type { DocPart } from '../../llm/types';
 import { computeAskPipAnalysis } from './analytics';
 import type { AskPipAnalysisRequest, AskPipFilters } from './catalog';
 
@@ -22,8 +24,10 @@ export interface AskPipTurnInput {
   utterance: string;
   world: AskPipWorld;
   session: AskPipSession;
-  model: (prompt: { system: string; user: string }) => Promise<unknown>;
+  model: (prompt: { system: string; user: string; parts?: DocPart[] }) => Promise<unknown>;
   today?: string;
+  attachments?: AskPipPromptAttachment[];
+  parts?: DocPart[];
 }
 
 export interface AskPipTurnResult {
@@ -141,7 +145,9 @@ export async function runAskPipTurn(
       categoryLabels: input.world.categories.map((category) => category.label),
       current: currentFrame(input.session),
       today: input.today,
+      attachments: input.attachments,
     }),
+    parts: input.parts,
   });
 
   let action: AskPipAction;

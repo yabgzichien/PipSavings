@@ -11,7 +11,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type AlertRequest =
-  | { kind: 'notify'; title: string; message?: string }
+  | { kind: 'notify'; title: string; message?: string; tone?: 'default' | 'warning' }
   | {
       kind: 'confirm';
       title: string;

@@ -5,6 +5,7 @@ import { gateContextLine, type GateTrigger } from '../billing/gates';
 import { paywallBenefitsForTrigger } from '../billing/proFeatures';
 import {
   annualPerMonthText,
+  annualSavingsPercent,
   firstChargeDate,
   formatOriginalAnnualPrice,
   planPackagesFromOffering,
@@ -155,6 +156,7 @@ export function PaywallScreen({
   const annualPriceText = annualPrice ? t.proAnnual.replace('{price}', annualPrice) : missingPrice;
   const monthlyPriceText = monthlyPrice ? t.proMonthly.replace('{price}', monthlyPrice) : missingPrice;
   const originalAnnualPrice = formatOriginalAnnualPrice(monthlyPkg) ?? undefined;
+  const savePct = annualSavingsPercent(annualPkg?.product.price, monthlyPkg?.product.price);
   const perMonth = annualPerMonthText(annualPkg);
   const trialDays = trialDaysFromPackage(annualPkg);
   const benefits = paywallBenefitsForTrigger(trigger);
@@ -250,7 +252,7 @@ export function PaywallScreen({
           price={annualPriceText}
           originalPrice={originalAnnualPrice}
           note={perMonth ? t.proAnnualPerMonth.replace('{price}', perMonth) : undefined}
-          badge={t.proAnnualSave}
+          badge={savePct != null ? t.proAnnualSave.replace('{percent}', String(savePct)) : undefined}
           badgeColor={isDark ? iconHighlight : accent.accentInk}
         />
         <PlanCard

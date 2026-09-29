@@ -17,7 +17,8 @@ export type IconName =
   | 'copy' | 'upload' | 'code' | 'pin' | 'chart' | 'filter' | 'share' | 'folder'
   | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar'
   | 'gym' | 'plane' | 'pet' | 'gamepad' | 'users' | 'pill'
-  | 'robot' | 'human' | 'key';
+  | 'robot' | 'human' | 'key'
+  | 'eye' | 'eyeOff';
 
 type RenderFn = (stroke: string, sw: number) => React.ReactNode;
 
@@ -475,6 +476,20 @@ const ICONS: Record<IconName, RenderFn> = {
     <G fill="none" stroke={s} strokeWidth={w}>
       <Circle cx={8} cy={12} r={4.2} />
       <Path d="M12.2 12H22M18 12v3M15 12v2" />
+    </G>
+  ),
+  eye: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z" />
+      <Circle cx={12} cy={12} r={2.4} />
+    </G>
+  ),
+  eyeOff: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M3 4.5l18 15" />
+      <Path d="M9.2 6.8A9.6 9.6 0 0112 6.5c6 0 9.5 5.5 9.5 5.5a16 16 0 01-3.2 3.6" />
+      <Path d="M6.1 7.6C3.8 9.3 2.5 12 2.5 12S6 17.5 12 17.5c1.2 0 2.3-.2 3.3-.6" />
+      <Path d="M10 10.2a2.4 2.4 0 003.2 3.2" />
     </G>
   ),
 };

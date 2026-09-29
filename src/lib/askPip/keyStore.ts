@@ -49,8 +49,9 @@ function parseState(raw: string | null): AskPipKeyState | null {
         typeof row.apiKey === 'string' &&
         parseProvider(row.providerId) !== null,
     );
-    const activeId =
-      typeof parsed.activeId === 'string' && keys.some((row) => row.id === parsed.activeId)
+    const activeId = parsed.activeId === null
+      ? null
+      : typeof parsed.activeId === 'string' && keys.some((row) => row.id === parsed.activeId)
         ? parsed.activeId
         : keys[0]?.id ?? null;
     return { keys, activeId };
@@ -60,7 +61,7 @@ function parseState(raw: string | null): AskPipKeyState | null {
 }
 
 function activeOf(state: AskPipKeyState): AskPipSavedKey | null {
-  return state.keys.find((row) => row.id === state.activeId) ?? state.keys[0] ?? null;
+  return state.keys.find((row) => row.id === state.activeId) ?? null;
 }
 
 export function maskAskPipKey(apiKey: string): string {
@@ -120,8 +121,12 @@ export function createAskPipKeyStore(io: AskPipKeyIo) {
       await persist({ keys: [...state.keys, row], activeId: row.id });
       return row;
     },
-    async setActive(id: string): Promise<void> {
+    async setActive(id: string | null): Promise<void> {
       const state = await load();
+      if (id === null) {
+        await persist({ ...state, activeId: null });
+        return;
+      }
       if (!state.keys.some((row) => row.id === id)) return;
       await persist({ ...state, activeId: id });
     },

@@ -18,6 +18,11 @@ export function notify(title: string, message?: string): void {
   dispatchAlert({ kind: 'notify', title, message });
 }
 
+/** A single-button warning rendered with the semantic amber/yellow palette. */
+export function notifyWarning(title: string, message?: string): void {
+  dispatchAlert({ kind: 'notify', tone: 'warning', title, message });
+}
+
 /** A Cancel + destructive-action confirm, optionally with a separate non-destructive action. */
 export function confirmAction(
   title: string,

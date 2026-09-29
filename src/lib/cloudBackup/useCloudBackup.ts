@@ -1,8 +1,9 @@
 // src/lib/cloudBackup/useCloudBackup.ts
 // React hook wrapping native Google Sign-In + Drive REST calls into the state a Settings
-// screen (or the silent auto-backup trigger) needs. Android only — see googleAuth.ts.
+// screen (or the silent auto-backup trigger) needs. Android and web — see googleAuth.ts.
 import { useCallback, useEffect, useState } from 'react';
 import { getMeta, setMeta } from '../../db/metaRepo';
+import { loadAutoBackupEnabled, persistAutoBackupEnabled } from './autoBackupPref';
 import { isGoogleDriveConfigured, refreshAccessToken } from './googleAuth';
 import { backupToDrive as runBackupToDrive, restoreFromDrive as runRestoreFromDrive } from './cloudBackupFlow';
 import { downloadBackup, fetchAccountEmail, uploadBackup } from './googleDriveApi';
@@ -58,9 +59,11 @@ export interface CloudBackupState {
   status: CloudBackupStatus;
   accountEmail: string | null;
   lastBackupAt: string | null;
+  autoEnabled: boolean;
   error: string | null;
   connect: () => Promise<'connected' | 'cancelled'>;
   disconnect: () => Promise<void>;
+  setAutoEnabled: (enabled: boolean) => Promise<void>;
   backupNow: (zipBytes: Uint8Array) => Promise<void>;
   backupToDrive: (zipBytes: Uint8Array) => Promise<'ok' | 'cancelled'>;
   restoreLatest: () => Promise<CloudRestoreResult>;
@@ -70,6 +73,7 @@ export function useCloudBackup(): CloudBackupState {
   const [status, setStatus] = useState<CloudBackupStatus>('disconnected');
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
+  const [autoEnabled, setAutoEnabledState] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,7 +85,9 @@ export function useCloudBackup(): CloudBackupState {
       ]);
       setAccountEmail(email);
       setLastBackupAt(lastAt);
-      if (hasNativeGoogleSession() || refreshToken) setStatus('connected');
+      const connected = hasNativeGoogleSession() || Boolean(refreshToken);
+      if (connected) setStatus('connected');
+      setAutoEnabledState(await loadAutoBackupEnabled(connected));
     })();
   }, []);
 
@@ -119,7 +125,14 @@ export function useCloudBackup(): CloudBackupState {
     }
   }, [rememberEmail]);
 
+  const setAutoEnabled = useCallback(async (enabled: boolean) => {
+    await persistAutoBackupEnabled(enabled);
+    setAutoEnabledState(enabled);
+  }, []);
+
   const disconnect = useCallback(async () => {
+    await persistAutoBackupEnabled(false);
+    setAutoEnabledState(false);
     await signOutGoogle();
     await clearStoredCredential();
     setAccountEmail(null);
@@ -190,9 +203,11 @@ export function useCloudBackup(): CloudBackupState {
     status,
     accountEmail,
     lastBackupAt,
+    autoEnabled,
     error,
     connect,
     disconnect,
+    setAutoEnabled,
     backupNow,
     backupToDrive,
     restoreLatest,

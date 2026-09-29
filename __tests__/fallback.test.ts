@@ -219,13 +219,19 @@ describe('llmSettingsForActiveKey', () => {
     expect(llmSettingsForActiveKey(null, allKeys)).toEqual(allKeys);
   });
 
+  it('removes app-owned keys on web when the user has not supplied one', () => {
+    const next = llmSettingsForActiveKey(null, allKeys, 'web');
+
+    expect(next.geminiKey).toBe('');
+    expect(next.groqKey).toBe('');
+    expect(next.openrouterKey).toBe('');
+  });
+
   it('uses only the active Groq key and blanks the founder keys', () => {
-    const next = llmSettingsForActiveKey({ providerId: 'groq', apiKey: 'gsk_user' }, allKeys);
+    const next = llmSettingsForActiveKey({ providerId: 'groq', apiKey: 'gsk_user' }, allKeys, 'web');
     expect(next.groqKey).toBe('gsk_user');
     expect(next.geminiKey).toBe('');
     expect(next.openrouterKey).toBe('');
     expect(next.groqModel).toBe(allKeys.groqModel);
   });
 });
-
-

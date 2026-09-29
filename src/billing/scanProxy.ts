@@ -1,14 +1,22 @@
 // src/billing/scanProxy.ts
 import * as Crypto from 'expo-crypto';
+import { AppState, Platform } from 'react-native';
 import { getMeta, setMeta } from '../db/metaRepo';
 import { byokAllowance, normalizeAllowance, type ScanAllowance } from './scanQuota';
 import { getLLM } from '../llm/fallback';
 import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
-import type { DocPart } from '../llm/types';
+import { LLMError, type DocPart, type LLMErrorCode } from '../llm/types';
 import type { ExtractedTxn } from '../lib/types';
 import type { ScannedReceipt } from '../lib/parseReceipt';
 import type { ScannedSnapshot } from '../lib/parseSnapshot';
-import { prepareDualPathScan, prepareScanImage, type ScanType } from '../lib/prepareScanImage';
+import { dedupeExtracted, extractionLooksShort, splitOcrChunks, splitOcrLines } from '../lib/longScan';
+import {
+  prepareDualPathScan,
+  prepareScanImage,
+  type PreparedImage,
+  type ScanType,
+  type TallRead,
+} from '../lib/prepareScanImage';
 import { fetchAppUserId } from './purchases';
 import type { OcrOutcome } from '../lib/receiptOcr';
 
@@ -22,6 +30,7 @@ export interface ScanRequest {
   ocrText?: string;
   /** OCR already started on ScanKind — skip a second ML Kit pass. */
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+  prefetchedTallOcr?: Promise<TallRead | null>;
   categories?: Array<{ id: string; label: string; kind?: string }>;
 }
 
@@ -31,6 +40,7 @@ export interface ReceiptScanRequest {
   mimeType?: string;
   ocrText?: string;
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+  prefetchedTallOcr?: Promise<TallRead | null>;
 }
 
 export interface SnapshotScanRequest {
@@ -45,6 +55,9 @@ export interface ScanResult {
   items: ExtractedTxn[];
   allowance: ScanAllowance;
   quotaBlocked?: boolean;
+  byokRateLimited?: boolean;
+  serverFallbackAttempted?: boolean;
+  webByokRequired?: boolean;
   error?: string;
 }
 
@@ -53,6 +66,9 @@ export interface ReceiptScanResult {
   receipt: ScannedReceipt | null;
   allowance: ScanAllowance;
   quotaBlocked?: boolean;
+  byokRateLimited?: boolean;
+  serverFallbackAttempted?: boolean;
+  webByokRequired?: boolean;
   error?: string;
 }
 
@@ -61,6 +77,9 @@ export interface SnapshotScanResult {
   snapshot: ScannedSnapshot | null;
   allowance: ScanAllowance;
   quotaBlocked?: boolean;
+  byokRateLimited?: boolean;
+  serverFallbackAttempted?: boolean;
+  webByokRequired?: boolean;
   error?: string;
 }
 
@@ -221,6 +240,42 @@ export async function fetchWithTimeout(
   options: RequestInit,
   timeoutMs: number = 25000
 ): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    await waitForScanForeground();
+    let backgrounded = false;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') backgrounded = true;
+    });
+    try {
+      return await fetchScanAttempt(url, options, timeoutMs).finally(() => subscription.remove());
+    } catch (err: any) {
+      const interrupted = backgrounded || AppState.currentState === 'background' || AppState.currentState === 'inactive';
+      const networkFailure = err instanceof TypeError || /network request failed|failed to fetch/i.test(err?.message || '');
+      // Android can tear down a request while backgrounded. Reuse its body and
+      // idempotency key once on return; never loop or retry quota/provider errors.
+      if (attempt > 0 || (!networkFailure && !(interrupted && err?.name === 'AbortError'))) {
+        if (err?.name === 'AbortError') throw new Error('Scan request timed out. Please try again.');
+        throw err;
+      }
+      await waitForScanForeground();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+}
+
+function waitForScanForeground(): Promise<void> {
+  if (AppState.currentState !== 'background' && AppState.currentState !== 'inactive') return Promise.resolve();
+  return new Promise((resolve) => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        subscription.remove();
+        resolve();
+      }
+    });
+  });
+}
+
+async function fetchScanAttempt(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -228,11 +283,6 @@ export async function fetchWithTimeout(
       ...options,
       signal: controller.signal,
     });
-  } catch (err: any) {
-    if (err?.name === 'AbortError' || controller.signal.aborted) {
-      throw new Error('Scan request timed out. Please try again.');
-    }
-    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -245,7 +295,68 @@ interface CommonScanResult {
   snapshot?: ScannedSnapshot | null;
   allowance: ScanAllowance;
   quotaBlocked: boolean;
+  byokRateLimited?: boolean;
+  serverFallbackAttempted?: boolean;
+  webByokRequired?: boolean;
+  byokErrorCode?: LLMErrorCode;
   error?: string;
+}
+
+async function extractByokTransactions(
+  llm: Awaited<ReturnType<typeof getLLM>>,
+  bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string },
+  request: { categories?: Array<{ id: string; label: string; kind?: string }> },
+  bandImages: PreparedImage[] | undefined
+): Promise<ExtractedTxn[]> {
+  const collected: ExtractedTxn[] = [];
+  const text = bodyPayload.ocrText?.trim() ?? '';
+  const companion =
+    text && bodyPayload.imageBase64 && !bandImages?.length
+      ? [{ kind: 'binary' as const, base64: bodyPayload.imageBase64, mimeType: bodyPayload.mimeType || 'image/jpeg' }]
+      : [];
+  if (text) {
+    const passes = text.length > 7000 ? splitOcrChunks(text, 7000) : [text];
+    for (const pass of passes) {
+      collected.push(
+        ...(await llm.extractDocument({
+          parts: [{ kind: 'text', text: pass }, ...(passes.length === 1 ? companion : [])],
+        }))
+      );
+    }
+    if (passes.length === 1 && extractionLooksShort(text, collected.length)) {
+      const chunks = splitOcrLines(text, 12, 2);
+      if (chunks.length > 1) {
+        for (const chunk of chunks) {
+          collected.push(
+            ...(await llm.extractDocument({
+              parts: [{ kind: 'text', text: chunk }],
+            }))
+          );
+        }
+      }
+    }
+  }
+
+  const images: { base64: string; mimeType: string }[] = [];
+  if (!text && bodyPayload.imageBase64) {
+    images.push({ base64: bodyPayload.imageBase64, mimeType: bodyPayload.mimeType || 'image/jpeg' });
+  }
+  for (const band of bandImages ?? []) {
+    if (band.base64) images.push({ base64: band.base64, mimeType: band.mime || 'image/jpeg' });
+  }
+  for (const image of images) {
+    const rows = text
+      ? await llm.extractDocument({
+          parts: [{ kind: 'binary', base64: image.base64, mimeType: image.mimeType }],
+        })
+      : await llm.extract({
+          imageBase64: image.base64,
+          mimeType: image.mimeType,
+          categories: request.categories as { id: string; label: string; kind: 'expense' | 'income' }[] | undefined,
+        });
+    collected.push(...rows);
+  }
+  return dedupeExtracted(collected);
 }
 
 async function runLocalByokScan(
@@ -253,6 +364,7 @@ async function runLocalByokScan(
   bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType },
   request: { categories?: Array<{ id: string; label: string; kind?: string }> },
   entitlement: 'free' | 'pro',
+  bandImages?: PreparedImage[]
 ): Promise<CommonScanResult> {
   const llm = await getLLM();
   const allowance = byokAllowance(entitlement);
@@ -268,11 +380,7 @@ async function runLocalByokScan(
 
   try {
     if (scanType === 'transactions') {
-      const items = await llm.extract({
-        imageBase64: bodyPayload.imageBase64 || '',
-        mimeType: bodyPayload.mimeType || 'image/jpeg',
-        categories: request.categories as { id: string; label: string; kind: 'expense' | 'income' }[] | undefined,
-      });
+      const items = await extractByokTransactions(llm, bodyPayload, request, bandImages);
       if (!items.length) {
         return { ok: false, allowance, quotaBlocked: false, error: 'Scan request failed' };
       }
@@ -295,6 +403,8 @@ async function runLocalByokScan(
       ok: false,
       allowance,
       quotaBlocked: false,
+      byokRateLimited: err instanceof LLMError && err.code === 'rate_limit',
+      byokErrorCode: err instanceof LLMError ? err.code : undefined,
       error: err instanceof Error ? err.message : 'Scan request failed',
     };
   }
@@ -312,6 +422,7 @@ async function submitScanInternal(
     mimeType?: string;
     ocrText?: string;
     prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+    prefetchedTallOcr?: Promise<TallRead | null>;
     categories?: Array<{ id: string; label: string; kind?: string }>;
   },
   entitlement: 'free' | 'pro' = 'free'
@@ -321,6 +432,7 @@ async function submitScanInternal(
   let bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType };
   let preprocessTimings: { ocrMs: number; resizeMs: number; totalPreprocessMs: number } | null = null;
   let inputKind = 'vision';
+  let bandImages: PreparedImage[] | undefined;
 
   // If a local URI is present and OCR text is not pre-populated, ALWAYS run dual-path preprocessing
   if (request.uri && !request.ocrText) {
@@ -329,11 +441,12 @@ async function submitScanInternal(
       scanType,
       request.imageBase64,
       request.mimeType,
-      request.prefetchedOcr !== undefined ? { prefetchedOcr: request.prefetchedOcr } : undefined
+      { prefetchedOcr: request.prefetchedOcr, prefetchedTallOcr: request.prefetchedTallOcr }
     );
     bodyPayload = { ...dual.body, scanType };
     preprocessTimings = dual.timings;
     inputKind = dual.inputKind;
+    bandImages = dual.bandImages;
   } else {
     bodyPayload = {
       ocrText: request.ocrText,
@@ -345,9 +458,39 @@ async function submitScanInternal(
   }
 
   const active = await defaultAskPipKeyStore().getActive();
+  let byokRateLimited = false;
   if (active?.apiKey) {
-    return runLocalByokScan(scanType, bodyPayload, request, entitlement);
+    const local = await runLocalByokScan(scanType, bodyPayload, request, entitlement, bandImages);
+    if (
+      Platform.OS === 'web' &&
+      !local.ok &&
+      (local.byokErrorCode === 'no_key' || local.byokErrorCode === 'auth' || local.byokErrorCode === 'rate_limit')
+    ) {
+      return {
+        ...local,
+        webByokRequired: true,
+        error: "Pip's server AI isn't available on web. Add or update your own API key in Settings, then try again.",
+      };
+    }
+    if (!local.byokRateLimited) return local;
+    if (Platform.OS === 'web') return local;
+    byokRateLimited = true;
   }
+
+  if (Platform.OS === 'web') {
+    return {
+      ok: false,
+      allowance: byokAllowance(entitlement),
+      quotaBlocked: false,
+      webByokRequired: true,
+      error: 'Add your API key in Settings to use AI scans on web.',
+    };
+  }
+
+  const withByokFallback = (result: CommonScanResult): CommonScanResult =>
+    byokRateLimited
+      ? { ...result, byokRateLimited: true, serverFallbackAttempted: true }
+      : result;
 
   const payloadContent = bodyPayload.ocrText || bodyPayload.imageBase64 || '';
   const payloadBytes = (bodyPayload.ocrText?.length || 0) + (bodyPayload.imageBase64?.length || 0);
@@ -361,7 +504,7 @@ async function submitScanInternal(
   const idempotencyKey = await computeIdempotencyKey(id, scanType, payloadContent);
 
   if (recentInflightScans.has(idempotencyKey)) {
-    return recentInflightScans.get(idempotencyKey)!;
+    return withByokFallback(await recentInflightScans.get(idempotencyKey)!);
   }
 
   const scanPromise = (async (): Promise<CommonScanResult> => {
@@ -386,6 +529,84 @@ async function submitScanInternal(
           body: JSON.stringify(body),
         });
 
+      const scanBodies = async (
+        bodies: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType }[],
+        seed: ExtractedTxn[] = []
+      ): Promise<CommonScanResult> => {
+        const merged = [...seed];
+        let allowance = normalizeAllowance({ tier: entitlement });
+        let lastError: string | undefined;
+        for (const body of bodies) {
+          const material = body.ocrText || body.imageBase64 || '';
+          const chunkKey = await computeIdempotencyKey(id, `${scanType}:chunk`, material);
+          const chunkRes = await fetchWithTimeout(`${WORKER_URL}/scan`, {
+            method: 'POST',
+            headers: { ...headers, 'x-idempotency-key': chunkKey },
+            body: JSON.stringify(body),
+          });
+          const chunkData = await chunkRes.json().catch(() => ({}));
+          if (chunkRes.status === 429) {
+            if (merged.length > 0) {
+              return {
+                ok: true,
+                items: dedupeExtracted(merged),
+                allowance: normalizeAllowance(chunkData?.allowance || allowance),
+                quotaBlocked: false,
+              };
+            }
+            return {
+              ok: false,
+              allowance: normalizeAllowance(chunkData?.allowance || { tier: 'free' }),
+              quotaBlocked: true,
+              error: chunkData?.error || 'quota_exhausted',
+            };
+          }
+          if (chunkRes.ok && chunkData?.ok) {
+            if (Array.isArray(chunkData.items)) merged.push(...chunkData.items);
+            allowance = normalizeAllowance(chunkData.allowance);
+          } else {
+            lastError = chunkData?.error || 'Scan request failed';
+          }
+        }
+        if (merged.length > 0) {
+          return { ok: true, items: dedupeExtracted(merged), allowance, quotaBlocked: false };
+        }
+        return { ok: false, allowance, quotaBlocked: false, error: lastError || 'Scan request failed' };
+      };
+
+      if (
+        scanType === 'transactions' &&
+        (bandImages?.length || (bodyPayload.ocrText && bodyPayload.ocrText.length > 7000))
+      ) {
+        const bodies: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType }[] = [];
+        if (bodyPayload.ocrText) {
+          const passes =
+            bodyPayload.ocrText.length > 7000 ? splitOcrChunks(bodyPayload.ocrText, 7000) : [bodyPayload.ocrText];
+          for (const pass of passes) bodies.push({ ocrText: pass, scanType: bodyPayload.scanType });
+        }
+        for (const band of bandImages ?? []) {
+          if (!band.base64) continue;
+          bodies.push({ imageBase64: band.base64, mimeType: band.mime, scanType: bodyPayload.scanType });
+        }
+        if (bodies.length > 0) {
+          const pieced = await scanBodies(bodies);
+          if (
+            pieced.ok &&
+            bodyPayload.ocrText &&
+            extractionLooksShort(bodyPayload.ocrText, pieced.items?.length ?? 0)
+          ) {
+            const chunks = splitOcrLines(bodyPayload.ocrText, 12, 2);
+            if (chunks.length > 1) {
+              return scanBodies(
+                chunks.map((ocrText) => ({ ocrText, scanType: bodyPayload.scanType })),
+                pieced.items ?? []
+              );
+            }
+          }
+          return pieced;
+        }
+      }
+
       let res = await postScan(bodyPayload);
 
       if (res.status === 413 && request.uri && bodyPayload.imageBase64) {
@@ -404,7 +625,31 @@ async function submitScanInternal(
         }
       }
 
+      // A deployed worker that still caps OCR at 8KB rejects a long statement. Split the
+      // transcript and merge, so the rows past the cap are not dropped.
+      if (
+        res.status === 413 &&
+        scanType === 'transactions' &&
+        bodyPayload.ocrText &&
+        bodyPayload.ocrText.length > 7500
+      ) {
+        const chunks = splitOcrChunks(bodyPayload.ocrText, 7500);
+        if (chunks.length > 1) {
+          return scanBodies(chunks.map((ocrText) => ({ ocrText, scanType: bodyPayload.scanType })));
+        }
+      }
+
       const data = await res.json();
+
+      if (res.status === 403 && data?.error === 'BYOK is required for web scans') {
+        return {
+          ok: false,
+          allowance: byokAllowance(entitlement),
+          quotaBlocked: false,
+          webByokRequired: true,
+          error: "Pip's server AI isn't available in this web view. Add or update your own API key in Settings, then try again.",
+        };
+      }
 
       if (res.status === 429) {
         const allowance = normalizeAllowance(data?.allowance || { tier: 'free' });
@@ -425,9 +670,24 @@ async function submitScanInternal(
         };
       }
 
+      const items: ExtractedTxn[] = data.items || [];
+      if (
+        scanType === 'transactions' &&
+        bodyPayload.ocrText &&
+        extractionLooksShort(bodyPayload.ocrText, items.length)
+      ) {
+        const chunks = splitOcrLines(bodyPayload.ocrText, 12, 2);
+        if (chunks.length > 1) {
+          return scanBodies(
+            chunks.map((ocrText) => ({ ocrText, scanType: bodyPayload.scanType })),
+            items
+          );
+        }
+      }
+
       return {
         ok: true,
-        items: data.items || [],
+        items,
         receipt: data.receipt || null,
         snapshot: data.snapshot || null,
         allowance: normalizeAllowance(data.allowance),
@@ -445,7 +705,7 @@ async function submitScanInternal(
 
   recentInflightScans.set(idempotencyKey, scanPromise);
   try {
-    return await scanPromise;
+    return withByokFallback(await scanPromise);
   } finally {
     recentInflightScans.delete(idempotencyKey);
   }
@@ -461,6 +721,9 @@ export async function submitScan(
     items: res.items || [],
     allowance: res.allowance,
     quotaBlocked: res.quotaBlocked,
+    byokRateLimited: res.byokRateLimited,
+    serverFallbackAttempted: res.serverFallbackAttempted,
+    webByokRequired: res.webByokRequired,
     error: res.error,
   };
 }
@@ -475,6 +738,9 @@ export async function submitReceiptScan(
     receipt: res.receipt || null,
     allowance: res.allowance,
     quotaBlocked: res.quotaBlocked,
+    byokRateLimited: res.byokRateLimited,
+    serverFallbackAttempted: res.serverFallbackAttempted,
+    webByokRequired: res.webByokRequired,
     error: res.error,
   };
 }
@@ -489,6 +755,9 @@ export async function submitSnapshotScan(
     snapshot: res.snapshot || null,
     allowance: res.allowance,
     quotaBlocked: res.quotaBlocked,
+    byokRateLimited: res.byokRateLimited,
+    serverFallbackAttempted: res.serverFallbackAttempted,
+    webByokRequired: res.webByokRequired,
     error: res.error,
   };
 }

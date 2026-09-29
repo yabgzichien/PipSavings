@@ -1,4 +1,5 @@
 import { isValidIsoDate } from '../dates';
+import type { RepaymentSlots } from './repaymentCard';
 
 export const ASK_PIP_VIEWS = [
   'owed',
@@ -88,7 +89,8 @@ export type AskPipAction =
   | { type: 'clarify'; choices: AskPipClarifyChoice[] }
   | { type: 'refuse' }
   | { type: 'say'; kind: AskPipSayKind }
-  | { type: 'set_pref'; pref: 'colorScheme'; value: AskPipColorScheme };
+  | { type: 'set_pref'; pref: 'colorScheme'; value: AskPipColorScheme }
+  | ({ type: 'propose_repayment' } & RepaymentSlots);
 
 export interface AskPipClarifyChoice {
   id: string;
@@ -222,6 +224,8 @@ export function parseAskPipAction(raw: unknown): AskPipAction {
       return parseSay(obj);
     case 'set_pref':
       return parseSetPref(obj);
+    case 'propose_repayment':
+      return parseProposeRepayment(obj);
     default:
       throw new AskPipParseError(`Unknown action type: ${type}`);
   }
@@ -324,6 +328,52 @@ function parseSetPref(obj: Record<string, unknown>): AskPipAction {
     throw new AskPipParseError('Invalid color scheme.');
   }
   return { type: 'set_pref', pref: 'colorScheme', value };
+}
+
+function requiredQuery(obj: Record<string, unknown>, key: string): string {
+  const value = obj[key];
+  if (typeof value !== 'string' || value.trim().length === 0 || value.length > 80) {
+    throw new AskPipParseError(`Invalid ${key}.`);
+  }
+  return value.trim();
+}
+
+function currencyCode(obj: Record<string, unknown>, key: string): string {
+  const value = requiredQuery(obj, key).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(value)) {
+    throw new AskPipParseError(`Invalid ${key}.`);
+  }
+  return value;
+}
+
+function parseProposeRepayment(obj: Record<string, unknown>): AskPipAction {
+  const amount = obj.amount;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+    throw new AskPipParseError('Invalid repayment amount.');
+  }
+  const slots: RepaymentSlots = {
+    personQuery: requiredQuery(obj, 'personQuery'),
+    amount,
+    currency: currencyCode(obj, 'currency'),
+    accountQuery: requiredQuery(obj, 'accountQuery'),
+    arrivalCurrency: currencyCode(obj, 'arrivalCurrency'),
+  };
+  if (obj.merchantHint !== undefined) {
+    slots.merchantHint = requiredQuery(obj, 'merchantHint');
+  }
+  if (obj.cashAmount !== undefined) {
+    if (typeof obj.cashAmount !== 'number' || !Number.isFinite(obj.cashAmount) || obj.cashAmount < 0) {
+      throw new AskPipParseError('Invalid cashAmount.');
+    }
+    slots.cashAmount = obj.cashAmount;
+  }
+  if (obj.paidOn !== undefined) {
+    if (typeof obj.paidOn !== 'string' || !isValidIsoDate(obj.paidOn)) {
+      throw new AskPipParseError('Invalid paidOn.');
+    }
+    slots.paidOn = obj.paidOn;
+  }
+  return { type: 'propose_repayment', ...slots };
 }
 
 function parseShowView(obj: Record<string, unknown>): AskPipAction {

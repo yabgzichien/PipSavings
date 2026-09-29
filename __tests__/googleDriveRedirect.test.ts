@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { GOOGLE_DRIVE_REDIRECT_URI, GOOGLE_DRIVE_SCOPES } from '../src/lib/cloudBackup/googleAuth';
+import { GOOGLE_DRIVE_REDIRECT_URI, GOOGLE_DRIVE_SCOPES, isGoogleDrivePlatform } from '../src/lib/cloudBackup/googleAuth';
 import appJson from '../app.json';
 
 // Google rejects the authorization request outright (redirect_uri_mismatch) unless an Android
@@ -30,6 +30,12 @@ describe('Google Drive OAuth redirect', () => {
   it('asks only for the hidden app-data folder, never the user visible Drive', () => {
     expect(GOOGLE_DRIVE_SCOPES).toContain('https://www.googleapis.com/auth/drive.appdata');
     expect(GOOGLE_DRIVE_SCOPES.some((s) => s === 'https://www.googleapis.com/auth/drive')).toBe(false);
+  });
+
+  it('offers Drive backup on Android and web, not iOS', () => {
+    expect(isGoogleDrivePlatform('android')).toBe(true);
+    expect(isGoogleDrivePlatform('web')).toBe(true);
+    expect(isGoogleDrivePlatform('ios')).toBe(false);
   });
 
   it('tells the builder to register a Web OAuth client and the Play App Signing SHA-1', () => {

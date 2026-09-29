@@ -6,6 +6,8 @@ const Renderer = require('react-test-renderer');
 
 const mockBackupToDrive = jest.fn(async () => 'ok');
 const mockConnect = jest.fn();
+const mockSetAutoEnabled = jest.fn(async () => {});
+const mockDisconnect = jest.fn(async () => {});
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
@@ -58,8 +60,10 @@ jest.mock('../src/lib/cloudBackup/useCloudBackup', () => ({
     accountEmail: null,
     lastBackupAt: null,
     error: null,
+    autoEnabled: false,
     connect: mockConnect,
-    disconnect: jest.fn(),
+    disconnect: mockDisconnect,
+    setAutoEnabled: mockSetAutoEnabled,
     backupNow: jest.fn(),
     backupToDrive: mockBackupToDrive,
     restoreLatest: jest.fn(),
@@ -92,6 +96,8 @@ describe('BackupScreen Google Drive', () => {
     Platform.OS = originalPlatform;
     mockBackupToDrive.mockClear();
     mockConnect.mockClear();
+    mockSetAutoEnabled.mockClear();
+    mockDisconnect.mockClear();
   });
 
   it('backs up after picking a Google account, without a separate connect step', async () => {
@@ -112,5 +118,60 @@ describe('BackupScreen Google Drive', () => {
 
     expect(mockBackupToDrive).toHaveBeenCalled();
     expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('shows an Auto-backup Off/On control on Android', async () => {
+    Platform.OS = 'android';
+    let tree: any;
+    await Renderer.act(async () => {
+      tree = Renderer.create(<BackupScreen onBack={jest.fn()} />);
+      await Promise.resolve();
+    });
+
+    expect(allText(tree.root)).toContain('autoBackup');
+    expect(allText(tree.root)).toContain('on');
+    expect(allText(tree.root)).toContain('off');
+  });
+
+  it('backs up to Drive then turns auto-backup on', async () => {
+    Platform.OS = 'android';
+    let tree: any;
+    await Renderer.act(async () => {
+      tree = Renderer.create(<BackupScreen onBack={jest.fn()} />);
+      await Promise.resolve();
+    });
+
+    await Renderer.act(async () => {
+      await pressWithText(tree.root, 'on');
+    });
+
+    expect(mockBackupToDrive).toHaveBeenCalled();
+    expect(mockSetAutoEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it('shows an Auto-backup Off/On control on web', async () => {
+    Platform.OS = 'web';
+    let tree: any;
+    await Renderer.act(async () => {
+      tree = Renderer.create(<BackupScreen onBack={jest.fn()} />);
+      await Promise.resolve();
+    });
+
+    expect(allText(tree.root)).toContain('autoBackup');
+    expect(allText(tree.root)).toContain('Back up to Google Drive');
+    expect(allText(tree.root)).not.toContain('Coming soon');
+  });
+
+  it('hides Google Drive auto-backup on iOS', async () => {
+    Platform.OS = 'ios';
+    let tree: any;
+    await Renderer.act(async () => {
+      tree = Renderer.create(<BackupScreen onBack={jest.fn()} />);
+      await Promise.resolve();
+    });
+
+    expect(allText(tree.root)).not.toContain('autoBackup');
+    expect(allText(tree.root)).not.toContain('Back up to Google Drive');
+    expect(allText(tree.root)).toContain('Coming soon');
   });
 });

@@ -55,6 +55,33 @@ describe('runAskPipTurn', () => {
     expect(session.stack).toHaveLength(0);
   });
 
+  it('keeps a repayment proposal off the owed view', async () => {
+    const model = jest.fn(async () => ({
+      type: 'propose_repayment',
+      personQuery: 'abc',
+      amount: 25,
+      currency: 'SGD',
+      accountQuery: 'touch',
+      arrivalCurrency: 'MYR',
+      merchantHint: 'burger',
+    }));
+    const { session } = await runAskPipTurn({
+      utterance: 'abc returned the burger in myr to touch n go',
+      world,
+      session: emptySession(),
+      model,
+    });
+    expect(session.stack).toHaveLength(0);
+    expect(session.pendingRepayment).toEqual({
+      personQuery: 'abc',
+      amount: 25,
+      currency: 'SGD',
+      accountQuery: 'touch',
+      arrivalCurrency: 'MYR',
+      merchantHint: 'burger',
+    });
+  });
+
   it('maps start_entry.settle without shareId to the owed view', async () => {
     const model = jest.fn(async () => ({ type: 'start_entry', kind: 'settle' }));
     const { session } = await runAskPipTurn({
@@ -200,5 +227,24 @@ describe('runAskPipTurn', () => {
     });
     expect(session.stack[0]?.analysis?.request.categoryId).toBe('salary-id');
     expect(session.stack[0]?.filters.categoryId).toBe('salary-id');
+  });
+
+  it('includes attached spreadsheet text in the model prompt', async () => {
+    const model = jest.fn(async () => ({ type: 'refuse' }));
+    await runAskPipTurn({
+      utterance: 'Look at the attached files.',
+      world,
+      session: emptySession(),
+      model,
+      attachments: [{ name: 'export.csv', kind: 'csv', text: 'date,amount\n2026-01-01,12' }],
+      parts: [{ kind: 'binary', base64: 'abc', mimeType: 'image/jpeg' }],
+    });
+    expect(model).toHaveBeenCalledWith(expect.objectContaining({
+      user: expect.stringContaining('export.csv'),
+    }));
+    expect(model).toHaveBeenCalledWith(expect.objectContaining({
+      user: expect.stringContaining('date,amount'),
+      parts: [{ kind: 'binary', base64: 'abc', mimeType: 'image/jpeg' }],
+    }));
   });
 });

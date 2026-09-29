@@ -82,13 +82,15 @@ import {
 import { ASK_PIP_VIEWS, type AskPipViewId } from './src/lib/askPip/catalog';
 import type { AskPipWorld } from './src/lib/askPip/resolve';
 import type { AskPipFrame } from './src/lib/askPip/session';
-import { runAskPipModel } from './src/llm/askPipClient';
-import { LLMError } from './src/llm/types';
+import { LLMError, type DocPart } from './src/llm/types';
+import { GeminiProvider } from './src/llm/gemini';
+import { GroqProvider } from './src/llm/groq';
+import { OpenRouterProvider } from './src/llm/openrouter';
 import { getMeta, setMeta } from './src/db/metaRepo';
 import { notify } from './src/lib/platformAlert';
 import { platformShadow, uiFont } from './src/theme';
 import type { WidgetMascotConfig } from './src/widget/mascot/config';
-import { seedNetWorthDemo, seedReadmeDemo } from './src/lib/seedNetWorthDemo';
+import { seedChatRepaymentDemo, seedNetWorthDemo, seedReadmeDemo } from './src/lib/seedNetWorthDemo';
 
 /**
  * Web-only: a global :focus-visible outline so keyboard users get a visible focus indicator
@@ -177,6 +179,7 @@ function DevNetWorthSeeder() {
     const g = globalThis as typeof globalThis & {
       __pipSeedNetWorth?: () => Promise<{ accounts: number; entries: number; proGranted: boolean }>;
       __pipSeedReadme?: () => Promise<{ accounts: number; entries: number; proGranted: boolean }>;
+      __pipSeedChatRepayment?: (fxRate: number) => Promise<void>;
     };
     const reload = () => {
       if (typeof window !== 'undefined') {
@@ -191,9 +194,13 @@ function DevNetWorthSeeder() {
     g.__pipSeedReadme = async () => {
       return seedReadmeDemo(new Date());
     };
+    g.__pipSeedChatRepayment = async (fxRate: number) => {
+      await seedChatRepaymentDemo(fxRate);
+    };
     return () => {
       delete g.__pipSeedNetWorth;
       delete g.__pipSeedReadme;
+      delete g.__pipSeedChatRepayment;
     };
   }, []);
   return null;
@@ -375,6 +382,10 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   // trip to whatever it saves and show it in the manual-entry title. Cleared on close alongside
   // the other one-shot add-flow prefills below.
   const [addTripId, setAddTripId] = useState<string | null>(null);
+  // The trip's manual-entry form stays mounted after the trip screen paints, so tapping
+  // Add expense only reveals it. entrySession clears the fields after close, off screen.
+  const [tripAddWarm, setTripAddWarm] = useState(false);
+  const [tripAddSession, setTripAddSession] = useState(0);
   // Where closing the add flow returns to. Home for every ordinary way in; a trip's own
   // "Add expense" points it back at that trip so logging one expense does not cost the user
   // the screen they were working in.
@@ -448,26 +459,27 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   );
 
   const runChatModel = useCallback(
-    async (prompt: { system: string; user: string }) => {
+    async (prompt: { system: string; user: string; parts?: DocPart[] }) => {
       const store = defaultAskPipKeyStore();
       const [providerId, apiKey] = await Promise.all([store.getProvider(), store.getApiKey()]);
       if (!providerId || !apiKey) {
         throw new LLMError('auth', 'Missing Ask Pip key');
       }
-      const utterance = prompt.user.match(/^Utterance: (.*)$/m)?.[1] ?? '';
-      const promptToday = prompt.user.match(/^Today: (\d{4}-\d{2}-\d{2})$/m)?.[1];
-      return runAskPipModel({
-        providerId,
+      const providers = {
+        gemini: GeminiProvider,
+        groq: GroqProvider,
+        openrouter: OpenRouterProvider,
+      } as const;
+      const provider = providers[providerId];
+      return provider.askPip!({
         apiKey,
-        utterance,
-        tripNames: askPipWorld.trips.map((trip) => trip.name),
-        personNames: askPipWorld.people.map((person) => person.name),
-        categoryLabels: askPipWorld.categories.map((category) => category.label),
-        current: currentFromPrompt(prompt.user),
-        today: promptToday,
+        model: provider.defaultModel,
+        system: prompt.system,
+        user: prompt.user,
+        parts: prompt.parts,
       });
     },
-    [askPipWorld],
+    [],
   );
 
   const finishDisclose = useCallback((ok: boolean) => {
@@ -795,14 +807,6 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     setScreen('add');
   };
 
-  const handleAddOrAttach = () => {
-    if (homeMode === 'chat' && screen === 'home') {
-      void attachChatPhoto();
-      return;
-    }
-    handleOpenAdd();
-  };
-
   // From a trip's own "Add expense" action: skip straight to manual entry (there's no reason to
   // scan a receipt hub first when the user already committed to logging one trip expense) with
   // the trip prefilled and shown in the title.
@@ -813,6 +817,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     // Both halves of "come back here": which trip screen, and that it is a trip screen at all.
     setTripDetailId(tripId);
     setAddOrigin('tripDetail');
+    setTripAddWarm(true);
     setScreen('add');
   };
 
@@ -854,6 +859,28 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
     setScreen(target);
     return true;
   };
+
+  // Mount the trip expense form after the trip itself has painted, so the first Add expense
+  // after that does not pay the form's first render.
+  useEffect(() => {
+    if (screen !== 'tripDetail' || !tripDetailId) return;
+    setAddTripId(tripDetailId);
+    let cancelled = false;
+    const outer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setTripAddWarm(true);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [screen, tripDetailId]);
+
+  useEffect(() => {
+    if (screen === 'tripDetail' || screen === 'add') return;
+    setTripAddWarm(false);
+  }, [screen]);
 
   const confirmExit = useExitConfirm();
   useBackHandler(() => {
@@ -1040,7 +1067,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             onOpenExport={() => openExport('home')}
           />
         )}
-      {screen === 'add' && (
+      {screen === 'add' && addOrigin !== 'tripDetail' && (
         <AddFlow
           key={addTripId ? `add:trip:${addTripId}` : addInitialType ? `add:${addInitialType}` : 'add:default'}
           initialPhase={addTripId || addInitialType ? 'manual' : undefined}
@@ -1065,6 +1092,36 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             goBack();
           }}
         />
+      )}
+      {tripAddWarm && addTripId && (screen === 'tripDetail' || (screen === 'add' && addOrigin === 'tripDetail')) && (
+        <View
+          style={screen === 'add' ? styles.fill : styles.tripAddPreload}
+          pointerEvents={screen === 'add' ? 'auto' : 'none'}
+          accessibilityElementsHidden={screen !== 'add'}
+          importantForAccessibility={screen === 'add' ? 'auto' : 'no-hide-descendants'}
+          collapsable={false}
+        >
+          <AddFlow
+            key={`add:trip:${addTripId}`}
+            initialPhase="manual"
+            initialTripId={addTripId}
+            entrySession={tripAddSession}
+            visible={screen === 'add'}
+            activeTourAnchor={activeAnchorId}
+            onPhaseChange={handleAddPhaseChange}
+            onAmountValidChange={setAmountValid}
+            onCategoryChosen={handleCategoryChosen}
+            onClose={() => {
+              setAddTutorialMode(undefined);
+              setAddInitialType(undefined);
+              if (tourStep === 'manual_add_expense') setTourStep('activity_tip');
+              goBack();
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => setTripAddSession((n) => n + 1));
+              });
+            }}
+          />
+        </View>
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -1222,7 +1279,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         <BottomNav
           active={navTab}
           onNavigate={goTab}
-          onAdd={handleAddOrAttach}
+          onAdd={handleOpenAdd}
           activeTourAnchor={activeAnchorId}
         />
       )}
@@ -1256,6 +1313,15 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  tripAddPreload: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    zIndex: -1,
+  },
 });
 
 // Web-only: a centred iPhone-17-Pro-Max-sized window so the web build looks like a phone.

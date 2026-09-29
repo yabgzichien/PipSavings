@@ -303,7 +303,18 @@ export const GroqProvider: LLMProvider = {
     }
   },
 
-  async askPip({ apiKey, model, system, user }: AskPipLlmInput): Promise<unknown> {
+  async askPip({ apiKey, model, system, user, parts }: AskPipLlmInput): Promise<unknown> {
+    const sendable = (parts ?? []).filter(
+      (part) => part.kind === 'text' || part.mimeType !== 'application/pdf',
+    );
+    if (sendable.length > 0) {
+      const content = await visionJson(apiKey, model || DEFAULT_MODEL, system, user, sendable);
+      try {
+        return JSON.parse(content);
+      } catch {
+        throw new LLMError('bad_response', 'Model response was not JSON.');
+      }
+    }
     const body = {
       model: model || DEFAULT_MODEL,
       messages: [
@@ -313,9 +324,9 @@ export const GroqProvider: LLMProvider = {
       response_format: { type: 'json_object' },
       temperature: 0,
     };
-    const content = await contentOf(await postChat(body, apiKey));
+    const reply = await contentOf(await postChat(body, apiKey));
     try {
-      return JSON.parse(content);
+      return JSON.parse(reply);
     } catch {
       throw new LLMError('bad_response', 'Model response was not JSON.');
     }

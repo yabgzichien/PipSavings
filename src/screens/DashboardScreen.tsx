@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { BudgetProgressList, STATUS_COLOR } from '../components/BudgetProgressList';
@@ -12,6 +12,7 @@ import { TripBadge } from '../components/TripBadge';
 import { RecapEntry } from '../components/recap/RecapEntry';
 import { TaskListSheet } from '../components/TaskListSheet';
 import { HomeMascotButton } from '../components/HomeMascotButton';
+import { BetaBadge } from '../components/BetaBadge';
 import { TourAnchor } from '../components/TourAnchor';
 import { Body, BtnLabel, Caption, Card, Display, Eyebrow, Label, PrimaryButton, Title } from '../components/ui';
 import { catColorsForHue } from '../lib/catColors';
@@ -27,7 +28,7 @@ import { computeExploreTaskStatus, type ExploreTask } from '../lib/tasks';
 import { pickNeedsYou } from '../lib/askPip/needsYou';
 import * as haptics from '../lib/haptics';
 import { payoff as playChime } from '../lib/sound';
-import { computeTripTotals, featuredTripForDate } from '../lib/trips';
+import { computeTripTotals, featuredTripForDate, resolveTripIcon } from '../lib/trips';
 import type { FeaturedTrip } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
 import { useAppData, type HeroPanel } from '../state/store';
@@ -408,6 +409,12 @@ export function DashboardScreen({
             <TourAnchor id="tour_recap_btn" activeId={activeTourAnchor}>
               <HeaderIcon name="chart" onPress={() => onOpenRecap()} accessibilityLabel={t('monthlyRecap')} />
             </TourAnchor>
+            <View style={styles.chatToggleWrap}>
+              <HeaderIcon name="robot" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
+              <View style={styles.chatBetaBadge} pointerEvents="none">
+                <BetaBadge compact />
+              </View>
+            </View>
             <View ref={mascotRef} style={styles.mascotWrap}>
               <HomeMascotButton
                 sleepy={sleepy}
@@ -416,7 +423,6 @@ export function DashboardScreen({
                 onPress={() => setTasksSheetOpen(true)}
               />
             </View>
-            <HeaderIcon name="robot" onPress={onToggleChat} accessibilityLabel={t('askPipToggleChat')} />
           </View>
         </View>
 
@@ -1243,6 +1249,7 @@ function SummaryCard({
         </ScrollView>
       )}
 
+      {currentPanel !== 'trips' && (
       <View style={styles.monthProgressWrap}>
         <TimeProgressBar
           percent={monthPct}
@@ -1252,6 +1259,7 @@ function SummaryCard({
           accessibilityLabel={isZh ? '本月进度，打开日历' : 'Month progress, open calendar'}
         />
       </View>
+      )}
 
       {panels.length > 1 && (
         <View style={styles.heroDotsRow}>
@@ -1460,6 +1468,8 @@ function TripHeroView({
   const colorTheme = useThemeColors();
   const { t, isZh } = useLanguage();
   const { trip, timing } = featured;
+  const [viewingIcon, setViewingIcon] = useState(false);
+  const tripIcon = resolveTripIcon(trip);
   const totals = useMemo(
     () => computeTripTotals(transactions, trip.id, dc.convertTxn),
     [transactions, trip.id, dc]
@@ -1487,7 +1497,21 @@ function TripHeroView({
           </Display>
           {range && <Caption color={colorTheme.ink2} style={{ marginTop: spacing.xs }}>{range}</Caption>}
         </View>
-        <TripBadge trip={trip} size={56} rad={16} />
+        {tripIcon.kind === 'image' ? (
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              setViewingIcon(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isZh ? '查看行程图片' : 'View trip photo'}
+            hitSlop={6}
+          >
+            <TripBadge trip={trip} size={56} rad={16} />
+          </Pressable>
+        ) : (
+          <TripBadge trip={trip} size={56} rad={16} />
+        )}
       </View>
 
       <View style={[styles.cashDivider, { backgroundColor: colorTheme.line }]} />
@@ -1512,6 +1536,18 @@ function TripHeroView({
         </View>
         <Icon name="chevronRight" size={16} color={colorTheme.ink3} />
       </Pressable>
+      {tripIcon.kind === 'image' && (
+        <Modal visible={viewingIcon} transparent animationType="fade" onRequestClose={() => setViewingIcon(false)}>
+          <Pressable
+            onPress={() => setViewingIcon(false)}
+            style={styles.tripPhotoBackdrop}
+            accessibilityRole="button"
+            accessibilityLabel={isZh ? '关闭图片' : 'Close photo'}
+          >
+            <Image source={{ uri: tripIcon.uri }} style={styles.tripPhoto} resizeMode="contain" />
+          </Pressable>
+        </Modal>
+      )}
     </>
   );
 }
@@ -1561,6 +1597,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.base, paddingTop: spacing.xs, paddingBottom: spacing.md },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerIcon: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', ...shadowCard },
+  chatToggleWrap: { position: 'relative', overflow: 'visible' },
+  chatBetaBadge: { position: 'absolute', top: -6, right: -10 },
   mascotWrap: { position: 'relative', overflow: 'visible', alignItems: 'center' },
   // zIndex has to be set here, on the overlay itself, not just on its taskCelebrationAnchor
   // child: a child's zIndex only ranks it among ITS OWN siblings, and this overlay has none  it
@@ -1679,6 +1717,8 @@ const styles = StyleSheet.create({
   netWorthAmount: { textDecorationLine: 'underline' },
   tripHeroName: { marginTop: spacing.xs },
   tripSpendBadge: { minWidth: 88, minHeight: 44, borderRadius: 14, paddingHorizontal: spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  tripPhotoBackdrop: { flex: 1, backgroundColor: 'rgba(16,32,24,0.88)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  tripPhoto: { width: '100%', height: '80%' },
 
   /* generic cta */
   budgetCta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.base },

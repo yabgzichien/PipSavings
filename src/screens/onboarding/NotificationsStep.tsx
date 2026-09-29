@@ -1,7 +1,6 @@
 // src/screens/onboarding/NotificationsStep.tsx
 // Step 4 of the setup wizard: one permission ask. Granting sets a daily reminder cadence
-// (today's silent default is 'off'), the only place onboarding opts a user into anything,
-// changeable in Settings same as always. A denial never blocks Continue.
+// (today's silent default is 'off'). A denial never blocks Continue.
 //
 // Pip carries this step instead of an alert glyph: the ask is "let me nudge you", which is a
 // thing a character does, not a warning. He arrives thinking, with the idea bulb lit above his

@@ -177,6 +177,13 @@ export function AskPipKeySheet({
     onSaved?.();
   };
 
+  const onDeactivate = async () => {
+    if (busy) return;
+    await defaultAskPipKeyStore().setActive(null);
+    setActiveId(null);
+    onSaved?.();
+  };
+
   const onRemove = async (id: string) => {
     if (busy) return;
     await defaultAskPipKeyStore().remove(id);
@@ -213,7 +220,7 @@ export function AskPipKeySheet({
                     onPress={() => setGuideId(opt.id)}
                     style={[styles.modeBtn, on && { backgroundColor: accent.accentInk }]}
                   >
-                    <Text style={[styles.modeText, { color: colors.ink2 }, on && styles.modeTextOn]}>
+                    <Text style={[styles.modeText, { color: colors.ink2 }, on && { color: accent.onAccent }]}>
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -279,6 +286,32 @@ export function AskPipKeySheet({
                 {status.text}
               </Text>
             ) : null}
+
+            <View style={styles.savedBlock}>
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: activeId === null }}
+                accessibilityLabel={t('askPipNoKeyOption')}
+                onPress={() => void onDeactivate()}
+                style={[styles.savedRow, { borderColor: colors.line2 }]}
+              >
+                <View style={styles.savedMain}>
+                  <View
+                    style={[
+                      styles.radio,
+                      { borderColor: activeId === null ? accent.accent : colors.line },
+                      activeId === null && { backgroundColor: accent.accent },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Label>{t('askPipNoKeyOption')}</Label>
+                    <Caption color={activeId === null ? accent.accent : colors.ink2}>
+                      {t('askPipNoKeyOptionBody')}
+                    </Caption>
+                  </View>
+                </View>
+              </Pressable>
+            </View>
 
             {keys.length > 0 ? (
               <View style={styles.savedBlock}>
@@ -348,9 +381,9 @@ export function AskPipKeySheet({
               ]}
             >
               {busy === 'save' ? (
-                <ActivityIndicator color={accent.accentInk} />
+                <ActivityIndicator color={accent.onAccent} />
               ) : (
-                <Label color={accent.accentInk}>{t('askPipSaveKey')}</Label>
+                <Label color={accent.onAccent}>{t('askPipSaveKey')}</Label>
               )}
             </Pressable>
           </View>
@@ -412,7 +445,6 @@ const styles = StyleSheet.create({
   modeToggle: { flexDirection: 'row', borderRadius: 999, padding: 3, borderWidth: 1 },
   modeBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
   modeText: { fontFamily: uiFont(700), fontSize: 11, textAlign: 'center' },
-  modeTextOn: { color: '#fff' },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   input: {
     flex: 1,

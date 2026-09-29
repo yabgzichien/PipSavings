@@ -1,4 +1,4 @@
-import { clampToMonth, occurrencesFor, findCommitmentMatch, occurrenceMyr } from '../src/lib/commitments';
+import { clampToMonth, occurrencesFor, findCommitmentMatch, occurrenceMyr, monthTimelineOccurrences } from '../src/lib/commitments';
 import type { Commitment, CommitmentOccurrence } from '../src/lib/commitments';
 import type { Transaction } from '../src/lib/types';
 
@@ -196,6 +196,18 @@ describe('instalment commitments with liability reduction', () => {
     // From August 2026 onwards, no future occurrences are generated
     const futureOccs = occurrencesFor(openAI, '2026-08', 24);
     expect(futureOccs).toEqual([]);
+  });
+});
+
+describe('monthTimelineOccurrences', () => {
+  const rows = [{ id: 'overdue' }, { id: 'later' }];
+
+  it('drops overdue rows from the current month, because that section already lists them', () => {
+    expect(monthTimelineOccurrences(rows, new Set(['overdue']), true)).toEqual([{ id: 'later' }]);
+  });
+
+  it('keeps every row when viewing another month', () => {
+    expect(monthTimelineOccurrences(rows, new Set(['overdue']), false)).toEqual(rows);
   });
 });
 

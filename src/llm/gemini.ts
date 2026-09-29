@@ -199,8 +199,16 @@ export const GeminiProvider: LLMProvider = {
     return contentOf(json).trim();
   },
 
-  async askPip({ apiKey, model, system, user }: AskPipLlmInput): Promise<unknown> {
-    const json = await callGemini(model, apiKey, [{ text: user }], {
+  async askPip({ apiKey, model, system, user, parts }: AskPipLlmInput): Promise<unknown> {
+    const geminiParts: GeminiPart[] = [{ text: user }];
+    for (const part of parts ?? []) {
+      if (part.kind === 'text') {
+        geminiParts.push({ text: part.text });
+      } else {
+        geminiParts.push({ inline_data: { mime_type: part.mimeType, data: part.base64 } });
+      }
+    }
+    const json = await callGemini(model, apiKey, geminiParts, {
       system,
       json: true,
       noThinking: true,

@@ -2,6 +2,7 @@
 // The model must return a JSON OBJECT (not a bare array) because Groq/OpenRouter use
 // response_format: { type: 'json_object' }.
 
+import { formatAskPipAttachmentBlock, type ComposerAttachKind } from '../lib/askPip/composerAttach';
 import { ASK_PIP_VIEWS } from '../lib/askPip/catalog';
 import type { AskPipFrame } from '../lib/askPip/session';
 
@@ -11,7 +12,7 @@ export const ASK_PIP_SYSTEM_PROMPT =
   'You are Ask Pip, a navigation assistant for a personal finance app. The user speaks in natural ' +
   'language; you choose one action and return ONLY JSON — a single object, never a bare array, no ' +
   'prose, no markdown fences. ' +
-  'Allowed action types: show_view, start_entry, start_trip, analyze, clarify, refuse, say, set_pref. ' +
+  'Allowed action types: show_view, start_entry, start_trip, analyze, clarify, refuse, say, set_pref, propose_repayment. ' +
   'For a greeting such as hi or hello, return {"type":"say","kind":"greeting"}. ' +
   'For appearance or theme changes, return set_pref with pref colorScheme and value light, dark, or system. ' +
   'For show_view, set "view" to one of these ids only: ' +
@@ -24,7 +25,16 @@ export const ASK_PIP_SYSTEM_PROMPT =
   'split_bill when they ask to add or split a bill. Put the full utterance in "text": copy the full original transaction line ' +
   'so its merchant, amount, currency, account, and category hints survive; use ' +
   'scan_receipt, scan_statement, scan_balance, or scan_holdings when that matches the intent. ' +
-  'For who owes or settle requests, use show_view with view owed — not start_entry. ' +
+  'If the user attached a photo or PDF of a receipt, statement, balance, or holdings, return start_entry ' +
+  'with that matching scan kind even when the utterance does not name the job. ' +
+  'For who owes or settle requests that do not name a destination account, use show_view with view owed — not start_entry. ' +
+  'When one sentence repays one existing debt into one existing account, return propose_repayment. ' +
+  'Set personQuery, amount, currency, accountQuery, and arrivalCurrency. amount and currency are the debt. ' +
+  'arrivalCurrency is the currency the cash arrives in. Include merchantHint when the sentence names the bill. ' +
+  'Include cashAmount only when the sentence states the cash received, and omit it when the user says equivalent. ' +
+  'Include paidOn as an ISO date only when the sentence names a day. Do not invent amounts, rates, or balances. ' +
+  'A sentence that also records a new expense, moves money between accounts, or names more than one person ' +
+  'uses the existing screen instead of propose_repayment. ' +
   'For setting a monthly budget, use show_view budget so the user confirms the amounts in the budget screen. ' +
   'For trip spending or dates, use show_view tripDetail with tripId or tripQuery. ' +
   'For creating a trip, return start_trip with a short name plus startDate and endDate as inclusive ' +
@@ -54,6 +64,12 @@ export const ASK_PIP_SYSTEM_PROMPT =
   'Never invent ledger amounts, balances, or ringgit figures. Never give financial advice. ' +
   'Use only the trip names, people, and categories provided in the user message — do not invent entities.';
 
+export type AskPipPromptAttachment = {
+  name: string;
+  kind: ComposerAttachKind;
+  text?: string;
+};
+
 export function buildAskPipUserPrompt(input: {
   utterance: string;
   tripNames: string[];
@@ -61,8 +77,10 @@ export function buildAskPipUserPrompt(input: {
   categoryLabels: string[];
   current: AskPipFrame | null;
   today?: string;
+  attachments?: AskPipPromptAttachment[];
 }): string {
   const currentView = input.current === null ? 'none' : input.current.view;
+  const attached = formatAskPipAttachmentBlock(input.attachments ?? []);
   return [
     `Utterance: ${input.utterance}`,
     ...(input.today ? [`Today: ${input.today}`] : []),
@@ -70,6 +88,7 @@ export function buildAskPipUserPrompt(input: {
     `Trip names: ${input.tripNames.join(', ') || 'none'}`,
     `People: ${input.personNames.join(', ') || 'none'}`,
     `Categories: ${input.categoryLabels.join(', ') || 'none'}`,
+    ...(attached ? [attached] : []),
   ].join('\n');
 }
 

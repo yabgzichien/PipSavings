@@ -117,6 +117,13 @@ export default {
         });
       }
 
+      if (request.method === 'POST' && url.pathname === '/scan' && request.headers.has('Origin')) {
+        return new Response(JSON.stringify({ error: 'BYOK is required for web scans' }), {
+          status: 403,
+          headers,
+        });
+      }
+
       const installationId = request.headers.get('x-installation-id');
       if (!installationId) {
         return new Response(JSON.stringify({ error: 'Missing x-installation-id header' }), {
@@ -253,16 +260,17 @@ export default {
 
         const { imageBase64, mimeType, ocrText, scanType = 'transactions' } = body || {};
 
-        // Size limits: imageBase64 <= 400KB, ocrText <= 8KB
+        // Size limits: imageBase64 <= 400KB, ocrText <= 48KB.
+        // 48KB is enough for a long scrolling statement read as text, which is one scan.
         if (imageBase64 && imageBase64.length > 400 * 1024) {
           return new Response(
             JSON.stringify({ error: 'Image payload exceeds 400KB limit' }),
             { status: 413, headers }
           );
         }
-        if (ocrText && ocrText.length > 8 * 1024) {
+        if (ocrText && ocrText.length > 48 * 1024) {
           return new Response(
-            JSON.stringify({ error: 'OCR text exceeds 8KB limit' }),
+            JSON.stringify({ error: 'OCR text exceeds 48KB limit' }),
             { status: 413, headers }
           );
         }

@@ -36,6 +36,7 @@ Return a JSON object exactly in this shape:
 
 Rules:
 - One object per transaction. Do not merge, split, or invent rows.
+- Return every row, including on a long screenshot or statement. Do not stop after the first few.
 - amount is always positive; use "direction" for spend vs received.
 - For "category": pick the single best-fitting category id from the Categories list above for the merchant / description. If the document carries an explicit category label, prefer that if it matches. Never invent a category id that is not in the provided list. If unsure, use null.
 - For tabular data, infer which columns are date, description, amount, and (debit/credit) direction.
@@ -69,6 +70,7 @@ Return a JSON object exactly in this shape:
 
 Rules:
 - One object per transaction. Do not merge, split, or invent rows.
+- Return every row, including on a long screenshot or statement. Do not stop after the first few.
 - amount is always positive; use "direction" for spend vs received.
 - For tabular data, infer which columns are date, description, amount, and (debit/credit) direction.
 - ALSO record interest credited and any bank fees or service charges, even when they

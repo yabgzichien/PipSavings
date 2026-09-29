@@ -14,7 +14,7 @@ import { DEFAULT_EXPENSE_ID } from '../data/categories';
 
 import { currentMonthKey } from '../lib/budget';
 import { computeCommitmentRecord } from '../lib/commitmentRecord';
-import { occurrenceMyr, type Commitment, type CommitmentKind, type CommitmentOccurrence } from '../lib/commitments';
+import { monthTimelineOccurrences, occurrenceMyr, type Commitment, type CommitmentKind, type CommitmentOccurrence } from '../lib/commitments';
 import { BASE_CURRENCY, decimalsFor } from '../lib/currency';
 import { rateFor, ratesFromCache } from '../lib/fx';
 import { formatTimelineDateHeader, shortDate } from '../lib/dates';
@@ -143,9 +143,13 @@ export function CommitmentsScreen({ onBack, embedded }: { onBack: () => void; em
     return groups.sort((a, b) => (a.date < b.date ? -1 : 1));
   };
 
+  const timelineOccurrences = useMemo(
+    () => monthTimelineOccurrences(monthOccurrences, overdueIds, isCurrentMonth),
+    [monthOccurrences, overdueIds, isCurrentMonth]
+  );
   const monthGroups = useMemo(
-    () => groupOccurrencesByDate(monthOccurrences),
-    [monthOccurrences, commitmentById, rates]
+    () => groupOccurrencesByDate(timelineOccurrences),
+    [timelineOccurrences, commitmentById, rates]
   );
   const overdueGroups = useMemo(() => groupOccurrencesByDate(overdue), [overdue, commitmentById, rates]);
 
@@ -354,7 +358,7 @@ export function CommitmentsScreen({ onBack, embedded }: { onBack: () => void; em
 
             {/* Month Timeline */}
             <View style={{ marginTop: isCurrentMonth && overdue.length > 0 ? 16 : 22 }}>
-              {monthGroups.length === 0 ? (
+              {monthGroups.length === 0 && !(isCurrentMonth && overdue.length > 0) ? (
                 <Card style={{ padding: 24, alignItems: 'center' }}>
                   <Text style={[styles.emptySub, { color: colorTheme.ink2 }]}>
                     {isZh
@@ -1150,6 +1154,6 @@ const styles = StyleSheet.create({
   toggleBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 999 },
   toggleText: { fontFamily: uiFont(600), fontSize: 13 },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  gridCell: {},
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginTop: 4 },
+  gridCell: { width: '50%', paddingHorizontal: 5, paddingBottom: 10 },
 });

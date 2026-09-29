@@ -115,6 +115,13 @@ describe('Settings Search', () => {
       expect(filterSettings('backup').matchingKeys.has('data_export')).toBe(true);
     });
 
+    it('finds backup and auto-backup settings', () => {
+      expect(filterSettings('backup').matchingKeys.has('data_backup')).toBe(true);
+      expect(filterSettings('auto backup').matchingKeys.has('data_backup')).toBe(true);
+      expect(filterSettings('google drive').matchingKeys.has('data_backup')).toBe(true);
+      expect(filterSettings('自动备份').matchingKeys.has('data_backup')).toBe(true);
+    });
+
     it('finds import settings', () => {
       expect(filterSettings('import').matchingKeys.has('data_import')).toBe(true);
       expect(filterSettings('bank statement').matchingKeys.has('data_import')).toBe(true);

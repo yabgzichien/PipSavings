@@ -2,7 +2,7 @@
 // The app's front door setup wizard:
 // 1. Pip intro: "Know your money."
 // 2. Old money manager import ask.
-// 3. Appearance -> Demo -> Notifications -> Widget, for both import outcomes.
+// 3. Appearance -> Demo -> Notifications -> Backup (Android/web) -> Widget.
 // Users can return to any earlier setup step with the wizard back control.
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
@@ -25,8 +25,10 @@ import { useBackHandler, useExitConfirm } from '../state/useBackHandler';
 import { useLanguage } from '../i18n';
 import { spacing } from '../theme';
 import { DEMO_STEP_ENABLED } from '../config/onboardingFlags';
+import { isGoogleDrivePlatform } from '../lib/cloudBackup/googleAuth';
 import { AdvancedImportScreen } from './AdvancedImportScreen';
 import { AppearanceStep } from './onboarding/AppearanceStep';
+import { BackupStep } from './onboarding/BackupStep';
 import { DemoStep } from './onboarding/DemoStep';
 import { ImportStep } from './onboarding/ImportStep';
 import { NotificationsStep } from './onboarding/NotificationsStep';
@@ -66,6 +68,8 @@ export function OnboardingScreen() {
   const afterImport = (): WizardStep => 'appearance';
 
   const afterAppearance = (): WizardStep => (DEMO_STEP_ENABLED ? 'demo' : 'notifications');
+  const withCloudBackup = isGoogleDrivePlatform(Platform.OS);
+  const afterNotifications = (): WizardStep => (withCloudBackup ? 'backup' : 'widget');
 
   const goBack = () => {
     // Inside the demo, back rewinds a beat at a time and only leaves the step once there is
@@ -80,7 +84,7 @@ export function OnboardingScreen() {
       }
     }
 
-    const prev = getPreviousWizardStep(step, hasImported, DEMO_STEP_ENABLED);
+    const prev = getPreviousWizardStep(step, hasImported, DEMO_STEP_ENABLED, withCloudBackup);
     if (!prev) return;
     haptics.tap();
     setBack(true);
@@ -99,7 +103,7 @@ export function OnboardingScreen() {
     return confirmExit();
   });
 
-  const navInfo = getWizardNavInfo(step, hasImported, DEMO_STEP_ENABLED);
+  const navInfo = getWizardNavInfo(step, hasImported, DEMO_STEP_ENABLED, withCloudBackup);
 
   const getLocalizedWizardTitle = (title: string) => {
     switch (title) {
@@ -109,6 +113,8 @@ export function OnboardingScreen() {
         return t('wizardAppearanceTitle');
       case 'Notifications':
         return t('wizardNotificationsTitle');
+      case 'Backup':
+        return t('wizardBackupTitle');
       case 'Widget':
         return t('wizardWidgetTitle');
       case 'Demo':
@@ -169,6 +175,12 @@ export function OnboardingScreen() {
           )}
           {step === 'notifications' && (
             <NotificationsStep
+              onNext={() => advance(afterNotifications())}
+              onSkip={() => advance(afterNotifications())}
+            />
+          )}
+          {step === 'backup' && (
+            <BackupStep
               onNext={() => advance('widget')}
               onSkip={() => advance('widget')}
             />

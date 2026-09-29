@@ -64,13 +64,13 @@ export function WidgetStep({ onFinish }: { onFinish: () => void }) {
             {CAN_PIN ? t('wizardWidgetCanPinTitle') : t('wizardWidgetNoPinTitle')}
           </Title>
         </FadeIn>
-        <FadeIn delay={stagger * 2}>
-          <Body color={colorTheme.ink2} style={styles.subtitle}>
-            {CAN_PIN
-              ? t('wizardWidgetCanPinBody')
-              : t('wizardWidgetNoPinBody')}
-          </Body>
-        </FadeIn>
+        {CAN_PIN ? (
+          <FadeIn delay={stagger * 2}>
+            <Body color={colorTheme.ink2} style={styles.subtitle}>
+              {t('wizardWidgetCanPinBody')}
+            </Body>
+          </FadeIn>
+        ) : null}
       </View>
 
       <FadeIn delay={stagger * 3} style={styles.footer}>

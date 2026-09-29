@@ -9,6 +9,8 @@ describe('askPipPrompt', () => {
     expect(ASK_PIP_SYSTEM_PROMPT).toContain('say');
     expect(ASK_PIP_SYSTEM_PROMPT.toLowerCase()).toContain('never');
     expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/who owes or settle/i);
+    expect(ASK_PIP_SYSTEM_PROMPT).toContain('propose_repayment');
+    expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/cashAmount only when the sentence states the cash/i);
     expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/delete.*transactions.*query/i);
     expect(ASK_PIP_SYSTEM_PROMPT).toContain('transactionType');
     expect(ASK_PIP_SYSTEM_PROMPT).not.toMatch(/start_entry[^.]*settle/);
@@ -41,7 +43,8 @@ describe('askPipPrompt', () => {
     expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/income.*all income categories/i);
     expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/clear all data.*Settings/i);
     expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/backup.*view backup/i);
-    expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/calculated locally/i);
+    expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/attached a photo or PDF/i);
+    expect(ASK_PIP_SYSTEM_PROMPT).toMatch(/scan_receipt, scan_statement, scan_balance, or scan_holdings/i);
   });
 
   it('puts names but not balances in the user prompt', () => {
@@ -60,5 +63,23 @@ describe('askPipPrompt', () => {
   it('strips captions that contain digits', () => {
     expect(stripCaptionAmounts('You are owed RM 120')).toBeUndefined();
     expect(stripCaptionAmounts('Showing Singapore trip')).toBe('Showing Singapore trip');
+  });
+
+  it('appends attached file names and inlined spreadsheet text', () => {
+    const p = buildAskPipUserPrompt({
+      utterance: 'Look at the attached files.',
+      tripNames: [],
+      personNames: [],
+      categoryLabels: [],
+      current: null,
+      attachments: [
+        { name: 'shot.jpg', kind: 'image' },
+        { name: 'export.csv', kind: 'csv', text: 'date,amount\n2026-01-01,12' },
+      ],
+    });
+    expect(p).toContain('Attached files:');
+    expect(p).toContain('shot.jpg (image)');
+    expect(p).toContain('export.csv (csv)');
+    expect(p).toContain('date,amount');
   });
 });

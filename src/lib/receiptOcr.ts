@@ -41,6 +41,20 @@ interface OcrBlock {
  *  accuracy against a vision model at under half the tokens.
  *  Exported for the pure-logic unit test: the rest of this module touches native APIs a test
  *  can't exercise. */
+/**
+ * Spatial grouping restores column order. The recognizer's raw string still wins when
+ * grouping dropped lines that had no frame — those rows would otherwise never be sorted.
+ */
+export function preferOcrText(spatial: string, raw: string): string {
+  const count = (value: string) => value.split('\n').filter((line) => line.trim().length > 0).length;
+  const grouped = spatial.trim();
+  const plain = raw.trim();
+  if (!grouped) return plain;
+  if (!plain) return grouped;
+  if (count(grouped) + 1 >= count(plain)) return grouped;
+  return plain;
+}
+
 export function groupLinesSpatially(blocks: OcrBlock[]): string {
   const lines = blocks
     .flatMap((b) => b.lines)
@@ -70,7 +84,9 @@ export function groupLinesSpatially(blocks: OcrBlock[]): string {
     .join('\n');
 }
 
-export async function recognizeReceiptText(uri: string): Promise<OcrOutcome> {
+export type OcrScript = 'Chinese' | 'Latin';
+
+export async function recognizeReceiptText(uri: string, script: OcrScript = 'Chinese'): Promise<OcrOutcome> {
   if (Platform.OS === 'web') return { status: 'unavailable' };
 
   let mod: typeof import('@react-native-ml-kit/text-recognition');
@@ -84,7 +100,9 @@ export async function recognizeReceiptText(uri: string): Promise<OcrOutcome> {
   try {
     // Chinese-script recognizer also reads Latin digits/punctuation fine, matching the mixed
     // EN/ZH receipts the pipeline was benchmarked against.
-    result = await mod.default.recognize(uri, mod.TextRecognitionScript.CHINESE);
+    const nativeScript =
+      script === 'Latin' ? mod.TextRecognitionScript.LATIN : mod.TextRecognitionScript.CHINESE;
+    result = await mod.default.recognize(uri, nativeScript);
   } catch (err) {
     // Distinct from the import failing above: the module loaded, so the recognizer throwing is a
     // real fault rather than the expected Expo Go / web path. Reported without its message —
@@ -93,6 +111,8 @@ export async function recognizeReceiptText(uri: string): Promise<OcrOutcome> {
     return { status: 'unavailable' };
   }
 
-  const text = groupLinesSpatially(result.blocks);
+  const spatial = groupLinesSpatially(result.blocks);
+  const raw = typeof (result as { text?: string }).text === 'string' ? (result as { text: string }).text : '';
+  const text = preferOcrText(spatial, raw);
   return text.trim() ? { status: 'ok', text } : { status: 'empty' };
 }

@@ -106,4 +106,17 @@ describe('home mascot tier marker', () => {
     expect(placement.position).not.toBe('absolute');
     expect(placement.marginTop).toBeGreaterThan(0);
   });
+
+  it('places the Ask Pip mode toggle before the mascot', async () => {
+    const tree = await renderHome();
+    const controls = tree.root.findAll((node: any) => (
+      node.props.accessibilityLabel === 'askPipToggleChat'
+      || node.props.testID === 'home-mascot-button'
+    ));
+
+    const order = controls.map((node: any) => (
+      node.props.accessibilityLabel === 'askPipToggleChat' ? 'toggle' : 'mascot'
+    )).filter((kind: string, index: number, all: string[]) => index === 0 || kind !== all[index - 1]);
+    expect(order).toEqual(['toggle', 'mascot']);
+  });
 });

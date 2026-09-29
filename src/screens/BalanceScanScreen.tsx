@@ -14,7 +14,7 @@ import { findMatchingAccounts, matchInstitution, type Institution } from '../lib
 import { classesFor } from '../lib/networth';
 import { BASE_CURRENCY } from '../lib/currency';
 import { getEntryCurrency } from '../db/currencyRepo';
-import { notify } from '../lib/platformAlert';
+import { notify, notifyWarning } from '../lib/platformAlert';
 import { searchCrypto, resolveCryptoTickers } from '../prices';
 import type { TickerResult, ScannedHolding } from '../lib/prices';
 import type { Account, AccountKind } from '../lib/types';
@@ -185,10 +185,19 @@ export function BalanceScanScreen({
         setPhase('error');
         return;
       }
+      if (res.webByokRequired) {
+        notifyWarning(t('webByokTitle'), t('webByokBody'));
+        setError(t('webByokBody'));
+        setPhase('error');
+        return;
+      }
       if (!res.ok || !res.snapshot) {
         setError(res.error || (isZh ? '无法识别该截图内容。' : "I couldn't read that screenshot."));
         setPhase('error');
         return;
+      }
+      if (res.byokRateLimited && res.serverFallbackAttempted) {
+        notify(t('scanByokLimitTitle'), t('scanByokLimitBody'));
       }
       const snap = res.snapshot;
       void refreshAllowance();

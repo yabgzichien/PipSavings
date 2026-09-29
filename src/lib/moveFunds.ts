@@ -49,7 +49,6 @@ export function deriveMove(currentFrom: number, currentTo: number, input: MoveIn
 
   if (!(amount > 0)) return null;
   const newFrom = applyEffect(currentFrom, amount, 'subtract');
-  if (newFrom < 0) return null;
   return { amount, newFrom, newTo: applyEffect(currentTo, amount, 'add') };
 }
 
@@ -68,7 +67,8 @@ export function validateMove({
   if (!(amount > 0)) return 'zero';
   if (!isCashAccount(from) || !isCashAccount(to)) return 'ineligible';
   if (from.currency !== to.currency) return 'currency';
-  if (applyEffect(fromBalance, amount, 'subtract') < 0) return 'insufficient';
+  // Source may go negative. A transfer can overdraw cash the way an e-wallet already can.
+  void fromBalance;
   return null;
 }
 

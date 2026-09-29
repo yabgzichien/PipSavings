@@ -1,3 +1,4 @@
+import { GroqProvider } from '../src/llm/groq';
 import { runAskPipModel } from '../src/llm/askPipClient';
 
 function mockFetchOnce(content: string) {
@@ -44,5 +45,23 @@ describe('runAskPipModel', () => {
         current: null,
       }),
     ).rejects.toMatchObject({ code: 'bad_response' });
+  });
+});
+
+describe('GroqProvider.askPip', () => {
+  it('includes attached images in the groq user message', async () => {
+    mockFetchOnce('{"type":"start_entry","kind":"scan_receipt"}');
+    await GroqProvider.askPip!({
+      apiKey: 'gsk_user',
+      model: 'qwen/qwen3.8-27b',
+      system: 'sys',
+      user: 'Utterance: Look at the attached files.',
+      parts: [{ kind: 'binary', base64: 'abc', mimeType: 'image/jpeg' }],
+    });
+    const body = JSON.parse(((global as any).fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.messages[1].content).toEqual([
+      { type: 'text', text: 'Utterance: Look at the attached files.' },
+      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,abc' } },
+    ]);
   });
 });

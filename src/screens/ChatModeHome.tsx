@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -8,14 +9,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AskPipChatBubble, AskPipTypingBubble } from '../components/AskPipChatBubble';
+import { AskPipRepaymentCard, type AppliedRepayment } from '../components/AskPipRepaymentCard';
 import { ChatStreakStrip } from '../components/ChatStreakStrip';
 import { ChatCanvasHost } from './ChatCanvasHost';
 import { HomeMascot } from '../components/HomeMascotButton';
 import { Icon, type IconName } from '../components/Icon';
 import { FadeIn } from '../components/Motion';
 import { Pip } from '../components/Pip';
+import { BetaBadge } from '../components/BetaBadge';
 import { Caption, Label } from '../components/ui';
 import { currentMonthKey } from '../lib/budget';
 import { todayISO } from '../lib/duplicates';
@@ -35,8 +39,28 @@ import {
 } from '../lib/askPip/session';
 import { restingSuggestions } from '../lib/askPip/suggestions';
 import type { ExploreTask } from '../lib/tasks';
+import {
+  editRepaymentCard,
+  resolveRepaymentCard,
+  selectRepaymentDebt,
+  type RepaymentAccount,
+  type RepaymentCard,
+  type RepaymentDebt,
+  type RepaymentSlots,
+} from '../lib/askPip/repaymentCard';
 import { runAskPipTurn, type AskPipTurnInput } from '../lib/askPip/turn';
 import { formatAskPipAnalysisReply } from '../lib/askPip/analysisReply';
+import {
+  COMPOSER_PICKER_TYPES,
+  attachmentsFromPickerAssets,
+  isComposerBinaryKind,
+  planComposerSend,
+  spreadsheetBytesToText,
+  takeNextScanImage,
+  type ComposerAttachment,
+} from '../lib/askPip/composerAttach';
+import type { AskPipPromptAttachment } from '../llm/askPipPrompt';
+import { applyChatScanPrefill, txnFromScannedReceipt } from '../lib/askPip/chatScanPrefill';
 import { hostFromVision, kindFromUtterance, runChatVision } from '../lib/askPip/vision';
 import type { AskPipWorld } from '../lib/askPip/resolve';
 import { uint8ArrayToBase64 } from '../lib/receiptImage';
@@ -45,10 +69,12 @@ import { File } from 'expo-file-system';
 import type { PickedImage } from './AttachScreen';
 import { useLanguage } from '../i18n';
 import { useAccent } from '../state/accent';
+import { useAppData } from '../state/store';
 import { useThemeColors, useColorSchemeMode } from '../state/colorScheme';
 import { useReducedMotion } from '../state/useReducedMotion';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
-import { shadowCard, spacing, uiFont } from '../theme';
+import { chatKeyboardAvoidingBehavior } from '../lib/chatKeyboard';
+import { radius, shadowCard, spacing, uiFont } from '../theme';
 import { duration } from '../theme/motion';
 
 function viewLabel(view: AskPipViewId, t: (key: string) => string): string {
@@ -247,6 +273,56 @@ function toDocParts(image: PickedImage): DocPart[] {
   }
 }
 
+type ComposerFile = ComposerAttachment & {
+  webFile?: { arrayBuffer: () => Promise<ArrayBuffer>; text: () => Promise<string> };
+};
+
+function attachChipIcon(kind: ComposerAttachment['kind']): IconName {
+  if (kind === 'image') return 'image';
+  if (kind === 'csv' || kind === 'xlsx') return 'table';
+  return 'file';
+}
+
+function isScanEntryKind(kind: AskPipEntryKind | undefined): kind is AskPipEntryKind {
+  return kind === 'scan_receipt'
+    || kind === 'scan_statement'
+    || kind === 'scan_balance'
+    || kind === 'scan_holdings';
+}
+
+async function readComposerBytes(file: ComposerFile): Promise<Uint8Array> {
+  if (Platform.OS === 'web' && file.webFile) {
+    return new Uint8Array(await file.webFile.arrayBuffer());
+  }
+  return new File(file.uri).bytesSync();
+}
+
+async function readComposerText(file: ComposerFile): Promise<string> {
+  if (Platform.OS === 'web' && file.webFile) {
+    return file.webFile.text();
+  }
+  return new File(file.uri).text();
+}
+
+async function composerFileToImage(file: ComposerFile): Promise<PickedImage> {
+  const bytes = await readComposerBytes(file);
+  return { uri: file.uri, mime: file.mime, base64: uint8ArrayToBase64(bytes) };
+}
+
+async function composerFileToPrompt(file: ComposerFile): Promise<AskPipPromptAttachment> {
+  if (file.kind === 'csv') {
+    return { name: file.name, kind: file.kind, text: await readComposerText(file) };
+  }
+  if (file.kind === 'xlsx') {
+    return {
+      name: file.name,
+      kind: file.kind,
+      text: spreadsheetBytesToText(await readComposerBytes(file)),
+    };
+  }
+  return { name: file.name, kind: file.kind };
+}
+
 export type ChatModeHomeHandle = {
   pop: () => boolean;
   readonly stackEmpty: boolean;
@@ -258,6 +334,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   onToggleDashboard,
   onNeedKey,
   onDiscloseSend,
+  onDisclosePhoto,
   hasKey,
   runModel,
   world,
@@ -279,6 +356,29 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const insets = useSafeAreaInsets();
   const theme = useAccent();
   const colorTheme = useThemeColors();
+  const { openShares, accounts, accountValues, settleShare, unsettleShare } = useAppData();
+  const repaymentDebts = useMemo<RepaymentDebt[]>(() => openShares.map((share) => ({
+    shareId: share.shareId,
+    personName: share.personName,
+    outstanding: share.outstanding,
+    currency: share.currency ?? 'MYR',
+    fxRate: share.fxRate ?? null,
+    merchant: share.merchant,
+    remark: share.remark ?? null,
+  })), [openShares]);
+  const repaymentAccounts = useMemo<RepaymentAccount[]>(() => accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    currency: account.currency,
+    archived: account.archived,
+    balance: accountValues[account.id] ?? 0,
+  })), [accounts, accountValues]);
+  const repaymentDrafts = useRef<Record<string, RepaymentCard>>({});
+  const [, setRepaymentTick] = useState(0);
+  const [appliedRepayments, setAppliedRepayments] = useState<Record<string, AppliedRepayment>>({});
+  const [undoableRepayments, setUndoableRepayments] = useState<Record<string, true>>({});
+  const [repaymentError, setRepaymentError] = useState<{ id: string; text: string } | null>(null);
+  const [applyingRepaymentId, setApplyingRepaymentId] = useState<string | null>(null);
   const { setMode } = useColorSchemeMode();
   const reducedMotion = useReducedMotion();
   const { t, isZh } = useLanguage();
@@ -290,9 +390,15 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const [draft, setDraft] = useState('');
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const attachedRef = useRef<PickedImage | null>(null);
+  const attachedRef = useRef<PickedImage[]>([]);
+  const scanCaptionRef = useRef('');
+  const [composerFiles, setComposerFiles] = useState<ComposerFile[]>([]);
+  const composerFilesRef = useRef(composerFiles);
+  composerFilesRef.current = composerFiles;
+  const attachSeq = useRef(0);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const sendGen = useRef(0);
   const threadRef = useRef<ScrollView>(null);
   const hostedSheetOpenRef = useRef(false);
@@ -310,16 +416,20 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   }, [session.pendingPref, setMode]);
 
   async function chooseKind(kind: AskPipEntryKind) {
-    if (sending) return;
     if (!hasKey) {
       onNeedKey();
       return;
     }
-    const photo = attachedRef.current;
-    setSending(true);
+    const alreadySending = sendingRef.current;
+    if (!alreadySending) {
+      sendingRef.current = true;
+      setSending(true);
+    }
     setComposerError(null);
     try {
-      if (!photo) {
+      const photos = attachedRef.current;
+      const nextPhoto = takeNextScanImage(photos);
+      if (!nextPhoto) {
         setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
         return;
       }
@@ -329,30 +439,66 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         onNeedKey();
         return;
       }
-      const result = await runChatVision({
-        kind,
-        apiKey,
-        providerId,
-        parts: toDocParts(photo),
-      });
-      const host = hostFromVision(kind, photo, result);
-      if (!host) {
-        setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
-        return;
+      let host = null as ReturnType<typeof hostFromVision>;
+      if (kind === 'scan_receipt') {
+        const items = [];
+        for (const photo of photos) {
+          const result = await runChatVision({
+            kind,
+            apiKey,
+            providerId,
+            parts: toDocParts(photo),
+          });
+          const one = hostFromVision(kind, photo, result);
+          if (one?.kind !== 'scan_receipt') continue;
+          if (!host) host = one;
+          items.push(txnFromScannedReceipt(one.receipt, todayISO()));
+        }
+        if (host?.kind !== 'scan_receipt' || items.length === 0) {
+          setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
+          return;
+        }
+        const prefilled = applyChatScanPrefill(
+          items,
+          scanCaptionRef.current,
+          world.people,
+          t('askPipLookAtFiles'),
+        );
+        host = { ...host, items: prefilled.items, splitDrafts: prefilled.splitDrafts };
+        attachedRef.current = [];
+      } else {
+        const result = await runChatVision({
+          kind,
+          apiKey,
+          providerId,
+          parts: toDocParts(nextPhoto.image),
+        });
+        host = hostFromVision(kind, nextPhoto.image, result);
+        if (!host) {
+          setComposerError(llmErrorMessage(new LLMError('bad_response', '')));
+          return;
+        }
       }
-      setSession((prev) => {
-        const withPhoto = prev.pendingPhoto ? prev : reduceSession(prev, { type: 'photoAttached' });
-        return reduceSession(withPhoto, { type: 'scanKindChosen', kind, vision: host });
-      });
+      const prev = sessionRef.current;
+      const withPhoto = prev.pendingPhoto ? prev : reduceSession(prev, { type: 'photoAttached' });
+      const next = reduceSession(withPhoto, { type: 'scanKindChosen', kind, vision: host });
+      sessionRef.current = next;
+      setSession(next);
       setDraft('');
+      setComposerFiles([]);
+      await finishTurn(next, sendGen.current);
     } catch (err) {
       if (err instanceof LLMError) {
-        if (err.code === 'auth') setComposerError(t('askPipBadKey'));
+        if (err.code === 'rate_limit') setComposerError(t('askPipKeyLimit'));
+        else if (err.code === 'auth') setComposerError(t('askPipBadKey'));
         else if (err.code === 'network') setComposerError(t('askPipOffline'));
         else setComposerError(err.message);
       }
     } finally {
-      setSending(false);
+      if (!alreadySending) {
+        sendingRef.current = false;
+        setSending(false);
+      }
     }
   }
 
@@ -369,13 +515,14 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
       return hostedSheetOpenRef.current;
     },
     applyPhotoAttached(uri: string, extra?: { base64?: string; mime?: string }) {
-      attachedRef.current = {
+      attachedRef.current = [{
         uri,
         base64: extra?.base64 ?? '',
         mime: extra?.mime ?? 'image/jpeg',
-      };
+      }];
       setSession((prev) => reduceSession(prev, { type: 'photoAttached' }));
       const named = kindFromUtterance(draftRef.current);
+      scanCaptionRef.current = draftRef.current.trim();
       if (named) void chooseKind(named);
     },
   }));
@@ -400,6 +547,17 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   const bannerCopy = needsYou
     ? needsYouCopy(needsYou, t, fmtMoney(dc.convert(needsYou.total), dc.code))
     : null;
+
+  function handleScanSaved(kind: AskPipEntryKind) {
+    const nextPhoto = takeNextScanImage(attachedRef.current);
+    attachedRef.current = nextPhoto?.remaining ?? [];
+    const popped = reduceSession(sessionRef.current, { type: 'pop' });
+    sessionRef.current = popped;
+    setSession(popped);
+    if (attachedRef.current.length > 0) {
+      void chooseKind(kind);
+    }
+  }
 
   function applyEvent(event: Parameters<typeof reduceSession>[1]) {
     setSession((prev) => reduceSession(prev, event));
@@ -434,13 +592,15 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         onOpenAdvancedImport={() => showView('advancedImport')}
         onAskPipKeyChanged={onAskPipKeyChanged}
         onViewAnalysisTransactions={() => showView('transactions', frame.filters)}
+        onScanSaved={handleScanSaved}
       />
     );
   }
 
   async function playLocalTurn(userText: string, apply: (s: AskPipSession) => AskPipSession) {
-    if (sending) return;
+    if (sendingRef.current) return;
     const gen = ++sendGen.current;
+    sendingRef.current = true;
     setSending(true);
     setComposerError(null);
     const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: userText });
@@ -449,7 +609,10 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     try {
       await finishTurn(apply(withUser), gen);
     } finally {
-      if (gen === sendGen.current) setSending(false);
+      if (gen === sendGen.current) {
+        sendingRef.current = false;
+        setSending(false);
+      }
     }
   }
 
@@ -461,11 +624,93 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   }
 
   function commitAssistant(next: AskPipSession): AskPipSession {
+    if (next.pendingRepayment) {
+      return reduceSession(next, {
+        type: 'appendAssistant',
+        text: t('askPipRepaymentIntro'),
+        repayment: next.pendingRepayment,
+      });
+    }
     const frame = currentFrame(next) ?? undefined;
     return reduceSession(next, {
       type: 'appendAssistant',
       text: replyText(next, t, dc, isZh),
       frame,
+    });
+  }
+
+  function repaymentCard(messageId: string, slots: RepaymentSlots): RepaymentCard {
+    const existing = repaymentDrafts.current[messageId];
+    if (existing) return existing;
+    const card = resolveRepaymentCard({
+      slots,
+      debts: repaymentDebts,
+      accounts: repaymentAccounts,
+      today: todayISO(),
+    });
+    repaymentDrafts.current[messageId] = card;
+    return card;
+  }
+
+  function updateRepayment(messageId: string, card: RepaymentCard) {
+    repaymentDrafts.current[messageId] = card;
+    setRepaymentTick((tick) => tick + 1);
+  }
+
+  async function applyRepayment(messageId: string) {
+    const card = repaymentDrafts.current[messageId];
+    if (!card?.applyEnabled || !card.debt || !card.account || card.amount == null) return;
+    setApplyingRepaymentId(messageId);
+    setRepaymentError(null);
+    try {
+      const ok = await settleShare(
+        card.debt.shareId,
+        card.debt.outstanding,
+        card.paidOn,
+        'declared',
+        card.debt.merchant,
+        card.account.id,
+        null,
+        card.amount,
+      );
+      if (!ok) {
+        setRepaymentError({ id: messageId, text: t('askPipRepaymentFailed') });
+        return;
+      }
+      setAppliedRepayments((prev) => ({
+        ...prev,
+        [messageId]: {
+          personName: card.debt!.personName,
+          merchant: card.debt!.merchant,
+          outstanding: card.debt!.outstanding,
+          currency: card.debt!.currency,
+          accountName: card.account!.name,
+          amount: card.amount!,
+          arrivalCurrency: card.slots.arrivalCurrency,
+          paidOn: card.paidOn,
+          balanceBefore: card.balanceBefore ?? 0,
+          balanceAfter: card.balanceAfter ?? card.amount!,
+        },
+      }));
+      setUndoableRepayments((prev) => ({ ...prev, [messageId]: true }));
+    } finally {
+      setApplyingRepaymentId((current) => (current === messageId ? null : current));
+    }
+  }
+
+  async function undoRepayment(messageId: string) {
+    const card = repaymentDrafts.current[messageId];
+    if (!card?.debt || !undoableRepayments[messageId]) return;
+    await unsettleShare(card.debt.shareId);
+    setUndoableRepayments((prev) => {
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
+    setAppliedRepayments((prev) => {
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
     });
   }
 
@@ -478,19 +723,68 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
   }
 
   async function sendUtterance(utterance: string) {
-    const trimmed = utterance.trim();
-    if (!trimmed || sending) return;
-    if (sessionRef.current.pendingPhoto) {
-      const named = kindFromUtterance(trimmed);
+    if (sendingRef.current) return;
+    const files = composerFilesRef.current;
+    const plan = planComposerSend(utterance, files, t('askPipLookAtFiles'));
+    if (plan.type === 'none') return;
+    scanCaptionRef.current = plan.type === 'pick_kind' ? '' : plan.utterance;
+
+    if (plan.type === 'pick_kind') {
+      try {
+        const binaries: PickedImage[] = [];
+        for (const file of files) {
+          if (!isComposerBinaryKind(file.kind)) continue;
+          binaries.push(await composerFileToImage(file));
+        }
+        if (binaries.length === 0) {
+          setComposerError(t('askPipAttachReadError'));
+          return;
+        }
+        attachedRef.current = binaries;
+        const next = reduceSession(sessionRef.current, { type: 'photoAttached' });
+        sessionRef.current = next;
+        setSession(next);
+      } catch {
+        setComposerError(t('askPipAttachReadError'));
+      }
+      return;
+    }
+
+    if (files.length === 0 && sessionRef.current.pendingPhoto) {
+      const named = kindFromUtterance(plan.utterance);
       if (named) {
         await chooseKind(named);
         return;
       }
     }
-    const localAction = matchLocalAskPipAction(trimmed);
+
+    if (plan.type === 'vision') {
+      try {
+        const binaries: PickedImage[] = [];
+        for (const file of files) {
+          if (!isComposerBinaryKind(file.kind)) continue;
+          binaries.push(await composerFileToImage(file));
+        }
+        if (binaries.length === 0) {
+          setComposerError(t('askPipAttachReadError'));
+          return;
+        }
+        attachedRef.current = binaries;
+        const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: plan.utterance });
+        sessionRef.current = withUser;
+        setSession(withUser);
+        setDraft('');
+        await chooseKind(plan.kind);
+      } catch {
+        setComposerError(t('askPipAttachReadError'));
+      }
+      return;
+    }
+
+    const localAction = files.length === 0 ? matchLocalAskPipAction(plan.utterance) : null;
     if (localAction) {
       setDraft('');
-      await playLocalTurn(trimmed, (withUser) => {
+      await playLocalTurn(plan.utterance, (withUser) => {
         const applied = reduceSession(withUser, { type: 'apply', action: localAction });
         return localAction.type === 'set_pref'
           ? reduceSession(applied, { type: 'apply', action: { type: 'show_view', view: 'settings', filters: {} } })
@@ -504,26 +798,53 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     }
     const allowed = await onDiscloseSend();
     if (!allowed) return;
+
+    let promptAttachments: AskPipPromptAttachment[] = [];
+    let visionParts: ReturnType<typeof toDocParts> = [];
+    try {
+      promptAttachments = await Promise.all(files.map(composerFileToPrompt));
+      const binaries: PickedImage[] = [];
+      for (const file of files) {
+        if (isComposerBinaryKind(file.kind)) binaries.push(await composerFileToImage(file));
+      }
+      if (binaries.length > 0) attachedRef.current = binaries;
+      visionParts = binaries.flatMap(toDocParts);
+    } catch {
+      setComposerError(t('askPipAttachReadError'));
+      return;
+    }
+
     const gen = ++sendGen.current;
+    sendingRef.current = true;
     setSending(true);
     setComposerError(null);
-    const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: trimmed });
+    const withUser = reduceSession(sessionRef.current, { type: 'appendUser', text: plan.utterance });
     sessionRef.current = withUser;
     setSession(withUser);
     setDraft('');
+    setComposerFiles([]);
     try {
       const result = await runAskPipTurn({
-        utterance: trimmed,
+        utterance: plan.utterance,
         world,
         session: withUser,
         model: runModel,
         today: todayISO(),
+        attachments: promptAttachments,
+        parts: visionParts.length > 0 ? visionParts : undefined,
       });
+      const resultFrame = currentFrame(result.session);
+      const scanKind = resultFrame?.entryKind;
+      if (isScanEntryKind(scanKind) && attachedRef.current.length > 0) {
+        await chooseKind(scanKind);
+        return;
+      }
       await finishTurn(result.session, gen);
     } catch (err) {
       if (gen !== sendGen.current) return;
       if (err instanceof LLMError) {
-        if (err.code === 'auth') setComposerError(t('askPipBadKey'));
+        if (err.code === 'rate_limit') setComposerError(t('askPipKeyLimit'));
+        else if (err.code === 'auth') setComposerError(t('askPipBadKey'));
         else if (err.code === 'network') setComposerError(t('askPipOffline'));
         else {
           await finishTurn(
@@ -538,7 +859,41 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         );
       }
     } finally {
-      if (gen === sendGen.current) setSending(false);
+      if (gen === sendGen.current) {
+        sendingRef.current = false;
+        setSending(false);
+      }
+    }
+  }
+
+  async function pickComposerFiles() {
+    if (sendingRef.current) return;
+    haptics.tap();
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: [...COMPOSER_PICKER_TYPES],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      const picked = attachmentsFromPickerAssets(res.assets, () => `att-${++attachSeq.current}`);
+      if (picked.length === 0) {
+        setComposerError(t('askPipAttachUnsupported'));
+        return;
+      }
+      if (picked.some((file) => isComposerBinaryKind(file.kind))) {
+        const allowed = await onDisclosePhoto();
+        if (!allowed) return;
+      }
+      const next: ComposerFile[] = picked.map((file) => {
+        const asset = res.assets.find((row) => row.uri === file.uri);
+        const webFile = asset && 'file' in asset ? asset.file ?? undefined : undefined;
+        return { ...file, webFile };
+      });
+      setComposerFiles((prev) => [...prev, ...next]);
+      setComposerError(null);
+    } catch {
+      setComposerError(t('askPipAttachReadError'));
     }
   }
 
@@ -550,7 +905,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
     <FadeIn style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <KeyboardAvoidingView
         style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={chatKeyboardAvoidingBehavior(Platform.OS)}
       >
         <View style={[styles.chrome, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.stripRow}>
@@ -602,7 +957,6 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                 ]}
               />
             </Pressable>
-            <HomeMascot onGuideExploreTask={onGuideExploreTask} />
             <Pressable
               onPress={() => {
                 haptics.tap();
@@ -617,6 +971,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
             >
               <Icon name="human" size={17} color={colorTheme.ink2} />
             </Pressable>
+            <HomeMascot onGuideExploreTask={onGuideExploreTask} />
           </View>
 
           {showBanner && bannerCopy && (
@@ -645,7 +1000,30 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         <View style={[styles.canvas, { backgroundColor: colorTheme.bg }]}>
           {resting ? (
             <View style={styles.resting}>
-              <Pip size={80} expr="idle" float />
+              <View style={styles.restingHero}>
+                <Pip size={80} expr="idle" float />
+                <BetaBadge />
+              </View>
+              {!hasKey ? (
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    onNeedKey();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('askPipGetKey')}
+                  style={({ pressed }) => [
+                    styles.noKeyNotice,
+                    { backgroundColor: colorTheme.surface2, opacity: pressed ? 0.84 : 1 },
+                  ]}
+                >
+                  <Icon name="key" size={16} color={theme.accent} />
+                  <Caption color={colorTheme.ink2} style={styles.noKeyCopy}>
+                    {t('askPipNoKeyNotice')}
+                  </Caption>
+                  <Icon name="chevronRight" size={15} color={colorTheme.ink3} />
+                </Pressable>
+              ) : null}
               <View style={styles.suggestions}>
                 {chips.map((chip) => (
                   <Pressable
@@ -684,9 +1062,24 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
               onContentSizeChange={() => threadRef.current?.scrollToEnd({ animated: !reducedMotion })}
             >
               {session.messages.map((item) => (
-                <AskPipChatBubble key={item.id} role={item.role} text={item.text}>
-                  {item.role === 'assistant' && item.id === liveId && liveFrame ? hostFor(liveFrame) : null}
-                </AskPipChatBubble>
+                <View key={item.id}>
+                  <AskPipChatBubble role={item.role} text={item.text}>
+                    {item.role === 'assistant' && item.id === liveId && liveFrame ? hostFor(liveFrame) : null}
+                  </AskPipChatBubble>
+                  {item.role === 'assistant' && item.repayment ? (
+                    <AskPipRepaymentCard
+                      card={repaymentCard(item.id, item.repayment)}
+                      applied={appliedRepayments[item.id] ?? null}
+                      undoable={undoableRepayments[item.id] === true}
+                      applying={applyingRepaymentId === item.id}
+                      error={repaymentError?.id === item.id ? repaymentError.text : null}
+                      onEdit={(edit) => updateRepayment(item.id, editRepaymentCard(repaymentCard(item.id, item.repayment!), edit, todayISO()))}
+                      onSelectDebt={(shareId) => updateRepayment(item.id, selectRepaymentDebt(repaymentCard(item.id, item.repayment!), shareId, todayISO()))}
+                      onApply={() => { void applyRepayment(item.id); }}
+                      onUndo={() => { void undoRepayment(item.id); }}
+                    />
+                  ) : null}
+                </View>
               ))}
               {sending ? <AskPipTypingBubble /> : null}
             </ScrollView>
@@ -700,14 +1093,17 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                 key={chip.kind}
                 onPress={() => {
                   haptics.tap();
+                  const typed = draftRef.current.trim();
+                  if (typed) scanCaptionRef.current = typed;
                   void chooseKind(chip.kind);
                 }}
+                disabled={sending}
                 style={({ pressed }) => [
                   styles.suggestion,
                   {
                     backgroundColor: theme.accentTint,
                     borderColor: theme.accentSoft,
-                    opacity: pressed ? 0.85 : 1,
+                    opacity: sending || pressed ? 0.85 : 1,
                   },
                 ]}
                 accessibilityRole="button"
@@ -745,37 +1141,114 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
           </View>
         )}
 
-        <View style={[styles.composer, { borderColor: colorTheme.line, backgroundColor: colorTheme.surface }]}>
-          <TextInput
-            value={draft}
-            onChangeText={(text) => {
-              setDraft(text);
-              if (composerError) setComposerError(null);
-            }}
-            placeholder={t('askPipComposerPlaceholder')}
-            placeholderTextColor={colorTheme.ink3}
-            style={[styles.input, { color: colorTheme.ink }]}
-            editable={!sending}
-            returnKeyType="send"
-            onSubmitEditing={() => {
-              void sendUtterance(draft);
-            }}
-          />
-          <Pressable
-            onPress={() => {
-              haptics.tap();
-              void sendUtterance(draft);
-            }}
-            disabled={sending}
-            style={({ pressed }) => [
-              styles.send,
-              { backgroundColor: theme.accent, opacity: sending || pressed ? 0.85 : 1 },
+        <View style={styles.composerWrap}>
+          <View
+            style={[
+              styles.composer,
+              {
+                borderColor: colorTheme.line,
+                backgroundColor: colorTheme.surface,
+                borderRadius: composerFiles.length > 0 ? radius.lg : 999,
+              },
             ]}
-            accessibilityRole="button"
-            accessibilityLabel={t('askPipToggleChat')}
           >
-            <Icon name="arrowRight" size={16} color="#fff" />
-          </Pressable>
+            {composerFiles.length > 0 ? (
+              <ScrollView
+                horizontal
+                keyboardShouldPersistTaps="handled"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipRow}
+              >
+                {composerFiles.map((file) => (
+                  <View
+                    key={file.id}
+                    style={[
+                      styles.chip,
+                      file.kind === 'image' ? styles.imageChip : styles.fileChip,
+                      { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line },
+                    ]}
+                  >
+                    {file.kind === 'image' ? (
+                      <Image source={{ uri: file.uri }} style={styles.chipImage} />
+                    ) : (
+                      <>
+                        <Icon name={attachChipIcon(file.kind)} size={16} color={colorTheme.ink2} />
+                        <Caption color={colorTheme.ink2} numberOfLines={1} style={styles.chipName}>
+                          {file.name}
+                        </Caption>
+                      </>
+                    )}
+                    <Pressable
+                      onPress={() => {
+                        haptics.tap();
+                        setComposerFiles((prev) => prev.filter((row) => row.id !== file.id));
+                      }}
+                      style={[styles.chipRemove, { backgroundColor: colorTheme.ink, borderColor: colorTheme.surface }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('askPipRemoveAttachment', { name: file.name })}
+                      hitSlop={spacing.sm}
+                    >
+                      <Icon name="x" size={10} color={colorTheme.surface} />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+            <View style={styles.composerRow}>
+              <Pressable
+                onPress={() => {
+                  void pickComposerFiles();
+                }}
+                disabled={sending}
+                style={({ pressed }) => [
+                  styles.attach,
+                  {
+                    backgroundColor: colorTheme.surface2,
+                    borderColor: colorTheme.line,
+                    opacity: sending || pressed ? 0.85 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={t('askPipAttachFiles')}
+                hitSlop={spacing.sm}
+              >
+                <Icon name="plus" size={16} color={colorTheme.ink2} />
+              </Pressable>
+              <TextInput
+                value={draft}
+                onChangeText={(text) => {
+                  setDraft(text);
+                  if (composerError) setComposerError(null);
+                }}
+                placeholder={t('askPipComposerPlaceholder')}
+                placeholderTextColor={colorTheme.ink3}
+                style={[styles.input, { color: colorTheme.ink }]}
+                editable={!sending}
+                returnKeyType="send"
+                onSubmitEditing={() => {
+                  void sendUtterance(draft);
+                }}
+              />
+              <Pressable
+                onPress={() => {
+                  haptics.tap();
+                  void sendUtterance(draft);
+                }}
+                disabled={sending || !(draft.trim() || composerFiles.length)}
+                style={({ pressed }) => [
+                  styles.send,
+                  {
+                    backgroundColor: theme.accent,
+                    opacity: sending || pressed || !(draft.trim() || composerFiles.length) ? 0.45 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={t('askPipSend')}
+              >
+                <Icon name="arrowRight" size={16} color="#fff" />
+              </Pressable>
+            </View>
+          </View>
         </View>
         {composerError ? (
           <Caption color={colorTheme.red} style={styles.composerError}>
@@ -837,6 +1310,17 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   resting: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.base },
+  restingHero: { alignItems: 'center', gap: spacing.sm },
+  noKeyNotice: {
+    maxWidth: 320,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  noKeyCopy: { flex: 1, minWidth: 0 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
   suggestion: {
     paddingHorizontal: spacing.md,
@@ -851,19 +1335,79 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingBottom: spacing.sm,
   },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  composerWrap: {
     marginHorizontal: spacing.base,
     marginTop: spacing.sm,
     marginBottom: spacing.xl,
-    paddingHorizontal: spacing.md,
+    alignSelf: 'stretch',
+  },
+  composer: {
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingLeft: spacing.xs,
+    paddingRight: spacing.xs,
     paddingVertical: spacing.sm,
     borderRadius: 999,
     borderWidth: 1,
   },
-  input: { flex: 1, fontFamily: uiFont(500), paddingVertical: spacing.xs },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    gap: spacing.sm,
+  },
+  chipRow: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    overflow: 'visible',
+  },
+  imageChip: {
+    width: 48,
+    height: 48,
+  },
+  fileChip: {
+    minHeight: 48,
+    maxWidth: 160,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingRight: spacing.base,
+  },
+  chipImage: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+  },
+  chipName: {
+    flexShrink: 1,
+    maxWidth: 96,
+  },
+  chipRemove: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  attach: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  input: { flex: 1, minWidth: 0, fontFamily: uiFont(500), paddingVertical: spacing.xs },
   send: {
     width: 32,
     height: 32,

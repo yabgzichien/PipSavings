@@ -1,15 +1,15 @@
 // src/state/useCloudBackupSync.ts
-// Silent, foreground-triggered Google Drive auto-backup (Android only — see
-// docs/superpowers/specs/2026-09-02-backup-restore-design.md, "auto-backup trigger"). Mounted
-// once at the App root, same pattern as useReminderSync. Never surfaces errors to the user:
-// this runs unattended, so a failure just means the next foreground check tries again.
+// Silent, foreground-triggered Google Drive auto-backup (Android and web). Mounted once at the
+// App root, same pattern as useReminderSync. Runs only when Drive is connected AND auto-backup
+// is on. Never surfaces errors to the user: this runs unattended, so a failure just means the
+// next foreground check tries again.
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { buildBackupZip, type BackupSourceData } from '../lib/backupBundle';
+import { loadAutoBackupEnabled, runSilentAutoBackupIfDue } from '../lib/cloudBackup/autoBackupPref';
+import { isGoogleDrivePlatform } from '../lib/cloudBackup/googleAuth';
 import { getLastCloudBackupAt, isCloudBackupConnected, silentBackupIfConnected } from '../lib/cloudBackup/useCloudBackup';
 import { useAppData } from './store';
-
-const AUTO_BACKUP_STALE_MS = 6 * 60 * 60 * 1000; // 6h, per spec: not user-configurable in this build.
 
 export function useCloudBackupSync(): void {
   const data = useAppData();
@@ -19,7 +19,7 @@ export function useCloudBackupSync(): void {
   dataRef.current = data;
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (!isGoogleDrivePlatform(Platform.OS)) return;
     let running = false;
 
     const run = async () => {
@@ -27,12 +27,15 @@ export function useCloudBackupSync(): void {
       running = true;
       try {
         const connected = await isCloudBackupConnected();
-        if (!connected) return;
+        const autoEnabled = await loadAutoBackupEnabled(connected);
         const lastAt = await getLastCloudBackupAt();
-        const stale = !lastAt || Date.now() - new Date(lastAt).getTime() > AUTO_BACKUP_STALE_MS;
-        if (!stale) return;
-        const zip = await buildBackupZip(dataRef.current);
-        await silentBackupIfConnected(zip);
+        await runSilentAutoBackupIfDue({
+          connected,
+          autoEnabled,
+          lastBackupAt: lastAt,
+          buildZip: () => buildBackupZip(dataRef.current),
+          upload: silentBackupIfConnected,
+        });
       } catch (e) {
         console.warn('[cloudBackup] auto-backup skipped:', e);
       } finally {

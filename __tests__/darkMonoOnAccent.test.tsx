@@ -116,4 +116,12 @@ describe('dark Monochrome onAccent on accent fills', () => {
     expect(chip).toContain('theme.onAccent');
     expect(chip).not.toMatch(/color="#fff"/);
   });
+
+  it('paints AskPipKeySheet primary button and selected provider tab with onAccent, not accentInk or hardcoded white', () => {
+    const source = readFileSync(resolve(__dirname, '../src/components/AskPipKeySheet.tsx'), 'utf8');
+    expect(source).toContain('color={accent.onAccent}');
+    expect(source).toContain('on && { color: accent.onAccent }');
+    expect(source).not.toContain('color={accent.accentInk}');
+    expect(source).not.toMatch(/modeTextOn:\s*\{\s*color:\s*'#fff'/);
+  });
 });

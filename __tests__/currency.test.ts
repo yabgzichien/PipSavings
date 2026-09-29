@@ -33,6 +33,13 @@ describe('currency table', () => {
     expect(currencyMeta('PLN')).toEqual({ code: 'PLN', label: 'Polish Złoty', decimals: 2 });
   });
 
+  it('supports Turkish lira and UAE dirham with two decimal places', () => {
+    expect(currencyMeta('TRY')).toEqual({ code: 'TRY', label: 'Turkish Lira', decimals: 2 });
+    expect(currencyMeta('AED')).toEqual({ code: 'AED', label: 'UAE Dirham', decimals: 2 });
+    expect(decimalsFor('TRY')).toBe(2);
+    expect(decimalsFor('AED')).toBe(2);
+  });
+
   it('defaults an unknown code to 2 decimals rather than throwing', () => {
     expect(decimalsFor('ZZZ')).toBe(2);
     expect(currencyMeta('ZZZ')).toBeNull();
@@ -129,6 +136,10 @@ describe('parseActiveCurrencies', () => {
   it('deduplicates', () => {
     expect(parseActiveCurrencies('["MYR","CNY","CNY"]')).toEqual(['MYR', 'CNY']);
   });
+
+  it('keeps Turkish lira and UAE dirham when users activate them', () => {
+    expect(parseActiveCurrencies('["TRY","AED"]')).toEqual(['MYR', 'TRY', 'AED']);
+  });
 });
 
 describe('isMultiCurrency', () => {
@@ -204,4 +215,3 @@ describe('normalizeCurrency', () => {
     expect(normalizeCurrency('INVALID')).toBe('MYR');
   });
 });
-

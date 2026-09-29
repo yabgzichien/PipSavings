@@ -68,7 +68,8 @@ Each transaction must have:
 - "currency": 3-letter currency code (e.g. MYR, SGD, USD)
 - "method": payment method if visible (e.g. "tng", "grabpay", "visa", "cash"), or null
 
-Return ONLY valid JSON matching: { "transactions": [...] }.`;
+Return ONLY valid JSON matching: { "transactions": [...] }.
+Include every row from top to bottom. Do not stop after the first few, sample, or summarize.`;
 
 export function buildPrompt(_categories?: ProviderCategory[]): string {
   return TRANSACTION_USER_PROMPT;
@@ -418,7 +419,7 @@ export async function callGroqVision(
       response_format: { type: 'json_object' },
       reasoning_effort: 'none',
       temperature: 0,
-      max_tokens: scanType === 'transactions' ? 4096 : 2048,
+      max_tokens: scanType === 'transactions' ? 8192 : 2048,
     }),
   });
 
@@ -464,7 +465,7 @@ export async function callGroqText(
       response_format: { type: 'json_object' },
       reasoning_effort: 'none',
       temperature: 0,
-      max_tokens: scanType === 'transactions' ? 4096 : 2048,
+      max_tokens: scanType === 'transactions' ? 8192 : 2048,
     }),
   });
 
@@ -513,7 +514,7 @@ export async function callGeminiVision(
       response_schema: getResponseSchema(scanType),
       temperature: 0,
       thinkingConfig: { thinkingLevel: 'minimal' },
-      maxOutputTokens: scanType === 'transactions' ? 4096 : 2048,
+      maxOutputTokens: scanType === 'transactions' ? 8192 : 2048,
       mediaResolution: 'MEDIA_RESOLUTION_MEDIUM',
     },
   };
@@ -563,7 +564,7 @@ export async function callGeminiText(
       response_schema: getResponseSchema(scanType),
       temperature: 0,
       thinkingConfig: { thinkingLevel: 'minimal' },
-      maxOutputTokens: scanType === 'transactions' ? 4096 : 2048,
+      maxOutputTokens: scanType === 'transactions' ? 8192 : 2048,
     },
   };
 
@@ -639,7 +640,7 @@ export async function callOpenRouterVision(
         signal,
         body: JSON.stringify({
           model: model || 'google/gemini-2.5-flash',
-          max_tokens: scanType === 'transactions' ? 4096 : 2048,
+          max_tokens: scanType === 'transactions' ? 8192 : 2048,
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.1,
@@ -702,7 +703,7 @@ export async function callOpenRouterText(
         signal,
         body: JSON.stringify({
           model: model || 'google/gemini-2.5-flash',
-          max_tokens: scanType === 'transactions' ? 4096 : 2048,
+          max_tokens: scanType === 'transactions' ? 8192 : 2048,
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.1,

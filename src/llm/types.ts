@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { ExtractedTxn } from '../lib/types';
 import type { ScannedHolding } from '../lib/prices';
 import type { ScannedSnapshot } from '../lib/parseSnapshot';
@@ -28,6 +29,9 @@ export function llmErrorMessage(e: unknown): string {
   if (e instanceof LLMError) {
     switch (e.code) {
       case 'no_key':
+        if (Platform.OS === 'web') {
+          return "Pip's server AI isn't available on web. Add your own API key in Settings, then try again.";
+        }
         return "This feature isn't available right now.";
       case 'auth':
         return "This feature isn't available right now.";
@@ -64,17 +68,18 @@ export interface CoachInput {
   system: string;
 }
 
+/** One piece of a document handed to a document-capable model. */
+export type DocPart =
+  | { kind: 'binary'; base64: string; mimeType: string } // PDF / image  read server-side
+  | { kind: 'text'; text: string }; // CSV / XLSX / DOCX flattened to text
+
 export interface AskPipLlmInput {
   apiKey: string;
   model: string;
   system: string;
   user: string;
+  parts?: DocPart[];
 }
-
-/** One piece of a document handed to a document-capable model. */
-export type DocPart =
-  | { kind: 'binary'; base64: string; mimeType: string } // PDF / image  read server-side
-  | { kind: 'text'; text: string }; // CSV / XLSX / DOCX flattened to text
 
 export interface DocExtractInput {
   apiKey: string;

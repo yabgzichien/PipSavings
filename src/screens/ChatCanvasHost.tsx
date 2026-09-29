@@ -9,12 +9,18 @@ import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
 import { resolveAskPipQuickAddPrefill, type AskPipQuickAddDraft } from '../lib/askPip/quickAddPrefill';
 import { activityInitialState } from '../lib/askPip/activityFilters';
 import { tripDetailHostKey, type AskPipFrame } from '../lib/askPip/session';
+import { resolveSuggestion } from '../lib/categorySuggestion';
+import { guessCategoryByKeyword } from '../lib/categoryKeywords';
+import { predictMerchantCategory } from '../lib/merchantClassifier';
+import { merchantKey } from '../lib/normalize';
 import { todayISO } from '../lib/duplicates';
-import type { ExtractedTxn, SplitDraft } from '../lib/types';
+import type { CategorySuggestion, ExtractedTxn, SplitDraft } from '../lib/types';
+import { suggestForMerchant } from '../lib/recommend';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
 import { spacing } from '../theme';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
+import type { ChatVisionHost, ChatVisionImage } from '../lib/askPip/vision';
 import { AdvancedImportScreen } from './AdvancedImportScreen';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
 import { BackupScreen } from './BackupScreen';
@@ -27,12 +33,13 @@ import { CategoryDetailScreen } from './CategoryDetailScreen';
 import { CommitmentsScreen } from './CommitmentsScreen';
 import { CurrencySettingsScreen } from './CurrencySettingsScreen';
 import { ExportScreen } from './ExportScreen';
+import { CategorizeScreen } from './CategorizeScreen';
 import { ExtractScreen } from './ExtractScreen';
 import { ManualEntryScreen } from './ManualEntryScreen';
+import { ReceiptScanScreen, type ReceiptSplitResult } from './ReceiptScanScreen';
 import { NetWorthHistoryScreen } from './NetWorthHistoryScreen';
 import { NetWorthScreen } from './NetWorthScreen';
 import { OwedScreen } from './OwedScreen';
-import { ReceiptScanScreen } from './ReceiptScanScreen';
 import { RecapScreen } from './RecapScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { TaxScreen } from './TaxScreen';
@@ -69,6 +76,8 @@ export type ChatCanvasHostProps = {
   onOpenAdvancedImport?: () => void;
   onAskPipKeyChanged?: () => void;
   onViewAnalysisTransactions?: () => void;
+  /** Fired after a chat-hosted receipt or statement is saved, so leftover photos can start next. */
+  onScanSaved?: (kind: AskPipEntryKind) => void;
 };
 
 export function ChatCanvasHost({
@@ -96,6 +105,7 @@ export function ChatCanvasHost({
   onOpenAdvancedImport = noop,
   onAskPipKeyChanged = noop,
   onViewAnalysisTransactions = noop,
+  onScanSaved,
 }: ChatCanvasHostProps) {
   const { entryCategories, commitCategorized, setTransactionsTrip, accounts } = useAppData();
   const colorTheme = useThemeColors();
@@ -113,6 +123,14 @@ export function ChatCanvasHost({
       onPop();
     },
     [commitCategorized, setTransactionsTrip, onPop],
+  );
+
+  const finishScan = useCallback(
+    (kind: AskPipEntryKind) => {
+      if (onScanSaved) onScanSaved(kind);
+      else onPop();
+    },
+    [onScanSaved, onPop],
   );
 
   if (frame.analysis) {
@@ -153,6 +171,7 @@ export function ChatCanvasHost({
         onOpenAdvancedImport,
         onAskPipKeyChanged,
         onViewAnalysisTransactions,
+        onScanSaved: finishScan,
         onQuickAddComplete,
         entryCategories,
         accounts,
@@ -163,11 +182,12 @@ export function ChatCanvasHost({
 }
 
 type HostCallbacks = Required<
-  Omit<ChatCanvasHostProps, 'frame'>
+  Omit<ChatCanvasHostProps, 'frame' | 'onScanSaved'>
 > & {
   entryCategories: ReturnType<typeof useAppData>['entryCategories'];
   accounts: ReturnType<typeof useAppData>['accounts'];
   placeholderColor: string;
+  onScanSaved: (kind: AskPipEntryKind) => void;
   onQuickAddComplete: (
     item: ExtractedTxn,
     categoryId: string,
@@ -247,6 +267,199 @@ function QuickAddCanvas({
   );
 }
 
+function suggestItemCategory(
+  merchant: string,
+  type: ExtractedTxn['type'],
+  categories: ReturnType<typeof useAppData>['entryCategories'],
+  memory: ReturnType<typeof useAppData>['memory'],
+): CategorySuggestion | null {
+  if (!merchant.trim()) return null;
+  const key = merchantKey(merchant);
+  const keywordGuess = guessCategoryByKeyword(merchant, type, categories);
+  const classifiedGuess = !keywordGuess
+    ? (predictMerchantCategory(merchant, type, categories)?.categoryId ?? null)
+    : null;
+  return resolveSuggestion(key, memory, categories, keywordGuess || classifiedGuess);
+}
+
+function ReceiptScanCanvas({
+  host,
+  onBack,
+  onSaved,
+}: {
+  host: Extract<ChatVisionHost, { kind: 'scan_receipt' }>;
+  onBack: () => void;
+  onSaved: () => void;
+}) {
+  const {
+    entryCategories,
+    commitCategorized,
+    setTransactionsTrip,
+    applyReliefDetection,
+    memory,
+    settleShare,
+  } = useAppData();
+  const [confirm, setConfirm] = useState<ReceiptSplitResult | null | undefined>(undefined);
+  const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null);
+  const [resume, setResume] = useState<ReceiptSplitResult['resumeState'] | null>(null);
+  const { image, receipt, items, splitDrafts } = host;
+
+  const categorizeMerchant = useCallback(
+    async (merchant: string | null) => {
+      setSuggestion(null);
+      if (!merchant) return;
+      setSuggestion(suggestItemCategory(merchant, 'expense', entryCategories, memory));
+    },
+    [entryCategories, memory],
+  );
+
+  if (items && items.length > 0) {
+    const suggestions = items.map((item) =>
+      suggestItemCategory(item.merchant, item.type, entryCategories, memory),
+    );
+    return (
+      <CategorizeScreen
+        extracted={items}
+        suggestions={suggestions}
+        categories={entryCategories}
+        initialSplitDrafts={splitDrafts}
+        onBack={onBack}
+        onComplete={async (assignments, nextItems, nextSplits, settlements) => {
+          const { created } = await commitCategorized(nextItems, assignments, 'extracted', nextSplits);
+          await applyReliefDetection(created, items.length === 1 ? receipt : null);
+          for (const settlement of settlements) {
+            if (!settlement) continue;
+            for (const alloc of settlement.allocations) {
+              await settleShare(
+                alloc.shareId,
+                alloc.amount,
+                settlement.paidOn,
+                'matched',
+                settlement.merchant,
+                null,
+                settlement.merchant,
+              );
+            }
+          }
+          onSaved();
+        }}
+      />
+    );
+  }
+
+  if (confirm !== undefined) {
+    return (
+      <ManualEntryScreen
+        categories={entryCategories}
+        onBack={() => setConfirm(undefined)}
+        onComplete={async (item, categoryId, split, tripId) => {
+          const { created } = await commitCategorized(
+            [item],
+            [categoryId],
+            'manual',
+            [split],
+            [confirm?.photoUri ?? null],
+          );
+          await applyReliefDetection(created, receipt);
+          if (tripId && created.length > 0) {
+            await setTransactionsTrip(
+              created.map((row) => row.id),
+              tripId,
+            );
+          }
+          onSaved();
+        }}
+        title={confirm ? 'Check your receipt' : 'Split a bill'}
+        startSplitting
+        embedded
+        initialMerchant={confirm?.merchant ?? null}
+        initialAmount={confirm?.charged ?? null}
+        initialCurrency={confirm?.currency ?? null}
+        initialSplit={confirm?.draft ?? null}
+        initialCategoryId={suggestion?.categoryId ?? null}
+        initialCategorySource={suggestion?.source ?? null}
+      />
+    );
+  }
+
+  return (
+    <ReceiptScanScreen
+      initialImage={image}
+      cachedReceipt={receipt}
+      initialDraft={resume}
+      onBack={onBack}
+      onDone={(result) => {
+        setConfirm(result);
+        setResume(result.resumeState);
+        void categorizeMerchant(result.merchant);
+      }}
+      onManualInstead={() => {
+        setConfirm(null);
+      }}
+      embedded
+    />
+  );
+}
+
+function ExtractCanvas({
+  image,
+  items,
+  onBack,
+  onSaved,
+}: {
+  image: ChatVisionImage;
+  items: ExtractedTxn[];
+  onBack: () => void;
+  onSaved: () => void;
+}) {
+  const { entryCategories, commitCategorized, memory, settleShare } = useAppData();
+  const [review, setReview] = useState<{ items: ExtractedTxn[]; linkId: string | null } | null>(null);
+
+  if (review) {
+    const suggestions = review.items.map((item) => {
+      const categoryId = suggestForMerchant(memory, item.merchant);
+      return categoryId ? { categoryId, source: 'learned' as const } : null;
+    });
+    return (
+      <CategorizeScreen
+        extracted={review.items}
+        suggestions={suggestions}
+        categories={entryCategories}
+        linkId={review.linkId}
+        onBack={() => setReview(null)}
+        onComplete={async (assignments, nextItems, splitDrafts, settlements) => {
+          await commitCategorized(nextItems, assignments, 'extracted', splitDrafts);
+          for (const settlement of settlements) {
+            if (!settlement) continue;
+            for (const alloc of settlement.allocations) {
+              await settleShare(
+                alloc.shareId,
+                alloc.amount,
+                settlement.paidOn,
+                'matched',
+                settlement.merchant,
+                review.linkId,
+                settlement.merchant,
+              );
+            }
+          }
+          onSaved();
+        }}
+      />
+    );
+  }
+
+  return (
+    <ExtractScreen
+      image={image}
+      cachedItems={items}
+      onBack={onBack}
+      onDone={(nextItems, linkId) => setReview({ items: nextItems, linkId })}
+      embedded
+    />
+  );
+}
+
 function renderCanvas(frame: AskPipFrame, ctx: HostCallbacks) {
   if (frame.entryKind) {
     return renderEntry(frame, ctx);
@@ -290,13 +503,10 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
     case 'scan_receipt':
       if (frame.vision?.kind === 'scan_receipt') {
         return (
-          <ReceiptScanScreen
-            initialImage={frame.vision.image}
-            cachedReceipt={frame.vision.receipt}
+          <ReceiptScanCanvas
+            host={frame.vision}
             onBack={ctx.onPop}
-            onDone={noop}
-            onManualInstead={noop}
-            embedded
+            onSaved={() => ctx.onScanSaved('scan_receipt')}
           />
         );
       }
@@ -304,12 +514,11 @@ function renderEntry(frame: AskPipFrame, ctx: HostCallbacks) {
     case 'scan_statement':
       if (frame.vision?.kind === 'scan_statement') {
         return (
-          <ExtractScreen
+          <ExtractCanvas
             image={frame.vision.image}
-            cachedItems={frame.vision.items}
+            items={frame.vision.items}
             onBack={ctx.onPop}
-            onDone={noop}
-            embedded
+            onSaved={() => ctx.onScanSaved('scan_statement')}
           />
         );
       }

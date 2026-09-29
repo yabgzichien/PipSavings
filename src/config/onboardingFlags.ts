@@ -11,7 +11,7 @@
  * See docs/superpowers/specs/2026-09-08-onboarding-demo-step-design.md.
  *
  * Setting this to `false` removes the demo while retaining the shared first-run sequence:
- * Import -> Appearance -> Notifications -> Widget. `onboardingNav` recomputes progress and
- * `OnboardingScreen` never renders the demo.
+ * Import -> Appearance -> Notifications -> Backup (Android/web) -> Widget.
+ * `onboardingNav` recomputes progress and `OnboardingScreen` never renders the demo.
  */
 export const DEMO_STEP_ENABLED = true;

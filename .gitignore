@@ -46,6 +46,7 @@ yarn-error.*
 
 # personal bank statements / documents — never commit
 *.pdf
+*.docx
 ryttestpdf.pdf
 Testpdfscan.pdf
 .vercel
@@ -90,3 +91,10 @@ tax-relief-evidence-*.zip
 
 # Certificates generator & previews
 certificates/
+
+# Private FYP supervisor search and resume materials
+/output/resume/
+/tmp/resume/
+/tmp/pdfs/
+/resume/
+/supervisor-research/

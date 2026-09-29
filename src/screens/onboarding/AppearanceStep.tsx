@@ -89,11 +89,6 @@ export function AppearanceStep({ onNext }: { onNext: () => void }) {
               label: t('accentInk'),
             }}
           />
-          {style === 'monochrome' ? (
-            <Body color={colorTheme.ink2} style={{ marginTop: 12 }}>
-              {t('accentMonoHint', { name: presets.find((p) => p.id === presetId)?.name ?? presets[0].name })}
-            </Body>
-          ) : null}
         </Card>
       </FadeIn>
 

@@ -41,6 +41,25 @@ function findPressableByLabel(renderer: any, label: string) {
 }
 
 describe('AppAlertModal', () => {
+  it('renders warning notifications with the semantic yellow palette', async () => {
+    const renderer = await renderAlertHost();
+
+    await act(async () => {
+      dispatchAlert({
+        kind: 'notify',
+        tone: 'warning',
+        title: 'Your API key is needed on web',
+        message: "The web version cannot use Pip's server AI.",
+      });
+    });
+
+    const json = JSON.stringify(renderer.toJSON());
+    expect(json).toContain('Your API key is needed on web');
+    expect(json).toContain('#faf7f2');
+    expect(json).toContain('#efe6d6');
+    expect(json).toContain('#9c6300');
+  });
+
   it('renders custom cancelLabel and primary neutralAction, and handles actions', async () => {
     const renderer = await renderAlertHost();
 

@@ -103,4 +103,27 @@ describe('multi-key BYOK store', () => {
     expect(await store.list()).toHaveLength(2);
     expect((await store.getActive())?.id).toBe(first.id);
   });
+
+  it('keeps saved keys while the user selects no active key', async () => {
+    const store = createAskPipKeyStore(memoryIo());
+    await store.add('groq', 'gsk_one_aaaaaaaa');
+    await store.add('gemini', 'AIzaSyTwo_bbbbbbbb');
+
+    await store.setActive(null);
+
+    expect(await store.getActive()).toBeNull();
+    expect(await store.getApiKey()).toBeNull();
+    expect(await store.getProvider()).toBeNull();
+    expect(await store.list()).toHaveLength(2);
+  });
+
+  it('makes a newly saved key active after the user selected no key', async () => {
+    const store = createAskPipKeyStore(memoryIo());
+    await store.add('groq', 'gsk_one_aaaaaaaa');
+    await store.setActive(null);
+
+    const added = await store.add('openrouter', 'sk-or-new_cccccccc');
+
+    expect((await store.getActive())?.id).toBe(added.id);
+  });
 });

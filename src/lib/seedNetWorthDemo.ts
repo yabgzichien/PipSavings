@@ -254,5 +254,76 @@ export async function seedReadmeDemo(now: Date = new Date()): Promise<SeedNetWor
   checkIns[isoDay(now, 0)] = 'review';
   await setMeta('daily_checkins', JSON.stringify(checkIns));
 
+  await setMeta('home_mode', 'chat');
+  await setMeta('ask_pip_disclosed_send', 'true');
+  await setMeta('ask_pip_disclosed_photo', 'true');
+
   return result;
+}
+
+/** Dev capture helper: Bob owes SGD for a burger, and a Touch 'n Go wallet exists to receive the ringgit. */
+export async function seedChatRepaymentDemo(fxRate: number, now: Date = new Date()): Promise<void> {
+  if (!Number.isFinite(fxRate) || fxRate <= 0) {
+    throw new Error('Chat repayment seed needs a positive SGD to MYR rate.');
+  }
+  const db = await getDb();
+  const createdAt = now.toISOString();
+  const day = isoDay(now, -1);
+  const myr = Math.round(25 * fxRate * 100) / 100;
+  await db.runAsync('DELETE FROM split_shares WHERE id = ?', 'seed-share-bob-burger');
+  await db.runAsync('DELETE FROM splits WHERE id = ?', 'seed-split-bob-burger');
+  await db.runAsync('DELETE FROM transactions WHERE id = ?', 'seed-txn-bob-burger');
+  await db.runAsync('DELETE FROM people WHERE id = ?', 'seed-person-bob');
+  await db.runAsync('DELETE FROM balance_entries WHERE account_id = ?', 'seed-tng');
+  await db.runAsync('DELETE FROM accounts WHERE id = ?', 'seed-tng');
+  await db.runAsync(
+    'INSERT INTO people (id, name, created_at) VALUES (?, ?, ?)',
+    'seed-person-bob',
+    'Bob',
+    createdAt,
+  );
+  await db.runAsync(
+    `INSERT INTO transactions
+       (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id)
+     VALUES (?, ?, ?, ?, 'SGD', 'expense', ?, 'food', ?, 'manual', 'burger', NULL, 25, ?, NULL)`,
+    'seed-txn-bob-burger',
+    'Burger',
+    'burger',
+    myr,
+    day,
+    createdAt,
+    fxRate,
+  );
+  await db.runAsync(
+    `INSERT INTO splits (id, txn_id, gross, own_share, method, created_at, currency, fx_rate)
+     VALUES (?, ?, 25, 0, 'itemized', ?, 'SGD', ?)`,
+    'seed-split-bob-burger',
+    'seed-txn-bob-burger',
+    createdAt,
+    fxRate,
+  );
+  await db.runAsync(
+    `INSERT INTO split_shares (id, split_id, person_id, owed, paid, status, written_off_txn_id, created_at)
+     VALUES (?, ?, ?, 25, 0, 'open', NULL, ?)`,
+    'seed-share-bob-burger',
+    'seed-split-bob-burger',
+    'seed-person-bob',
+    createdAt,
+  );
+  await db.runAsync(
+    `INSERT INTO accounts
+       (id, name, kind, cls, archived, archived_at, created_at, sub, symbol, ticker, quantity, cost, icon, currency, interest_rate)
+     VALUES (?, ?, 'asset', 'cash', 0, NULL, ?, NULL, NULL, NULL, NULL, NULL, NULL, 'MYR', NULL)`,
+    'seed-tng',
+    "Touch 'n Go eWallet",
+    createdAt,
+  );
+  await db.runAsync(
+    `INSERT INTO balance_entries (id, account_id, value, as_of, created_at, source)
+     VALUES (?, ?, 186.4, ?, ?, 'manual')`,
+    'seed-tng-balance',
+    'seed-tng',
+    day,
+    createdAt,
+  );
 }

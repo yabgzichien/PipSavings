@@ -11,6 +11,7 @@ import { round2 } from '../lib/currency';
 import { decimalsFor } from '../lib/currencies';
 import type { Account } from '../lib/types';
 import { useAccent } from '../state/accent';
+import { HIDDEN_AMOUNT, useAmountsHidden } from '../state/amountsHidden';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { numFont, radius, spacing, type } from '../theme';
@@ -239,6 +240,7 @@ function AccountCard({
   children: React.ReactNode;
 }) {
   const colors = useThemeColors();
+  const amountsHidden = useAmountsHidden();
   const brand = account ? matchBrand(account.name) : null;
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
@@ -253,7 +255,7 @@ function AccountCard({
         ) : null}
         <View style={styles.accountCopy}>
           <Body weight={700} numberOfLines={1}>{account ? account.name : placeholder}</Body>
-          {account ? <Caption color={colors.ink2}>{fmtMoney(balance, account.currency)}</Caption> : null}
+          {account ? <Caption color={colors.ink2}>{amountsHidden ? HIDDEN_AMOUNT : fmtMoney(balance, account.currency)}</Caption> : null}
         </View>
         <Icon name="chevronDown" size={16} color={colors.ink3} />
       </Pressable>
@@ -279,6 +281,7 @@ function AccountPicker({
 }) {
   const colors = useThemeColors();
   const theme = useAccent();
+  const amountsHidden = useAmountsHidden();
   return (
     <View style={styles.pickerLayer} pointerEvents="box-none">
       <Pressable style={styles.pickerBackdrop} onPress={onClose} />
@@ -301,7 +304,7 @@ function AccountPicker({
                 <Icon name={(CLASS_BY_ID[account.cls]?.icon ?? 'wallet') as IconName} size={16} color={colors.ink2} />
               )}
               <Body weight={700} style={styles.pickerName} numberOfLines={1}>{account.name}</Body>
-              <Caption color={on ? theme.accent : colors.ink2}>{fmtMoney(values[account.id] ?? 0, account.currency)}</Caption>
+              <Caption color={on ? theme.accent : colors.ink2}>{amountsHidden ? HIDDEN_AMOUNT : fmtMoney(values[account.id] ?? 0, account.currency)}</Caption>
             </Pressable>
           );
         })}

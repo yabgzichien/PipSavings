@@ -143,6 +143,42 @@ describe('reduceSession', () => {
     expect(currentFrame(s)).toBeNull();
   });
 
+  it('keeps prefilled receipt rows on the scan frame', () => {
+    const vision = {
+      kind: 'scan_receipt' as const,
+      image: { uri: 'file://a.jpg', base64: 'aa', mime: 'image/jpeg' },
+      receipt: {
+        merchant: 'Nando\'s',
+        currency: 'MYR',
+        items: [],
+        subtotal: null,
+        serviceCharge: null,
+        tax: null,
+        total: 34,
+        discount: null,
+      },
+      items: [{
+        merchant: 'Nando\'s',
+        amount: 34,
+        type: 'expense' as const,
+        date: '2026-09-21',
+        method: null,
+        currency: 'MYR',
+        remark: 'client lunch',
+      }],
+      splitDrafts: [{
+        gross: 34,
+        ownShare: 17,
+        method: 'equal' as const,
+        shares: [{ personId: 'p-fyy', owed: 17 }],
+      }],
+    };
+    let s = emptySession();
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt', vision });
+    expect(currentFrame(s)?.vision).toEqual(vision);
+  });
+
   it('jump keeps the older frame vision instead of the later one', () => {
     const receiptVision = {
       kind: 'scan_receipt' as const,
@@ -215,6 +251,36 @@ describe('reduceSession', () => {
     expect(s.messages).toHaveLength(20);
     expect(s.messages[0]).toMatchObject({ role: 'user', text: 'u1' });
     expect(s.messages[19]).toMatchObject({ role: 'assistant', text: 'a10' });
+  });
+
+  it('after saving one receipt, a leftover photo can start the next scan', () => {
+    const first = {
+      kind: 'scan_receipt' as const,
+      image: { uri: 'file://one.jpg', base64: '1', mime: 'image/jpeg' },
+      receipt: {
+        merchant: 'A',
+        currency: 'MYR',
+        items: [],
+        subtotal: null,
+        serviceCharge: null,
+        tax: null,
+        total: null,
+        discount: null,
+      },
+    };
+    const second = {
+      ...first,
+      image: { uri: 'file://two.jpg', base64: '2', mime: 'image/jpeg' },
+      receipt: { ...first.receipt, merchant: 'B' },
+    };
+    let s = emptySession();
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt', vision: first });
+    s = reduceSession(s, { type: 'pop' });
+    expect(currentFrame(s)).toBeNull();
+    s = reduceSession(s, { type: 'photoAttached' });
+    s = reduceSession(s, { type: 'scanKindChosen', kind: 'scan_receipt', vision: second });
+    expect(currentFrame(s)?.vision).toEqual(second);
   });
 
   it('scanKindChosen after refuse clears refuse like start_entry', () => {

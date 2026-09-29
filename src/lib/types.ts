@@ -257,6 +257,8 @@ export interface SplitPayment {
   matchedMerchant: string | null;
   accountId: string | null;
   bankLabel?: string | null;
+  /** Wallet credit in the destination account's currency, when the cash differs from the stored rate. */
+  creditedNative?: number | null;
   createdAt: string;
 }
 

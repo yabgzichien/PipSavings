@@ -17,6 +17,7 @@ export type WizardStep =
   | 'appearance'
   | 'demo'
   | 'notifications'
+  | 'backup'
   | 'widget';
 
 /** The beats inside the demo step. Lives here rather than in the component because the wizard's
@@ -57,6 +58,7 @@ const STEP_TITLES: Partial<Record<WizardStep, string>> = {
   appearance: 'Appearance',
   demo: 'Demo',
   notifications: 'Notifications',
+  backup: 'Backup',
   widget: 'Widget',
 };
 
@@ -67,20 +69,27 @@ const STEP_TITLES: Partial<Record<WizardStep, string>> = {
  * advanced import is external chrome, and neither shows wizard progress.
  *
  * Both import outcomes feed the same setup sequence: make the app feel like the user's app,
- * see the demo, then opt into notifications and widgets. Budgeting and recurring bills remain
- * available in the product, but do not interrupt the first-run path.
+ * see the demo, then opt into notifications, Google Drive auto-backup (Android/web), and widgets.
+ * Budgeting and recurring bills remain available in the product, but do not interrupt the
+ * first-run path. Google Drive auto-backup is an extra Android/web step.
  */
-export function getWizardSteps(_hasImported: boolean, withDemo: boolean): WizardStep[] {
+export function getWizardSteps(
+  _hasImported: boolean,
+  withDemo: boolean,
+  withCloudBackup = false
+): WizardStep[] {
   const demo: WizardStep[] = withDemo ? ['demo'] : [];
-  return ['import', 'appearance', ...demo, 'notifications', 'widget'];
+  const backup: WizardStep[] = withCloudBackup ? ['backup'] : [];
+  return ['import', 'appearance', ...demo, 'notifications', ...backup, 'widget'];
 }
 
 export function getWizardNavInfo(
   step: WizardStep,
   hasImported: boolean,
-  withDemo = false
+  withDemo = false,
+  withCloudBackup = false
 ): WizardNavInfo | null {
-  const steps = getWizardSteps(hasImported, withDemo);
+  const steps = getWizardSteps(hasImported, withDemo, withCloudBackup);
   const idx = steps.indexOf(step);
   if (idx < 0) return null;
 
@@ -95,12 +104,13 @@ export function getWizardNavInfo(
 export function getPreviousWizardStep(
   step: WizardStep,
   hasImported: boolean,
-  withDemo = false
+  withDemo = false,
+  withCloudBackup = false
 ): WizardStep | null {
   if (step === 'intro') return null;
   if (step === 'advanced_import') return 'import';
 
-  const steps = getWizardSteps(hasImported, withDemo);
+  const steps = getWizardSteps(hasImported, withDemo, withCloudBackup);
   const idx = steps.indexOf(step);
   // A step outside the active wizard shape has no back destination.
   if (idx < 0) return null;

@@ -106,7 +106,7 @@ flowchart TD
 
 ### Ask Pip (BYOK)
 
-Ask Pip is optional. No key, and chat still opens; sending a message brings up the key sheet. The key is stored in SecureStore on native (local storage on web). It is never written to the backup zip, never sent to Pip’s Cloudflare scan proxy, and never mixed with founder env keys.
+Ask Pip is optional. Chat still opens without a key and shows a small setup prompt. The key sheet can explicitly select **No API key** while keeping saved keys available for later. Keys are stored in SecureStore on native (local storage on web), never written to the backup zip, never sent to Pip’s Cloudflare scan proxy, and never mixed with founder env keys. Chat-mode LLM requests always require the selected user key and never fall back to Pip’s server key.
 
 ```mermaid
 flowchart TD
@@ -138,7 +138,7 @@ Chat interprets and prepares. It does not create, edit, settle, or delete record
 
 ### 1. Ask Pip: BYOK chat on Home
 - **Toggle, not a replacement**: Home stays the dashboard until you tap Ask Pip. The choice persists. Other tabs are unchanged.
-- **Bring your own key**: Paste a Groq (`gsk_`), Gemini (`AIza`), or OpenRouter (`sk-or-`) key in Settings → API keys. Pip detects the provider from the prefix, tests it, and keeps it off the backup.
+- **Bring your own key**: Paste a Groq (`gsk_`), Gemini (`AIza`), or OpenRouter (`sk-or-`) key in Settings → API keys. Pip detects the provider from the prefix, tests it, and keeps it off the backup. You can select **No API key** without deleting saved keys.
 - **Opens real screens**: “Who owes me”, “this month”, a trip name, holdings, tax, export. The existing screen mounts in the chat canvas (or as a full destination for calendar / owed). Follow-ups tighten filters; they do not invent a second UI.
 - **Prefill, then you confirm**: “Lunch 12” opens the confirm sheet filled in. “Settle Ali” opens the settle sheet for a resolved share. Attach a photo and vision runs on *your* key, without decrementing the free scan quota.
 - **Closed catalog**: Advice, market calls, and “why am I broke” are refused. Ambiguous names (two Singapore trips, two Alis) become choice chips instead of a guess.
@@ -148,7 +148,7 @@ Chat interprets and prepares. It does not create, edit, settle, or delete record
 - **Screenshot Ingestion**: Take a screenshot of your Maybank MAE, Touch 'n Go eWallet, GrabPay, or bank statements. Pip's vision pipeline (Groq / Gemini / Ollama) extracts line items, dates, and amounts in seconds.
 - **Physical Receipt Scanning**: Snap photos of paper receipts with auto-crop and edge detection using the document scanner.
 - **Adaptive Merchant Memory**: Pip learns your categorization habits. When it encounters a known merchant again, it pre-fills the category automatically without prompting.
-- **BYOK scans**: If an Ask Pip key is saved, Add-hub scans can use that key locally and skip the shared-proxy quota. Without a key, production scans go through the Cloudflare proxy and count against Free/Pro allowance.
+- **BYOK scans**: On web, Add-hub scans require an active Ask Pip key and go directly to that provider; web builds never use Pip's server LLM, including after a rate limit. On native, scans first use an active user key and may retry a rate-limited request through the Cloudflare proxy under the normal plan allowance: Free remains 3 scans per day and 20 per month; Pro scans are unlimited. Other key failures do not silently fall back. Chat mode never uses the server fallback on any platform.
 
 ### 3. Smart Budgeting & Category Envelopes
 - **Flexible Category Envelopes**: Set target monthly budgets across essential and lifestyle categories.
@@ -269,13 +269,13 @@ Copy the sample environment file:
 ```bash
 cp .env.example .env.local
 ```
-Add your API keys (optional for local manual use; used as a scan fallback when no Ask Pip key is saved):
+Add app-owned API keys for optional native development and native scan fallback:
 ```env
 EXPO_PUBLIC_GROQ_API_KEY="gsk_..."
 EXPO_PUBLIC_GEMINI_API_KEY="AIzaSy..."
 ```
 
-**Ask Pip / BYOK** does not read these env vars. In the running app, open **Settings → API keys**, paste a Groq, Gemini, or OpenRouter key, and tap Test. That key is what chat and BYOK scans use.
+**Ask Pip / BYOK** does not read these env vars. Web builds also ignore them for every LLM feature and cannot call the worker's `/scan` LLM endpoint. In the running app, open **Settings → API keys**, paste a Groq, Gemini, or OpenRouter key, and tap Test. That key is what chat and BYOK scans use.
 
 #### Crash diagnostics (optional)
 Leave `EXPO_PUBLIC_SENTRY_DSN` unset and crash reporting never initializes — local dev and source

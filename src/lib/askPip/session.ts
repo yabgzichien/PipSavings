@@ -9,6 +9,7 @@ import type {
 } from './catalog';
 import type { ChatVisionHost } from './vision';
 import type { AskPipAnalysisResult } from './analytics';
+import type { RepaymentSlots } from './repaymentCard';
 
 export interface AskPipFrame {
   view: AskPipViewId;
@@ -31,11 +32,12 @@ export interface AskPipSession {
   refuse: boolean;
   sayKind: AskPipSayKind | null;
   pendingPref: { pref: 'colorScheme'; value: AskPipColorScheme } | null;
+  pendingRepayment: RepaymentSlots | null;
 }
 
 export type AskPipChatMessage =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'assistant'; text: string; frame?: AskPipFrame };
+  | { id: string; role: 'assistant'; text: string; frame?: AskPipFrame; repayment?: RepaymentSlots };
 
 export const HISTORY_CAP = 10;
 const THREAD_CAP = HISTORY_CAP * 2;
@@ -50,6 +52,7 @@ export function emptySession(): AskPipSession {
     refuse: false,
     sayKind: null,
     pendingPref: null,
+    pendingRepayment: null,
   };
 }
 
@@ -63,7 +66,7 @@ export type AskPipEvent =
   | { type: 'clearRefuse' }
   | { type: 'clearPref' }
   | { type: 'appendUser'; text: string }
-  | { type: 'appendAssistant'; text: string; frame?: AskPipFrame }
+  | { type: 'appendAssistant'; text: string; frame?: AskPipFrame; repayment?: RepaymentSlots }
   | { type: 'showAnalysis'; result: AskPipAnalysisResult; filters: AskPipFilters };
 
 const ENTRY_PLACEHOLDER_VIEW: AskPipViewId = 'transactions';
@@ -77,7 +80,7 @@ function capTurns(messages: AskPipChatMessage[]): AskPipChatMessage[] {
 
 export type AskPipChatDraft =
   | { role: 'user'; text: string }
-  | { role: 'assistant'; text: string; frame?: AskPipFrame };
+  | { role: 'assistant'; text: string; frame?: AskPipFrame; repayment?: RepaymentSlots };
 
 function appendMessage(state: AskPipSession, message: AskPipChatDraft): AskPipSession {
   const messageSeq = state.messageSeq + 1;
@@ -209,6 +212,16 @@ function applyAction(state: AskPipSession, action: AskPipAction): AskPipSession 
         refuse: false,
         pendingClarify: null,
       };
+    case 'propose_repayment': {
+      const { type: _type, ...slots } = action;
+      return {
+        ...state,
+        pendingRepayment: slots,
+        refuse: false,
+        sayKind: null,
+        pendingClarify: null,
+      };
+    }
     default:
       return state;
   }
@@ -290,10 +303,14 @@ export function reduceSession(state: AskPipSession, event: AskPipEvent): AskPipS
       return { ...state, pendingPref: null };
     case 'appendUser':
       return appendMessage(state, { role: 'user', text: event.text });
-    case 'appendAssistant':
-      return event.frame
-        ? appendMessage(state, { role: 'assistant', text: event.text, frame: event.frame })
-        : appendMessage(state, { role: 'assistant', text: event.text });
+    case 'appendAssistant': {
+      const appended = event.repayment
+        ? appendMessage(state, { role: 'assistant', text: event.text, repayment: event.repayment })
+        : event.frame
+          ? appendMessage(state, { role: 'assistant', text: event.text, frame: event.frame })
+          : appendMessage(state, { role: 'assistant', text: event.text });
+      return { ...appended, pendingRepayment: null };
+    }
     case 'showAnalysis':
       return {
         ...state,

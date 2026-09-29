@@ -2,7 +2,7 @@ import type { AskPipEntryKind } from './catalog';
 import type { AskPipProviderId } from './keyStore';
 import type { ScannedReceipt } from '../parseReceipt';
 import type { ScannedHolding } from '../prices';
-import type { ExtractedTxn } from '../types';
+import type { ExtractedTxn, SplitDraft } from '../types';
 import { GeminiProvider } from '../../llm/gemini';
 import { GroqProvider } from '../../llm/groq';
 import { OpenRouterProvider } from '../../llm/openrouter';
@@ -17,7 +17,7 @@ const PROVIDERS: Record<AskPipProviderId, LLMProvider> = {
 export type ChatVisionImage = { uri: string; base64: string; mime: string };
 
 export type ChatVisionHost =
-  | { kind: 'scan_receipt'; image: ChatVisionImage; receipt: ScannedReceipt }
+  | { kind: 'scan_receipt'; image: ChatVisionImage; receipt: ScannedReceipt; items?: ExtractedTxn[]; splitDrafts?: (SplitDraft | null)[] }
   | { kind: 'scan_statement'; image: ChatVisionImage; items: ExtractedTxn[] }
   | { kind: 'scan_balance'; image: ChatVisionImage; balance: number | null }
   | { kind: 'scan_holdings'; image: ChatVisionImage; holdings: ScannedHolding[] };

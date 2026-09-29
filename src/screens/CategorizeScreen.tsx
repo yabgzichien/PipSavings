@@ -40,6 +40,7 @@ export function CategorizeScreen({
   suggestions,
   categories,
   linkId = null,
+  initialSplitDrafts,
   onBack,
   onComplete,
 }: {
@@ -48,6 +49,8 @@ export function CategorizeScreen({
   categories: Category[];
   /** Account the whole scanned batch is linked to, if any — shown on each card. */
   linkId?: string | null;
+  /** Prefill from chat, e.g. "split with fyy" applied to every row. */
+  initialSplitDrafts?: (SplitDraft | null)[];
   onBack: () => void;
   onComplete: (
     assignments: (string | null)[],
@@ -105,7 +108,9 @@ export function CategorizeScreen({
   const [step, setStep] = useState(0);
   const [adding, setAdding] = useState(false);
   const [splitting, setSplitting] = useState(false);
-  const [splitDrafts, setSplitDrafts] = useState<(SplitDraft | null)[]>(() => extracted.map(() => null));
+  const [splitDrafts, setSplitDrafts] = useState<(SplitDraft | null)[]>(() =>
+    extracted.map((_, i) => initialSplitDrafts?.[i] ?? null),
+  );
   const [settlements, setSettlements] = useState<(PendingSettlement | null)[]>(() => extracted.map(() => null));
   /** Inbound rows the user has told us are NOT a repayment, so we stop asking. */
   const [notRepayment, setNotRepayment] = useState<Record<number, boolean>>({});

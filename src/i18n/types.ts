@@ -39,11 +39,39 @@ export interface Translations {
 
   // Ask Pip
   askPipToggleChat: string;
+  askPipBeta: string;
   askPipToggleDashboard: string;
   askPipComposerPlaceholder: string;
   askPipRefuse: string;
+  askPipRepaymentIntro: string;
+  askPipRepaymentApply: string;
+  askPipRepaymentUndo: string;
+  askPipRepaymentDebt: string;
+  askPipRepaymentWallet: string;
+  askPipRepaymentNow: string;
+  askPipRepaymentAfter: string;
+  askPipRepaymentSettled: string;
+  askPipRepaymentStored: string;
+  askPipRepaymentAmount: string;
+  askPipRepaymentDate: string;
+  askPipRepaymentAccount: string;
+  askPipRepaymentFailed: string;
+  askPipRepaymentApplied: string;
+  askPipRepaymentMissingDebt: string;
+  askPipRepaymentPickDebt: string;
+  askPipRepaymentMissingRate: string;
+  askPipRepaymentMissingAccount: string;
+  askPipRepaymentPickAccount: string;
+  askPipRepaymentCurrencyMismatch: string;
+  askPipRepaymentFutureDate: string;
+  askPipRepaymentEmptyAmount: string;
   askPipNeedKeyTitle: string;
   askPipNeedKeyBody: string;
+  askPipNoKeyOption: string;
+  askPipNoKeyOptionBody: string;
+  askPipNoKeyNotice: string;
+  askPipGetKey: string;
+  askPipKeyLimit: string;
   askPipSaveKey: string;
   askPipTestKey: string;
   askPipProvider: string;
@@ -54,6 +82,12 @@ export interface Translations {
   askPipDiscloseContinue: string;
   askPipHistory: string;
   askPipAttachHint: string;
+  askPipAttachFiles: string;
+  askPipRemoveAttachment: string;
+  askPipLookAtFiles: string;
+  askPipSend: string;
+  askPipAttachUnsupported: string;
+  askPipAttachReadError: string;
   askPipKindReceipt: string;
   askPipKindStatement: string;
   askPipKindBalance: string;
@@ -81,6 +115,10 @@ export interface Translations {
   askPipNeedsYouOwedOverdueSub: string;
   askPipNeedsYouCommitmentsDueSub: string;
   askPipNeedsYouOwedOpenSub: string;
+  scanByokLimitTitle: string;
+  scanByokLimitBody: string;
+  webByokTitle: string;
+  webByokBody: string;
 
   // Greetings
   greetingMorning: string;
@@ -98,7 +136,6 @@ export interface Translations {
   themeDark: string;
   themeSystem: string;
   accentInk: string;
-  accentMonoHint: string;
   accentColor: string;
   appIcon: string;
   appIconDesc: string;
@@ -141,6 +178,8 @@ export interface Translations {
   advancedImport: string;
   financialReportsExport: string;
   backupRestore: string;
+  autoBackup: string;
+  autoBackupDesc: string;
   dangerZone: string;
   aboutSection: string;
   aboutVersion: string;
@@ -464,6 +503,8 @@ export interface Translations {
 
   // Net Worth & Accounts
   netWorthTitle: string;
+  netWorthHideAmounts: string;
+  netWorthShowAmounts: string;
   totalNetWorth: string;
   accountsList: string;
   addAccount: string;
@@ -696,6 +737,7 @@ export interface Translations {
   wizardBudgetTitle: string;
   wizardRecurringTitle: string;
   wizardNotificationsTitle: string;
+  wizardBackupTitle: string;
   wizardWidgetTitle: string;
   wizardDemoTitle: string;
   wizardAppearanceSubtitle: string;
@@ -862,10 +904,16 @@ export interface Translations {
   wizardNotifDeniedNotice: string;
   wizardEnableNotifBtn: string;
   wizardAskingNotifBtn: string;
+  wizardBackupIdleTitle: string;
+  wizardBackupIdleBody: string;
+  wizardBackupGrantedTitle: string;
+  wizardBackupGrantedBody: string;
+  wizardBackupFailedNotice: string;
+  wizardBackupEnableBtn: string;
+  wizardBackupBusyBtn: string;
   wizardWidgetCanPinTitle: string;
   wizardWidgetNoPinTitle: string;
   wizardWidgetCanPinBody: string;
-  wizardWidgetNoPinBody: string;
   wizardAddWidgetAgain: string;
   wizardAddWidgetOpening: string;
   wizardAddWidget: string;

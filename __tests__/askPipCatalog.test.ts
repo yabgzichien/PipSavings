@@ -187,6 +187,27 @@ describe('analytics actions', () => {
     expect(() => parseAskPipAction({
       type: 'reset_all_data',
     })).toThrow();
+    expect(parseAskPipAction({
+      type: 'propose_repayment',
+      personQuery: 'abc',
+      amount: 25,
+      currency: 'sgd',
+      accountQuery: 'touch',
+      arrivalCurrency: 'myr',
+      merchantHint: 'burger',
+      cashAmount: 80,
+      paidOn: '2026-09-20',
+    })).toEqual({
+      type: 'propose_repayment',
+      personQuery: 'abc',
+      amount: 25,
+      currency: 'SGD',
+      accountQuery: 'touch',
+      arrivalCurrency: 'MYR',
+      merchantHint: 'burger',
+      cashAmount: 80,
+      paidOn: '2026-09-20',
+    });
   });
 });
 
