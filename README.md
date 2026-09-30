@@ -224,7 +224,6 @@ Chat interprets and prepares. It does not create, edit, settle, or delete record
 │   ├── play-data-safety.md     # Google Play Data safety fill-in sheet
 │   ├── store-description.md    # Play Store copy
 │   ├── store-screenshots-brief.md # Store graphic design specifications
-│   ├── superpowers/            # Feature specs (Ask Pip, multi-currency, tax relief, wizard)
 │   └── ui-design-plan.md       # Typography and UI layout guidelines
 ├── src/
 │   ├── billing/                # Scan quota, Pip Pro entitlement, Cloudflare proxy
@@ -241,7 +240,7 @@ Chat interprets and prepares. It does not create, edit, settle, or delete record
 │   ├── state/                  # State provider, custom hooks, and reminder sync
 │   ├── theme/                  # Color tokens, styles, and typography configurations
 │   └── widget/                 # Android home-screen widget definitions
-└── tools/                      # Contrast audit, type checking, demo kit, and video tools
+└── tools/                      # Contrast audit, type audit, limits dashboard, classifier, OCR eval
 ```
 
 ---

@@ -98,3 +98,34 @@ certificates/
 /tmp/pdfs/
 /resume/
 /supervisor-research/
+
+# Local-only working files. Kept on disk, not part of the public repo.
+.agents/
+__mocks__/
+InstagramPost/
+InstagramStory/
+instagram_story.png
+instagram_story_volunteer.png
+ig_post_skills.md
+images\ test/
+promo-video/
+shipaton-submission/
+docs/superpowers/
+docs/promo-video-storyboard.md
+/pipbug.mp4
+/pipbug2.mp4
+/thumbnail.jpg
+/thumbnail_ambient.jpg
+/plan.md
+/handoff.md
+/business-plan.md
+/evaluation_report.md
+tools/render_*.py
+tools/generate_thumbnail.py
+tools/generate_studio.py
+tools/generate_brand_logos.py
+tools/generate_synthetic_receipts.py
+tools/generate_shipaton_feature_graphics.py
+tools/fix_brand_logos.py
+tools/promoVideo/
+tools/recapStoryPrototype/

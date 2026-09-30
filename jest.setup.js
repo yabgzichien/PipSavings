@@ -103,4 +103,13 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(async () => {}),
 }));
 
+// Stand-in for the native Sentry SDK. Importing the real package keeps a handle
+// open and stops Jest from exiting. diagnostics.test.ts supplies its own factory.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  captureEvent: jest.fn(),
+  setUser: jest.fn(),
+}));
+
 
