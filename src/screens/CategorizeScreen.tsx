@@ -1,18 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AddAccountModal } from '../components/AddAccountModal';
 import { AddCategorySheet } from '../components/AddCategorySheet';
+import { AccountChipIcon, AccountPickerModal, ChoiceChip, getAccountPriority, MAX_OPTIONAL_CHIPS, MoreChip } from '../components/AccountChips';
 import { Icon } from '../components/Icon';
 import { InfoButton } from '../components/InfoButton';
+import { MoreDetails } from '../components/MoreDetails';
 import { SplitSheet } from '../components/SplitSheet';
-import { Amount, B, BtnLabel, BubbleText, Card, CategoryChip, PipSays, PrimaryButton, ProgressTrack, SecondaryButton, TopBar } from '../components/ui';
+import { TripGlyph } from '../components/TripBadge';
+import { TripPickerModal } from '../components/TripPickerModal';
+import { Amount, B, BtnLabel, BubbleText, Card, CategoryChip, Eyebrow, PipSays, PrimaryButton, ProgressTrack, SecondaryButton, TopBar } from '../components/ui';
+import { type CategorizeAdjustment } from '../lib/categorizeAdjustments';
+import { visibleChoices } from '../lib/chipRow';
 import { applyDateEdit, fullDateWithWeekday, ISO_DATE_RE, isValidIsoDate, shortDate } from '../lib/dates';
 import { findDuplicate, todayISO } from '../lib/duplicates';
 import { currencyPrefix, fmtMoney } from '../lib/format';
+import { tap } from '../lib/haptics';
 import { BASE_CURRENCY } from '../lib/currency';
+import { useModalHandoff } from '../lib/modalHandoff';
 import { CLASS_BY_ID } from '../lib/networth';
 import { confirmAction } from '../lib/platformAlert';
 import { suggestMultiSettlement, type MultiSettlementMatch } from '../lib/split';
+import { tripsForPicker } from '../lib/tripPicker';
 import { DROP, type Category, type CategorySuggestion, type ExtractedTxn, type SplitDraft, type TxnType } from '../lib/types';
 import type { IconName } from '../components/Icon';
 import { useAccent, useAccentAlert, useSignedUp } from '../state/accent';
@@ -41,6 +51,7 @@ export function CategorizeScreen({
   categories,
   linkId = null,
   initialSplitDrafts,
+  initialTripId = null,
   onBack,
   onComplete,
 }: {
@@ -51,16 +62,19 @@ export function CategorizeScreen({
   linkId?: string | null;
   /** Prefill from chat, e.g. "split with fyy" applied to every row. */
   initialSplitDrafts?: (SplitDraft | null)[];
+  /** Trip this add flow was opened from. Seeds each expense; the user can change it per row. */
+  initialTripId?: string | null;
   onBack: () => void;
   onComplete: (
     assignments: (string | null)[],
     items: ExtractedTxn[],
     splitDrafts: (SplitDraft | null)[],
-    settlements: (PendingSettlement | null)[]
+    settlements: (PendingSettlement | null)[],
+    adjustments: CategorizeAdjustment[],
   ) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { transactions, accounts, openShares, knownBankLabels } = useAppData();
+  const { transactions, accounts, openShares, knownBankLabels, trips = [] } = useAppData();
   const { t, tCat, isZh } = useLanguage();
   // The ledger as it stood when this batch opened. Deliberately frozen: `commitCategorized`
   // writes the batch on the last Finish tap, the store's `transactions` then updates while this
@@ -112,6 +126,18 @@ export function CategorizeScreen({
     extracted.map((_, i) => initialSplitDrafts?.[i] ?? null),
   );
   const [settlements, setSettlements] = useState<(PendingSettlement | null)[]>(() => extracted.map(() => null));
+  const [tripIds, setTripIds] = useState<(string | null)[]>(() =>
+    extracted.map((item) => (item.type === 'expense' ? initialTripId ?? null : null)),
+  );
+  const [liabilityIds, setLiabilityIds] = useState<(string | null)[]>(() => extracted.map(() => null));
+  const [fromAccountIds, setFromAccountIds] = useState<(string | null)[]>(() => extracted.map(() => linkId ?? null));
+  const [tripPickerOpen, setTripPickerOpen] = useState(false);
+  const [liabilityPickerOpen, setLiabilityPickerOpen] = useState(false);
+  const [payPickerOpen, setPayPickerOpen] = useState(false);
+  const [addingLiability, setAddingLiability] = useState(false);
+  const [addingPayAccount, setAddingPayAccount] = useState(false);
+  const { request: requestLiabilitySheet, onDismiss: onLiabilityPickerDismissed } = useModalHandoff();
+  const { request: requestPaySheet, onDismiss: onPayPickerDismissed } = useModalHandoff();
   /** Inbound rows the user has told us are NOT a repayment, so we stop asking. */
   const [notRepayment, setNotRepayment] = useState<Record<number, boolean>>({});
   /** Expansion state for multi-debt allocation breakdown. */
@@ -142,6 +168,56 @@ export function CategorizeScreen({
   const keptCount = stepIndices.filter((i) => assignments[i] !== DROP).length;
 
   const activeSplit = hasSteps ? splitDrafts[originalIndex] : null;
+  const tripId = hasSteps ? tripIds[originalIndex] ?? null : null;
+  const liabilityId = hasSteps ? liabilityIds[originalIndex] ?? null : null;
+  const fromAccountId = hasSteps ? fromAccountIds[originalIndex] ?? null : null;
+  const paymentAccounts = useMemo(() => {
+    const active = accounts.filter((a) => !a.archived);
+    const assets = active.filter((a) => a.kind === 'asset' && a.cls !== 'receivable' && a.cls !== 'illiquid');
+    const list = assets.length > 0 ? assets : active.filter((a) => a.cls !== 'receivable');
+    return [...list].sort((a, b) => {
+      const rank = getAccountPriority(a) - getAccountPriority(b);
+      return rank !== 0 ? rank : a.createdAt.localeCompare(b.createdAt);
+    });
+  }, [accounts]);
+  // A statement account can be a credit card, which the liquid-asset row would otherwise hide.
+  // Keep the current choice visible so the seeded account still reads as selected.
+  const payChoices = useMemo(() => {
+    if (!fromAccountId || paymentAccounts.some((account) => account.id === fromAccountId)) return paymentAccounts;
+    const selected = accounts.find((account) => account.id === fromAccountId && !account.archived);
+    return selected ? [selected, ...paymentAccounts] : paymentAccounts;
+  }, [accounts, paymentAccounts, fromAccountId]);
+  const visiblePayAccounts = useMemo(
+    () => visibleChoices(payChoices, fromAccountId, MAX_OPTIONAL_CHIPS),
+    [payChoices, fromAccountId],
+  );
+  const liabilityAccounts = useMemo(
+    () => accounts.filter((a) => !a.archived && a.kind === 'liability'),
+    [accounts],
+  );
+  const visibleLiabilities = useMemo(
+    () => visibleChoices(liabilityAccounts, liabilityId, MAX_OPTIONAL_CHIPS),
+    [liabilityAccounts, liabilityId],
+  );
+  const currentTrips = useMemo(() => tripsForPicker(trips, false), [trips]);
+  const visibleTrips = useMemo(
+    () => visibleChoices(currentTrips, tripId, MAX_OPTIONAL_CHIPS),
+    [currentTrips, tripId],
+  );
+  const currentTrip = useMemo(
+    () => (tripId ? trips.find((trip) => trip.id === tripId) ?? null : null),
+    [tripId, trips],
+  );
+  const currentLiability = useMemo(
+    () => (liabilityId ? liabilityAccounts.find((a) => a.id === liabilityId) ?? null : null),
+    [liabilityId, liabilityAccounts],
+  );
+  const detailsSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (currentLiability) parts.push(currentLiability.name);
+    if (!isIncome && currentTrip) parts.push(currentTrip.name);
+    return parts.length > 0 ? parts.join(' · ') : (isZh ? '更多选填项' : 'More options');
+  }, [currentLiability, currentTrip, isIncome, isZh]);
   // Every amount on this screen is the reviewed item's own native figure, so it is labelled
   // with the item's currency rather than the app-wide display currency.
   const itemCurrency = item?.currency ?? BASE_CURRENCY;
@@ -201,6 +277,45 @@ export function CategorizeScreen({
     });
   };
 
+  const setMerchant = (merchant: string) => {
+    setItems((prev) => {
+      const next = [...prev];
+      next[originalIndex] = { ...next[originalIndex], merchant };
+      return next;
+    });
+  };
+
+  const setRowTrip = (index: number, id: string | null) => {
+    setTripIds((prev) => {
+      const next = [...prev];
+      next[index] = id;
+      return next;
+    });
+  };
+
+  const setRowLiability = (index: number, id: string | null) => {
+    setLiabilityIds((prev) => {
+      const next = [...prev];
+      next[index] = id;
+      return next;
+    });
+  };
+
+  const setRowFrom = (index: number, id: string | null) => {
+    setFromAccountIds((prev) => {
+      const next = [...prev];
+      next[index] = id;
+      return next;
+    });
+  };
+
+  const adjustmentsFor = (rows: ExtractedTxn[]): CategorizeAdjustment[] =>
+    rows.map((row, i) => ({
+      tripId: row.type === 'expense' ? tripIds[i] ?? null : null,
+      liabilityAccountId: row.type === 'expense' ? liabilityIds[i] ?? null : null,
+      fromAccountId: fromAccountIds[i] ?? null,
+    }));
+
   const setType = (t: TxnType) => {
     if (!item || t === item.type) return;
     setItems((prev) => {
@@ -213,6 +328,11 @@ export function CategorizeScreen({
       next[originalIndex] = null;
       return next;
     });
+    // Trips and loan payments are spending. An income row must not keep either.
+    if (t !== 'expense') {
+      setRowTrip(originalIndex, null);
+      setRowLiability(originalIndex, null);
+    }
   };
 
   const promptSaveAll = () => {
@@ -227,7 +347,7 @@ export function CategorizeScreen({
         ? `确认将这 ${keptCount} 笔交易全部保存到账本吗？`
         : `Save all ${keptCount} transactions to your ledger now?`,
       isZh ? '保存全部' : 'Save all',
-      () => onComplete(assignments, items, splitDrafts, settlements),
+      () => onComplete(assignments, items, splitDrafts, settlements, adjustmentsFor(items)),
       undefined,
       isZh ? '返回查看' : 'Review first'
     );
@@ -245,7 +365,7 @@ export function CategorizeScreen({
         setStep(stepIndices.indexOf(unassignedIdx));
         return;
       }
-      onComplete(nextAssignments, items, splitDrafts, nextSettlements);
+      onComplete(nextAssignments, items, splitDrafts, nextSettlements, adjustmentsFor(items));
     } else {
       setStep((s) => s + 1);
     }
@@ -398,9 +518,7 @@ export function CategorizeScreen({
           {/* amount + date focus (both editable) */}
           <Card style={[styles.focus, { alignItems: 'flex-start' }]}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.focusMerchant, { color: colorTheme.ink }]} numberOfLines={1}>
-                {item!.merchant}
-              </Text>
+              <MerchantEditor itemKey={originalIndex} value={item!.merchant} onChange={setMerchant} />
               {linkedAccount ? (
                 <View style={styles.acctRow}>
                   <Icon name={(CLASS_BY_ID[linkedAccount.cls]?.icon ?? 'wallet') as IconName} size={12} color={colorTheme.ink3} />
@@ -445,10 +563,121 @@ export function CategorizeScreen({
             </Pressable>
           )}
 
+          {!showBanner && !showSettlement && (
+            <>
+              <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>
+                {isIncome ? (isZh ? '存入账户（选填）' : 'Deposit into (optional)') : (isZh ? '扣款账户（选填）' : 'Pay from (optional)')}
+              </Eyebrow>
+              <View style={styles.chipRow}>
+                <ChoiceChip
+                  label={isZh ? '无' : 'None'}
+                  on={!fromAccountId}
+                  onPress={() => {
+                    tap();
+                    setRowFrom(originalIndex, null);
+                  }}
+                />
+                {visiblePayAccounts.map((account) => (
+                  <ChoiceChip
+                    key={account.id}
+                    label={account.name}
+                    on={fromAccountId === account.id}
+                    onPress={() => {
+                      tap();
+                      setRowFrom(originalIndex, fromAccountId === account.id ? null : account.id);
+                    }}
+                  >
+                    <AccountChipIcon account={account} on={fromAccountId === account.id} />
+                  </ChoiceChip>
+                ))}
+                <MoreChip
+                  onPress={() => setPayPickerOpen(true)}
+                  accessibilityLabel={isZh ? '选择其他账户' : 'More accounts'}
+                />
+              </View>
+            </>
+          )}
+
+          {!showBanner && !showSettlement && !isIncome && (
+            <MoreDetails summary={detailsSummary}>
+              {!isIncome && liabilityAccounts.length > 0 && (
+                <>
+                  <View style={styles.optionalLabelRow}>
+                    <Eyebrow>{isZh ? '抵扣负债（选填）' : 'Reduce liability (optional)'}</Eyebrow>
+                    <InfoButton entry="reduce_liability" />
+                  </View>
+                  <View style={styles.chipRow}>
+                    <ChoiceChip
+                      label={isZh ? '无' : 'None'}
+                      on={!liabilityId}
+                      onPress={() => {
+                        tap();
+                        setRowLiability(originalIndex, null);
+                      }}
+                    />
+                    {visibleLiabilities.map((account) => (
+                      <ChoiceChip
+                        key={account.id}
+                        label={account.name}
+                        on={liabilityId === account.id}
+                        onPress={() => {
+                          tap();
+                          setRowLiability(originalIndex, account.id);
+                        }}
+                      >
+                        <AccountChipIcon account={account} on={liabilityId === account.id} />
+                      </ChoiceChip>
+                    ))}
+                    <MoreChip
+                      onPress={() => setLiabilityPickerOpen(true)}
+                      accessibilityLabel={isZh ? '选择其他负债账户' : 'More liability accounts'}
+                    />
+                  </View>
+                </>
+              )}
+
+              {!isIncome && (
+                <>
+                  <Eyebrow style={{ marginTop: liabilityAccounts.length > 0 ? 18 : 0, marginBottom: 8 }}>
+                    {isZh ? '行程（选填）' : 'Trip (optional)'}
+                  </Eyebrow>
+                  <View style={styles.chipRow}>
+                    <ChoiceChip
+                      label={t('noTrip')}
+                      on={!tripId}
+                      onPress={() => {
+                        tap();
+                        setRowTrip(originalIndex, null);
+                      }}
+                    />
+                    {visibleTrips.map((trip) => (
+                      <ChoiceChip
+                        key={trip.id}
+                        label={trip.name}
+                        on={tripId === trip.id}
+                        accessibilityLabel={`${t('tripsTitle')}: ${trip.name}`}
+                        onPress={() => {
+                          tap();
+                          setRowTrip(originalIndex, trip.id);
+                        }}
+                      >
+                        <TripGlyph trip={trip} size={16} color={tripId === trip.id ? theme.accent : colorTheme.ink2} />
+                      </ChoiceChip>
+                    ))}
+                    <MoreChip
+                      onPress={() => setTripPickerOpen(true)}
+                      accessibilityLabel={isZh ? '选择其他行程' : 'More trips'}
+                    />
+                  </View>
+                </>
+              )}
+            </MoreDetails>
+          )}
+
           {showBanner ? (
             <View style={[styles.banner, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
               <View style={styles.bannerHead}>
-                <Icon name="alert" size={18} color={theme.accentInk} stroke={2} />
+                <Icon name="alert" size={18} color={theme.onTint} stroke={2} />
                 <Text style={[styles.bannerTitle, { color: theme.onTint }]}>{isZh ? '疑似重复记录' : 'Possible duplicate'}</Text>
               </View>
               <Text style={[styles.bannerText, { color: colorTheme.ink }]}>
@@ -466,14 +695,14 @@ export function CategorizeScreen({
                   </PrimaryButton>
                 </View>
                 <Pressable onPress={addAnyway} style={styles.ghostBtn}>
-                  <Text style={[styles.ghostText, { color: theme.accentInk }]}>{isZh ? '仍然添加' : 'Add anyway'}</Text>
+                  <Text style={[styles.ghostText, { color: theme.onTint }]}>{isZh ? '仍然添加' : 'Add anyway'}</Text>
                 </Pressable>
               </View>
             </View>
           ) : showSettlement ? (
             <View style={[styles.banner, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
               <View style={styles.bannerHead}>
-                <Icon name="gift" size={18} color={theme.accentInk} stroke={2} />
+                <Icon name="gift" size={18} color={theme.onTint} stroke={2} />
                 <Text style={[styles.bannerTitle, { color: theme.onTint }]}>
                   {(() => {
                     const isMulti = settlementHit!.allocations.length > 1;
@@ -515,12 +744,12 @@ export function CategorizeScreen({
                     onPress={() => setExpandedSettlement((prev) => ({ ...prev, [originalIndex]: !prev[originalIndex] }))}
                     style={styles.allocToggle}
                   >
-                    <Text style={[styles.allocToggleText, { color: theme.accentInk }]}>
+                    <Text style={[styles.allocToggleText, { color: theme.onTint }]}>
                       {expandedSettlement[originalIndex]
                         ? (isZh ? '收起明细' : 'Hide bill breakdown')
                         : (isZh ? `查看明细（${settlementHit!.allocations.length} 笔账单）` : `View breakdown (${settlementHit!.allocations.length} bills)`)}
                     </Text>
-                    <Icon name={expandedSettlement[originalIndex] ? 'chevronUp' : 'chevronDown'} size={14} color={theme.accentInk} />
+                    <Icon name={expandedSettlement[originalIndex] ? 'chevronUp' : 'chevronDown'} size={14} color={theme.onTint} />
                   </Pressable>
                   {expandedSettlement[originalIndex] && (
                     <View style={[styles.allocList, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
@@ -549,7 +778,7 @@ export function CategorizeScreen({
                   onPress={() => setNotRepayment((m) => ({ ...m, [originalIndex]: true }))}
                   style={styles.ghostBtn}
                 >
-                  <Text style={[styles.ghostText, { color: theme.accentInk }]}>{isZh ? '不，这是普通收入' : 'No, it’s income'}</Text>
+                  <Text style={[styles.ghostText, { color: theme.onTint }]}>{isZh ? '不，这是普通收入' : 'No, it’s income'}</Text>
                 </Pressable>
               </View>
             </View>
@@ -671,7 +900,128 @@ export function CategorizeScreen({
         onApply={applySplit}
         onRemove={activeSplit ? () => applySplit(null) : undefined}
       />
+
+      <TripPickerModal
+        visible={tripPickerOpen}
+        selectedId={tripId}
+        onClose={() => setTripPickerOpen(false)}
+        onSelect={(id) => {
+          setRowTrip(originalIndex, id);
+          setTripPickerOpen(false);
+        }}
+      />
+
+      <AccountPickerModal
+        visible={liabilityPickerOpen}
+        title={isZh ? '选择抵扣负债账户' : 'Select liability account'}
+        accounts={liabilityAccounts}
+        selectedId={liabilityId}
+        allowNone
+        onSelect={(id) => setRowLiability(originalIndex, id)}
+        onClose={() => setLiabilityPickerOpen(false)}
+        onDismiss={onLiabilityPickerDismissed}
+        onCreateNew={() => {
+          requestLiabilitySheet(() => setAddingLiability(true));
+        }}
+        createNewText={isZh ? '创建新负债账户' : 'Create new liability account'}
+      />
+
+      {addingLiability && (
+        <AddAccountModal
+          visible
+          initialKind="liability"
+          onClose={() => setAddingLiability(false)}
+          onCreated={(id) => {
+            setRowLiability(originalIndex, id);
+            setAddingLiability(false);
+          }}
+        />
+      )}
+
+      <AccountPickerModal
+        visible={payPickerOpen}
+        title={isIncome ? (isZh ? '选择存入账户' : 'Select deposit account') : (isZh ? '选择扣款账户' : 'Select payment account')}
+        accounts={payChoices}
+        selectedId={fromAccountId}
+        allowNone
+        onSelect={(id) => setRowFrom(originalIndex, id)}
+        onClose={() => setPayPickerOpen(false)}
+        onDismiss={onPayPickerDismissed}
+        onCreateNew={() => {
+          requestPaySheet(() => setAddingPayAccount(true));
+        }}
+        createNewText={isZh ? '创建新账户' : 'Create new account'}
+      />
+
+      {addingPayAccount && (
+        <AddAccountModal
+          visible
+          initialKind="asset"
+          initialClass="bank"
+          onClose={() => setAddingPayAccount(false)}
+          onCreated={(id) => {
+            setRowFrom(originalIndex, id);
+            setAddingPayAccount(false);
+          }}
+        />
+      )}
     </View>
+  );
+}
+
+/** Tap the merchant, or the pencil beside it, to rename the statement line. */
+function MerchantEditor({ value, itemKey, onChange }: { value: string; itemKey: number; onChange: (merchant: string) => void }) {
+  const theme = useAccent();
+  const colorTheme = useThemeColors();
+  const { isZh } = useLanguage();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+
+  useEffect(() => {
+    if (!editing) setText(value);
+  }, [value, editing]);
+
+  // The input stays mounted across steps. Reset it so a name typed for one line
+  // never shows up on the next one.
+  useEffect(() => {
+    setText(value);
+    setEditing(false);
+  }, [itemKey]);
+
+  const commit = () => {
+    onChange(text.trim());
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        autoFocus
+        selectTextOnFocus
+        onBlur={commit}
+        onSubmitEditing={commit}
+        placeholder={isZh ? '商家名称' : 'Merchant'}
+        placeholderTextColor={colorTheme.ink3}
+        style={[styles.merchantInput, { borderColor: theme.accent, color: colorTheme.ink, backgroundColor: colorTheme.surface2 }]}
+      />
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() => setEditing(true)}
+      hitSlop={6}
+      style={styles.merchantRow}
+      accessibilityRole="button"
+      accessibilityLabel={isZh ? '编辑商家名称' : 'Edit merchant'}
+    >
+      <Text style={[styles.focusMerchant, { color: colorTheme.ink, flexShrink: 1 }]} numberOfLines={1}>
+        {value || (isZh ? '商家名称' : 'Merchant')}
+      </Text>
+      <Icon name="pencil" size={15} color={colorTheme.ink3} />
+    </Pressable>
   );
 }
 
@@ -823,6 +1173,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   focusMerchant: { fontFamily: uiFont(700), fontSize: 16 },
+  merchantRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
+  merchantInput: {
+    fontFamily: uiFont(700),
+    fontSize: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'stretch',
+  },
   focusSub: { fontFamily: uiFont(500), fontSize: 12.5, marginTop: 2, flexShrink: 1 },
   acctRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   dateTap: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, alignSelf: 'flex-start', maxWidth: '100%' },
@@ -890,6 +1250,8 @@ const styles = StyleSheet.create({
   },
   splitTitle: { fontFamily: uiFont(700), fontSize: 13.5 },
   splitSub: { fontFamily: uiFont(500), fontSize: 11.5, marginTop: 2 },
+  optionalLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   incomeNote: {
     flexDirection: 'row',
     alignItems: 'center',

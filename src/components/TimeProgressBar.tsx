@@ -25,6 +25,7 @@ export function TimeProgressBar({
   storageKey,
   onPress,
   accessibilityLabel,
+  showBar = true,
 }: {
   percent: number;
   /** Build caption from the (possibly animating) displayed %. Days-left stays fixed in the parent. */
@@ -32,6 +33,8 @@ export function TimeProgressBar({
   storageKey: string;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** Home keeps the days-left caption and drops the hairline. Calendar still draws the bar. */
+  showBar?: boolean;
 }) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
@@ -91,20 +94,22 @@ export function TimeProgressBar({
   const glow = platformShadow(theme.accent, 0.16, 3, { width: 0, height: 0 }, 0);
 
   const body = (
-    <View style={styles.wrap}>
-      <View style={[styles.track, { backgroundColor: colorTheme.line }]}>
-        <Animated.View
-          style={[
-            styles.fill,
-            glow,
-            {
-              width: fill.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
-              backgroundColor: theme.accent,
-              opacity: 0.5,
-            },
-          ]}
-        />
-      </View>
+    <View style={[styles.wrap, !showBar && styles.wrapCaptionOnly]}>
+      {showBar && (
+        <View style={[styles.track, { backgroundColor: colorTheme.line }]}>
+          <Animated.View
+            style={[
+              styles.fill,
+              glow,
+              {
+                width: fill.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
+                backgroundColor: theme.accent,
+                opacity: 0.5,
+              },
+            ]}
+          />
+        </View>
+      )}
       <Caption color={colorTheme.ink3} style={styles.caption} numberOfLines={1}>
         {caption}
       </Caption>
@@ -134,6 +139,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  wrapCaptionOnly: { justifyContent: 'flex-end' },
   track: {
     flex: 1,
     minWidth: 0,

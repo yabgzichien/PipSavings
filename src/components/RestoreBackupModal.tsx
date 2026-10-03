@@ -205,11 +205,11 @@ export function RestoreBackupModal({
               accessibilityRole="button"
             >
               {restoringFile ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={theme.onAccent} size="small" />
               ) : (
                 <>
-                  <Icon name="upload" size={16} color="#fff" />
-                  <Text style={styles.primaryBtnText}>{t('restoreFromFileBtn')}</Text>
+                  <Icon name="upload" size={16} color={theme.onAccent} />
+                  <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>{t('restoreFromFileBtn')}</Text>
                 </>
               )}
             </Pressable>
@@ -257,11 +257,11 @@ export function RestoreBackupModal({
                   accessibilityRole="button"
                 >
                   {restoringCloud || cloud.status === 'connecting' || cloud.status === 'restoring' ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <ActivityIndicator color={theme.onAccent} size="small" />
                   ) : (
                     <>
-                      <Icon name="download" size={16} color="#fff" />
-                      <Text style={styles.primaryBtnText}>{t('restoreConnectGoogleBtn')}</Text>
+                      <Icon name="download" size={16} color={theme.onAccent} />
+                      <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>{t('restoreConnectGoogleBtn')}</Text>
                     </>
                   )}
                 </Pressable>
@@ -370,6 +370,5 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontFamily: uiFont(700),
     fontSize: 14,
-    color: '#fff',
   },
 });

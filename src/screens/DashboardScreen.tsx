@@ -1257,6 +1257,7 @@ function SummaryCard({
           captionFor={(pct) => monthProgressCaption(monthDaysLeft, pct, isZh)}
           onPress={onOpenCalendar}
           accessibilityLabel={isZh ? '本月进度，打开日历' : 'Month progress, open calendar'}
+          showBar={false}
         />
       </View>
       )}

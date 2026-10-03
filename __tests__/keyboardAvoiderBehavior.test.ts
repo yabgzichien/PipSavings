@@ -106,4 +106,9 @@ describe('KeyboardAvoidingView Android Behavior Guard', () => {
 
     expect(invalidUsages).toEqual([]);
   });
+
+  test('Expo explicitly configures Android to resize content around the software keyboard', () => {
+    const appConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../app.json'), 'utf-8'));
+    expect(appConfig.expo.android.softwareKeyboardLayoutMode).toBe('resize');
+  });
 });

@@ -3,6 +3,7 @@ import { ManualEntryScreen } from '../src/screens/ManualEntryScreen';
 import { ExtractScreen } from '../src/screens/ExtractScreen';
 import type { Account, Category, ExtractedTxn } from '../src/lib/types';
 import { ChoiceChip } from '../src/components/AccountChips';
+import { Amount } from '../src/components/ui';
 
 const mockAccounts: Account[] = [
   { id: 'acc_cash', name: 'Cash', kind: 'asset', cls: 'cash', currency: 'MYR', archived: false, createdAt: '2026-01-01T00:00:00.000Z', sub: null, symbol: null, ticker: null, quantity: null, cost: null },
@@ -223,6 +224,28 @@ describe('Account button chips and optional None selection', () => {
   });
 
   describe('ExtractScreen', () => {
+    it('renders each extracted amount in the currency detected from the statement', async () => {
+      const mockItems: ExtractedTxn[] = [
+        { merchant: 'Rasapura Masters', amount: 11.9, type: 'expense', date: '2020-09-23', method: null, currency: 'SGD' },
+      ];
+
+      let tree: any;
+      await TestRenderer.act(async () => {
+        tree = TestRenderer.create(
+          <ExtractScreen
+            image={{ uri: 'file:///wise.png', base64: '', mime: 'image/png' }}
+            cachedItems={mockItems}
+            onBack={jest.fn()}
+            onDone={jest.fn()}
+          />
+        );
+        await Promise.resolve();
+      });
+
+      const amount = tree.root.findAllByType(Amount).find((node: any) => node.props.value === 11.9);
+      expect(amount?.props.currency).toBe('SGD');
+    });
+
     it('renders button account chips with None option and handles selecting None', async () => {
       const onDone = jest.fn();
       const mockItems: ExtractedTxn[] = [

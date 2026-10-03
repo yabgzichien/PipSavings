@@ -325,7 +325,7 @@ export function SavedScreen({
                           {n.merchant}
                         </Text>
                         <Icon name="arrowRight" size={14} color={colorTheme.ink3} />
-                        <Text style={[styles.learnCat, { color: theme.accentInk }]}>{tCat(cat)}</Text>
+                        <Text style={[styles.learnCat, { color: theme.onTint }]}>{tCat(cat)}</Text>
                       </View>
                     </FadeIn>
                   );
@@ -356,7 +356,7 @@ export function SavedScreen({
                     <Text style={[styles.cat, { color: colorTheme.ink2 }]}>{transfer ? (isZh ? '转账' : 'Transfer') : tCat(cat)}</Text>
                     {owedByTxn[t.id] > 0 && (
                       <View style={[styles.owedChip, { backgroundColor: theme.accentTint }]}>
-                        <Icon name="gift" size={10} color={theme.accentInk} />
+                        <Icon name="gift" size={10} color={theme.onTint} />
                         <Text style={[styles.owedChipText, { color: theme.onTint }]}>
                           {isZh
                             ? `待收回 ${fmtMoney(dc.convert(owedByTxn[t.id]), dc.code)}`

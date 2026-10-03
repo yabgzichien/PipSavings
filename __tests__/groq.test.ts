@@ -44,6 +44,8 @@ describe('GroqProvider.extract', () => {
       },
     });
     const rows = await GroqProvider.extract(input);
+    const body = JSON.parse(((global as any).fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.max_completion_tokens).toBe(2048);
     expect(rows).toHaveLength(1);
     expect(rows[0].merchant).toBe('Tealive');
     expect(rows[0].type).toBe('expense');
@@ -57,6 +59,47 @@ describe('GroqProvider.extract', () => {
   it('maps HTTP 429 to a rate_limit error', async () => {
     mockFetchOnce({ status: 429, json: {} });
     await expect(GroqProvider.extract(input)).rejects.toMatchObject({ code: 'rate_limit' });
+    expect((global as any).fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a smaller reply when the first request is larger than an unused minute', async () => {
+    let calls = 0;
+    (global as any).fetch = jest.fn(async (_url: string, init: { body: string }) => {
+      calls += 1;
+      const body = JSON.parse(init.body);
+      if (calls === 1) {
+        expect(body.max_completion_tokens).toBe(2048);
+        return {
+          status: 429,
+          ok: false,
+          json: async () => ({}),
+          text: async () => 'Limit 8000, Used 0, Requested 16000',
+        };
+      }
+      expect(body.max_completion_tokens).toBe(1024);
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify({ transactions: [{ merchant: 'Tealive', amount: 9.5, direction: 'out' }] }) } }],
+        }),
+        text: async () => '',
+      };
+    });
+    const rows = await GroqProvider.extract(input);
+    expect(rows[0].merchant).toBe('Tealive');
+    expect(calls).toBe(2);
+  });
+
+  it('does not retry when the key has actually used its allowance', async () => {
+    (global as any).fetch = jest.fn(async () => ({
+      status: 429,
+      ok: false,
+      json: async () => ({}),
+      text: async () => 'Limit 8000, Used 8000, Requested 500',
+    }));
+    await expect(GroqProvider.extract(input)).rejects.toMatchObject({ code: 'rate_limit' });
+    expect((global as any).fetch).toHaveBeenCalledTimes(1);
   });
 
   it('throws no_key when the key is empty', async () => {

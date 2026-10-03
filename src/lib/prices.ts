@@ -119,6 +119,41 @@ export function holdingValue(quantity: number, priceMYR: number): number {
   return Math.round(quantity * priceMYR * 100) / 100;
 }
 
+/** Day-over-day move that earns the launch toast. Strictly above this, not equal. */
+export const INVESTMENT_SOAR_THRESHOLD_PCT = 1.5;
+
+/**
+ * Value-weighted 24h change across live holdings, in percent.
+ *
+ * A holding with no previous close is left out of both the weight and the move, so a missing
+ * quote cannot dilute a real one or invent a number. Archived rows and anything that is not a
+ * live holding are ignored. Returns null when nothing measurable is up for weighing.
+ */
+export function portfolioChange24Pct(
+  accounts: readonly Account[],
+  prices: Record<string, PriceQuote>
+): number | null {
+  let weighted = 0;
+  let weight = 0;
+  for (const account of accounts) {
+    if (account.archived || !isHolding(account)) continue;
+    const quote = prices[account.symbol as string];
+    if (!quote || quote.change24 == null || !Number.isFinite(quote.change24)) continue;
+    const value = holdingValue(account.quantity as number, quote.priceMYR);
+    if (!(value > 0)) continue;
+    weighted += value * quote.change24;
+    weight += value;
+  }
+  if (!(weight > 0)) return null;
+  return weighted / weight;
+}
+
+/** One decimal, without a trailing ".0", for the soar toast. */
+export function formatSoarPct(pct: number): string {
+  const text = (Math.round(pct * 10) / 10).toFixed(1);
+  return text.endsWith('.0') ? text.slice(0, -2) : text;
+}
+
 export interface Profit {
   profit: number; // current value − invested (MYR)
   pct: number | null; // profit as % of invested; null when no cost recorded
@@ -128,6 +163,29 @@ export interface Profit {
 export function holdingProfit(value: number, cost: number | null): Profit {
   if (cost == null || cost <= 0) return { profit: Math.round(value * 100) / 100, pct: null };
   return { profit: Math.round((value - cost) * 100) / 100, pct: ((value - cost) / cost) * 100 };
+}
+
+/** Aggregate profit for active live holdings that have a recorded MYR cost basis. */
+export function aggregateHoldingProfit(
+  accounts: Account[],
+  valueById: Record<string, number>,
+): Profit | null {
+  let totalValue = 0;
+  let totalCost = 0;
+  let included = 0;
+  for (const account of accounts) {
+    if (
+      account.archived ||
+      account.cls !== 'investments' ||
+      !isHolding(account) ||
+      account.cost == null ||
+      account.cost <= 0
+    ) continue;
+    totalValue += valueById[account.id] ?? 0;
+    totalCost += account.cost;
+    included += 1;
+  }
+  return included > 0 ? holdingProfit(totalValue, totalCost) : null;
 }
 
 /** True when an account is a live-priced holding (has a symbol + quantity). */

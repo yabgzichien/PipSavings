@@ -174,7 +174,7 @@ function AddExistingExpensesModal({
                     }
                   >
                     <View style={[styles.checkbox, { borderColor: colorTheme.line }, on && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                      {on && <Icon name="check" size={13} color="#fff" stroke={2.6} />}
+                      {on && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
                     </View>
                     <CatBadge category={cat} size={36} />
                     <View style={{ flex: 1, minWidth: 0 }}>
@@ -184,7 +184,7 @@ function AddExistingExpensesModal({
                       <Caption color={colorTheme.ink2}>{formatShortDate(tx.date ?? tx.createdAt)}</Caption>
                       {otherTripName && (
                         <View style={[styles.otherTripChip, { backgroundColor: theme.accentTint }]}>
-                          <Icon name="pin" size={10} color={theme.accentInk} />
+                          <Icon name="pin" size={10} color={theme.onTint} />
                           <Text style={[styles.otherTripChipText, { color: theme.onTint }]} numberOfLines={1}>
                             {t('inOtherTrip', { name: otherTripName })}
                           </Text>
@@ -200,7 +200,7 @@ function AddExistingExpensesModal({
 
           <View style={{ marginTop: spacing.md }}>
             <PrimaryButton onPress={commit} disabled={selected.size === 0 || saving}>
-              <Text style={styles.primaryLabel}>
+              <Text style={[styles.primaryLabel, { color: theme.onAccent }]}>
                 {t('addToTrip')}{selected.size > 0 ? ` · ${selected.size}` : ''}
               </Text>
             </PrimaryButton>
@@ -406,8 +406,8 @@ export function TripDetailScreen({
             style={[styles.actionBtn, { backgroundColor: theme.accentInk }]}
             accessibilityRole="button"
           >
-            <Icon name="plus" size={16} color="#fff" />
-            <Text style={styles.actionBtnLabel} numberOfLines={2}>{isZh ? '添加支出' : 'Add expense'}</Text>
+            <Icon name="plus" size={16} color={theme.onAccent} />
+            <Text style={[styles.actionBtnLabel, { color: theme.onAccent }]} numberOfLines={2}>{isZh ? '添加支出' : 'Add expense'}</Text>
           </Pressable>
           <Pressable
             onPress={() => setPickerOpen(true)}
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   actionBtn: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, paddingHorizontal: spacing.sm, borderRadius: radius.sm },
   actionBtnSecondary: { borderWidth: 1 },
-  actionBtnLabel: { flexShrink: 1, textAlign: 'center', fontFamily: uiFont(700), fontSize: 13.5, color: '#fff' },
+  actionBtnLabel: { flexShrink: 1, textAlign: 'center', fontFamily: uiFont(700), fontSize: 13.5 },
 
   listCard: { overflow: 'hidden' },
   divider: { borderTopWidth: 1 },
@@ -551,5 +551,5 @@ const styles = StyleSheet.create({
   // the row would otherwise hide, sitting right under the row's date line.
   otherTripChip: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
   otherTripChipText: { fontFamily: uiFont(600), fontSize: 10.5 },
-  primaryLabel: { fontFamily: uiFont(700), fontSize: 15, color: '#fff' },
+  primaryLabel: { fontFamily: uiFont(700), fontSize: 15 },
 });

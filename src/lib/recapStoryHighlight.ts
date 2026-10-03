@@ -1,4 +1,6 @@
-import { currentMonthKey, txnMonthKey } from './budget';
+import { txnMonthKey } from './budget';
+import type { Trip } from './trips';
+import { tripMonthTotals } from './trips';
 import type { Transaction } from './types';
 
 export type RecapStoryHighlightKind =
@@ -16,6 +18,10 @@ export type RecapStoryHighlightKind =
 export interface RecapStoryHighlight {
   kind: RecapStoryHighlightKind;
   itemLabel?: string;
+  /** Trip names shown on On the Move, highest spend first, at most three. */
+  places?: string[];
+  /** Trips beyond the three named places. */
+  moreCount?: number;
   occasion?: string;
   count?: number;
   percentChange?: number;
@@ -96,10 +102,38 @@ function canonicalOccasion(text: string): string {
   return 'celebration';
 }
 
+type SpendOf = (txn: { amount: number; currency: string; nativeAmount?: number | null }) => number;
+
+const identitySpend: SpendOf = (txn) => Math.abs(txn.amount);
+
+function tripAdventureHighlight(
+  transactions: Transaction[],
+  month: string,
+  trips: readonly Trip[],
+  spendOf: SpendOf,
+): RecapStoryHighlight | null {
+  const rows = tripMonthTotals(transactions, [...trips], month, spendOf)
+    .filter((row) => row.trip.name.trim().length > 0);
+  if (rows.length === 0) return null;
+  const shown = rows.slice(0, 3);
+  const moreCount = rows.length - shown.length;
+  return {
+    kind: 'tripAdventure',
+    places: shown.map((row) => row.trip.name.trim()),
+    ...(moreCount > 0 ? { moreCount } : {}),
+    iconName: 'pin',
+  };
+}
+
 export function detectStoryHighlight(
   transactions: Transaction[],
   month: string,
+  trips: readonly Trip[] = [],
+  spendOf: SpendOf = identitySpend,
 ): RecapStoryHighlight | null {
+  const places = tripAdventureHighlight(transactions, month, trips, spendOf);
+  if (places) return places;
+
   const monthTxns = transactions.filter((t) => t.type !== 'transfer' && txnMonthKey(t) === month);
   if (monthTxns.length === 0) return null;
 

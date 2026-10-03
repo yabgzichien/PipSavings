@@ -151,8 +151,10 @@ export function llmSettingsForActiveKey(
   };
 }
 
-export async function getLLM(): Promise<FallbackProvider> {
+export async function getLLM(
+  activeOverride?: { providerId: AskPipProviderId; apiKey: string } | null,
+): Promise<FallbackProvider> {
   const env = await loadSettings();
-  const active = await defaultAskPipKeyStore().getActive();
+  const active = activeOverride === undefined ? await defaultAskPipKeyStore().getActive() : activeOverride;
   return new FallbackProvider(llmSettingsForActiveKey(active, env));
 }

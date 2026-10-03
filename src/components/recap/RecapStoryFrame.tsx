@@ -277,7 +277,7 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
   const personaTitle = scene.type === 'identity' ? t(`recapStoryPersona_${scene.persona}_title`) : '';
   const personaBody = scene.type === 'identity' ? t(`recapStoryPersona_${scene.persona}_body`, { days: scene.activityDays }) : '';
   const comparison = scene.type === 'pattern' && scene.changeDirection && scene.previousRecordedSharePercent !== undefined
-    ? `${t(COMPARISON_KEYS[scene.changeDirection])} · ${scene.previousRecordedSharePercent}%` : '';
+    ? t(COMPARISON_KEYS[scene.changeDirection], { percent: scene.previousRecordedSharePercent }) : '';
   const patternCategory = scene.type === 'pattern' ? categoryLabel(scene.categoryId) : '';
   const badges = scene.type === 'finale' ? scene.badges.map((badge) => ({
     id: badge, label: t(`recapStoryBadge_${badge}_label`), body: t(`recapStoryBadge_${badge}_body`),
@@ -286,9 +286,25 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
   let spotlightTitle = '';
   let spotlightBody = '';
   let spotlightSubtitle = '';
+  let spotlightTags: string[] = [];
   if (scene.type === 'spotlight') {
     const hl = scene.highlight;
     switch (hl.kind) {
+      case 'tripAdventure': {
+        const places = (hl.places ?? []).filter((place) => place.trim().length > 0).slice(0, 3);
+        const [first = '', second = '', third = ''] = places;
+        const named = places.length <= 1
+          ? t('recapStorySpotlight_trips_one', { place: first })
+          : places.length === 2
+            ? t('recapStorySpotlight_trips_two', { first, second })
+            : t('recapStorySpotlight_trips_three', { first, second, third });
+        spotlightTitle = t('recapStorySpotlight_vehicle_title');
+        spotlightBody = (hl.moreCount ?? 0) > 0
+          ? t('recapStorySpotlight_trips_more', { places: named, count: hl.moreCount ?? 0 })
+          : named;
+        spotlightTags = places;
+        break;
+      }
       case 'techUpgrade':
         spotlightTitle = t('recapStorySpotlight_tech_title');
         spotlightBody = t('recapStorySpotlight_tech_body', { item: hl.itemLabel || 'gear' });
@@ -338,7 +354,7 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
 
   const summary = scene.type === 'ritual' ? t('recapStoryRitualTitle')
     : scene.type === 'identity' ? `${personaTitle}. ${personaBody}`
-    : scene.type === 'pattern' ? [patternCategory, `${scene.recordedSharePercent}% ${t('recapStoryRecordedShare')}`, comparison, scene.merchantCameo].filter(Boolean).join('. ')
+    : scene.type === 'pattern' ? [`${scene.recordedSharePercent}% ${t('recapStoryRecordedShare', { category: patternCategory })}`, comparison, scene.merchantCameo].filter(Boolean).join('. ')
     : scene.type === 'spotlight' ? `${spotlightTitle}. ${spotlightBody}`
     : scene.type === 'habit' ? `${days}. ${weeks}`
     : badges.map((badge) => `${badge.label}. ${badge.body}`).join('. ');
@@ -354,7 +370,8 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
             {/* Accent never carries copy. Two oversized, cropped gestures frame the story. */}
             <Path d="M284 14 L306 48 L346 36 L330 76 L366 102 L320 106 L310 150 L286 114 L246 130 L260 88 L226 62 L270 60 Z"
               transform="translate(40 -100)" fill={palette.accent} />
-            <Circle cx={-44} cy={548} r={124} fill="none" stroke={palette.accent} strokeWidth={32} />
+            {/* Kept in the lower-left corner so the stroke does not cross the mascot. */}
+            <Circle cx={-78} cy={640} r={96} fill="none" stroke={palette.accent} strokeWidth={28} />
           </Svg>
           <StoryMotifSvg motif={theme.motif} stroke={ink} fill={palette.accent} />
         </Animated.View>
@@ -379,7 +396,7 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
             <View style={styles.categoryIcon}><Icon name={CATEGORY_ICONS[scene.categoryId] ?? 'sparkles'} size={112} color={ink} stroke={1.5} /></View>
             <View style={styles.patternFacts}>
               <Display numeric color={ink} style={styles.percentage}>{`${scene.recordedSharePercent}%`}</Display>
-              <Title color={ink}>{t('recapStoryRecordedShare')}</Title>
+              <Title color={ink}>{t('recapStoryRecordedShare', { category: patternCategory })}</Title>
               {!!comparison && <Body color={ink} style={styles.body}>{comparison}</Body>}
               {!!scene.merchantCameo && <Label color={ink} numberOfLines={2} style={styles.cameo}>{scene.merchantCameo}</Label>}
             </View>
@@ -396,7 +413,15 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
               <View style={styles.spotlightContent}>
                 <Display color={ink} style={styles.headline} numberOfLines={2} adjustsFontSizeToFit>{spotlightTitle}</Display>
                 <Body color={ink} style={styles.body}>{spotlightBody}</Body>
-                {!!spotlightSubtitle && (
+                {spotlightTags.length > 0 ? (
+                  <View style={styles.spotlightTags}>
+                    {spotlightTags.map((tag, index) => (
+                      <View key={`${tag}-${index}`} style={[styles.spotlightTag, styles.spotlightPlace, { borderColor: ink, borderWidth: 1 }]}>
+                        <Label weight={700} color={ink}>{tag}</Label>
+                      </View>
+                    ))}
+                  </View>
+                ) : !!spotlightSubtitle && (
                   <View style={[styles.spotlightTag, { borderColor: ink, borderWidth: 1 }]}>
                     <Label weight={700} color={ink}>{spotlightSubtitle}</Label>
                   </View>
@@ -445,7 +470,7 @@ const styles = StyleSheet.create({
   ritualTitle: { width: 280 },
   cow: { position: 'absolute', bottom: 0, right: 0 },
   identityCopy: { width: 296 },
-  mascot: { position: 'absolute', bottom: 0, right: -8, width: 248, height: 208 },
+  mascot: { position: 'absolute', bottom: 28, right: 0, width: 248, height: 208, zIndex: 2 },
   patternTitle: { width: 280 },
   categoryIcon: { position: 'absolute', top: 104, right: 0, transform: [{ rotate: '12deg' }] },
   patternFacts: { position: 'absolute', top: 244, left: 0, right: 0 },
@@ -458,6 +483,8 @@ const styles = StyleSheet.create({
   spotlightIcon: { alignSelf: 'center', marginVertical: 20 },
   spotlightContent: { gap: 8 },
   spotlightTag: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12 },
+  spotlightTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  spotlightPlace: { marginTop: 0 },
   badges: { flex: 1, justifyContent: 'center', gap: 24 },
   singleBadge: { justifyContent: 'center' },
   sticker: { width: 272, borderWidth: 2, borderRadius: 24, padding: 16 },

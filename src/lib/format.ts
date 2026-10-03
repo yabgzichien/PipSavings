@@ -94,6 +94,12 @@ export function fmtMoney(amount: number, currency: string): string {
   return `${currencyPrefix(currency)} ${fmtDecimals(amount, decimalsFor(currency))}`;
 }
 
+/** Currency-aware money formatting that abbreviates values from 100K without losing the prefix. */
+export function fmtCompactMoney(amount: number, currency: string): string {
+  if (Math.abs(amount) < 100_000) return fmtMoney(amount, currency);
+  return `${currencyPrefix(currency)} ${fmtCompact(amount)}`;
+}
+
 /**
  * "RM 3,200.00 · USD 450.00" — a per-currency breakdown line. Renders in the object's own
  * key order, which callers (`nativeAccountTotalsByCurrency`, `nativeTransactionTotalsByCurrency`)

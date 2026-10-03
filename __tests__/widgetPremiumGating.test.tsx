@@ -1,7 +1,8 @@
 import React from 'react';
 const TestRenderer = require('react-test-renderer');
+import { StyleSheet } from 'react-native';
 import { WidgetCustomizerScreen } from '../src/screens/WidgetCustomizerScreen';
-import { MascotOptionTile } from '../src/components/MascotOptionTile';
+import { MascotOptionTile, TILE_SIZE } from '../src/components/MascotOptionTile';
 import { PrimaryButton } from '../src/components/ui';
 
 jest.mock('react-native-webview', () => ({ WebView: 'WebView' }));
@@ -80,5 +81,22 @@ describe('Free widget premium previews', () => {
     });
 
     expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ preset: 'chef' }));
+  });
+
+  it('centers the three-column option grid without shifting incomplete rows', async () => {
+    let tree: any;
+    await TestRenderer.act(async () => {
+      tree = TestRenderer.create(<WidgetCustomizerScreen onBack={jest.fn()} />);
+    });
+
+    const chefTile = tree.root
+      .findAllByType(MascotOptionTile)
+      .find((tile: any) => tile.props.label === 'Chef');
+    const gridStyle = StyleSheet.flatten(chefTile!.parent!.props.style);
+
+    expect(gridStyle).toMatchObject({
+      alignSelf: 'center',
+      width: TILE_SIZE * 3 + 20,
+    });
   });
 });

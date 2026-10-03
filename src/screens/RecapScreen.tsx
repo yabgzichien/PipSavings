@@ -46,7 +46,7 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 360 || fontScale > 1.25;
   const { t, tCat, formatMonthLabel, isZh } = useLanguage();
-  const { transactions, catById, snapshots, accounts, balanceEntries, memory, markTaskDone, widgetMascotConfig = DEFAULT_WIDGET_MASCOT_CONFIG } = useAppData();
+  const { transactions, catById, snapshots, accounts, balanceEntries, memory, markTaskDone, trips, widgetMascotConfig = DEFAULT_WIDGET_MASCOT_CONFIG } = useAppData();
   const now = useNow();
   const todayMonth = currentMonthKey(now);
   const reduced = useReducedMotion();
@@ -60,7 +60,10 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   const [transactionCategory, setTransactionCategory] = useState<string | null | undefined>(undefined);
   const months = useMemo(() => availableMonths(transactions, Object.keys(snapshots), now), [transactions, snapshots, todayMonth]); // eslint-disable-line react-hooks/exhaustive-deps
   const month = months.includes(selected) ? selected : todayMonth;
-  const storyModel = useMemo(() => buildRecapStoryModel({ transactions, month, now }), [transactions, month, now]);
+  const storyModel = useMemo(
+    () => buildRecapStoryModel({ transactions, month, now, trips, spendOf: dc.convertTxn }),
+    [transactions, month, now, trips, dc.code, dc.rates], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const [storyOpen, setStoryOpen] = useState(false);
   const handledInitialStoryRef = useRef(false);
 
@@ -156,8 +159,8 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
             : <Display numeric>{heroAmount}</Display>)}
           {empty ? (
             onAdd && <Pressable onPress={onAdd} accessibilityRole="button" accessibilityLabel={isZh ? '添加交易' : 'Add a transaction'} style={({ pressed }) => [styles.addButton, { backgroundColor: accent.accentInk, opacity: pressed ? 0.8 : 1 }]}>
-              <Icon name="plus" size={20} color="#fff" />
-              <Body weight={700} color="#fff">{isZh ? '添加交易' : 'Add a transaction'}</Body>
+              <Icon name="plus" size={20} color={accent.onAccent} />
+              <Body weight={700} color={accent.onAccent}>{isZh ? '添加交易' : 'Add a transaction'}</Body>
             </Pressable>
           ) : incomeOnly || summary.incomeCount === 0 ? (
             <Label weight={500} color={colors.ink2} style={styles.recordNote}>{incomeOnly ? (isZh ? '尚未记录支出' : 'No expenses recorded') : (isZh ? '尚未记录收入' : 'No income recorded')}</Label>

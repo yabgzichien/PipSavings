@@ -29,7 +29,7 @@ import { shortDate } from '../lib/dates';
 import { BASE_CURRENCY, round2 } from '../lib/currency';
 import { cleanCalcInput, evaluateExpression } from '../lib/calc';
 import { decimalsFor } from '../lib/currencies';
-import { currencyPrefix, fmt, fmtMoney, formatCurrencyBreakdown } from '../lib/format';
+import { currencyPrefix, fmt, fmtCompact, fmtCompactMoney, fmtMoney, formatCurrencyBreakdown } from '../lib/format';
 import { rateFor, ratesFromCache, isStale, staleLabel } from '../lib/fx';
 import { matchInstitution } from '../lib/institutions';
 import { tap } from '../lib/haptics';
@@ -54,7 +54,7 @@ import {
 import { canMoveCash, isCashAccount } from '../lib/moveFunds';
 import { netWorthFreshness, rankClassMovers, type ClassMover } from '../lib/netWorthPresentation';
 import { useDisplayCurrency, type DisplayCurrency } from '../state/useDisplayCurrency';
-import { groupHoldings, holdingProfit, isHolding, subFromType, toQuantityUnitPrice, typeFromSub, type HoldingGroup, type TickerResult } from '../lib/prices';
+import { aggregateHoldingProfit, groupHoldings, holdingProfit, isHolding, subFromType, toQuantityUnitPrice, typeFromSub, type HoldingGroup, type Profit, type TickerResult } from '../lib/prices';
 import { todayISO } from '../lib/duplicates';
 import { searchInvestments } from '../prices';
 import type { Account, BalanceEntry, PriceQuote } from '../lib/types';
@@ -152,7 +152,7 @@ export function NetWorthScreen({
   const [groupSymbol, setGroupSymbol] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const profitMode: ValueMode = 'amount';
+  const [profitMode, setProfitMode] = useState<ValueMode>('amount');
   const [expandedClasses, setExpandedClasses] = useState<string[]>([]);
   const [showBalanceReview, setShowBalanceReview] = useState(false);
   const [amountsHidden, setAmountsHidden] = useState(false);
@@ -230,6 +230,10 @@ export function NetWorthScreen({
   );
   const nw = useMemo(() => netWorth(accounts, myrValues), [accounts, myrValues]);
   const groups = useMemo(() => groupByClass(accounts, myrValues), [accounts, myrValues]);
+  const investmentProfit = useMemo(
+    () => aggregateHoldingProfit(accounts, accountValues),
+    [accounts, accountValues],
+  );
   const series = useMemo(
     () => netWorthSeries(accounts, balanceEntries, lastMonths(6), rates).map((p) => p.net),
     [accounts, balanceEntries, rates]
@@ -329,6 +333,11 @@ export function NetWorthScreen({
       : [...current, cls]);
   };
 
+  const toggleProfitMode = () => {
+    tap();
+    setProfitMode((current) => current === 'amount' ? 'percent' : 'amount');
+  };
+
   // Safe to branch here  all hooks above have run unconditionally.
   if (scanning) {
     return <BalanceScanScreen onClose={() => setScanning(false)} />;
@@ -407,6 +416,9 @@ export function NetWorthScreen({
                       dc={dc}
                       onPress={() => toggleClass(g.cls)}
                       debtsCount={g.cls === RECEIVABLE_CLS ? debtPeopleCount : undefined}
+                      profit={g.cls === 'investments' ? investmentProfit : null}
+                      profitMode={profitMode}
+                      onToggleProfit={toggleProfitMode}
                       onMove={g.cls === 'cash' && canMoveCash(accounts) ? () => {
                         tap();
                         setMoveFromId(null);
@@ -893,6 +905,9 @@ function AccountClassSummary({
   onPress,
   debtsCount,
   onMove,
+  profit,
+  profitMode,
+  onToggleProfit,
 }: {
   group: ClassGroup;
   label: string;
@@ -903,23 +918,41 @@ function AccountClassSummary({
   onPress: () => void;
   debtsCount?: number;
   onMove?: () => void;
+  profit?: Profit | null;
+  profitMode?: ValueMode;
+  onToggleProfit?: () => void;
 }) {
   const theme = useAccent();
+  const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
   const amountsHidden = useAmountsHidden();
   const icon = (CLASS_BY_ID[group.cls]?.icon ?? 'wallet') as IconName;
   const isReceivable = group.cls === RECEIVABLE_CLS;
   const count = isReceivable && debtsCount !== undefined ? debtsCount : group.accounts.length;
+  const gainUp = (profit?.profit ?? 0) >= 0;
+  const gainSign = gainUp ? '+' : '−';
+  const gainAmount = profit
+    ? `${gainSign}${fmtCompactMoney(dc.convert(Math.abs(profit.profit)), dc.code)}`
+    : '';
+  const gainPercent = profit?.pct != null
+    ? `${gainSign}${Math.abs(profit.pct) >= 100000 ? fmtCompact(Math.abs(profit.pct)) : Math.abs(profit.pct).toFixed(1)}%`
+    : '';
+  const gainText = profitMode === 'percent' && gainPercent ? gainPercent : gainAmount;
+  const nextGainMode = profitMode === 'percent' ? 'amount' : 'percentage';
+  const expandLabel = isZh
+    ? `${expanded ? '收起' : '展开'}${label}账户`
+    : `${expanded ? 'Collapse' : 'Expand'} ${label} accounts`;
+  const gainLabel = isZh
+    ? `投资收益：${gainText}。点按显示${profitMode === 'percent' ? '金额' : '百分比'}。`
+    : `Investment gain: ${gainText}. Tap to show ${nextGainMode}.`;
   return (
     <View style={[styles.classSummary, showDivider && { borderTopColor: colorTheme.line, borderTopWidth: 1 }]}>
       <Pressable
         onPress={onPress}
         style={styles.classSummaryMain}
         accessibilityRole="button"
-        accessibilityLabel={isZh
-          ? `${expanded ? '收起' : '展开'}${label}账户`
-          : `${expanded ? 'Collapse' : 'Expand'} ${label} accounts`}
+        accessibilityLabel={expandLabel}
         accessibilityState={{ expanded }}
       >
         <View style={[styles.classSummaryIcon, { backgroundColor: group.kind === 'liability' ? colorTheme.redTint : theme.accentTint }]}>
@@ -935,16 +968,51 @@ function AccountClassSummary({
                 : (isZh ? `${count} 个账户` : `${count} account${count === 1 ? '' : 's'}`)}
           </Caption>
         </View>
-        {amountsHidden ? (
-          <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{HIDDEN_AMOUNT}</Text>
-        ) : (
-        <Amount
-          value={group.kind === 'liability' ? -group.total : group.total}
-          currency={dc.code}
-          size={14}
-          color={group.kind === 'liability' && group.total > 0 ? colorTheme.red : colorTheme.ink}
-        />
-        )}
+      </Pressable>
+      <View style={styles.classSummaryValue}>
+        <Pressable
+          onPress={onPress}
+          accessible={false}
+          style={styles.classSummaryAmountButton}
+        >
+          {amountsHidden ? (
+            <Text style={[styles.rowVal, { color: colorTheme.ink }]}>{HIDDEN_AMOUNT}</Text>
+          ) : (
+            <Amount
+              value={group.kind === 'liability' ? -group.total : group.total}
+              currency={dc.code}
+              size={14}
+              color={group.kind === 'liability' && group.total > 0 ? colorTheme.red : colorTheme.ink}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            />
+          )}
+        </Pressable>
+        {profit && !amountsHidden && gainText ? (
+          <Pressable
+            onPress={onToggleProfit}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={gainLabel}
+            style={styles.classSummaryGainButton}
+          >
+            <Text
+              style={[styles.classSummaryGain, { color: gainUp ? signedUp : colorTheme.red }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {gainText}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <Pressable
+        onPress={onPress}
+        accessible={false}
+        style={styles.classSummaryChevron}
+      >
         <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={16} color={colorTheme.ink3} />
       </Pressable>
       {onMove ? (
@@ -2312,8 +2380,8 @@ function AccountSheet({
                         (!debtPersonName.trim() || !parseFloat(debtAmountText)) && { opacity: 0.5 },
                       ]}
                     >
-                      <Icon name="plus" size={15} color="#fff" stroke={2.4} />
-                      <Text style={styles.addDebtBtnText}>
+                      <Icon name="plus" size={15} color={theme.onAccent} stroke={2.4} />
+                      <Text style={[styles.addDebtBtnText, { color: theme.onAccent }]}>
                         {isZh ? '添加欠款' : 'Add to Owed'}
                       </Text>
                     </Pressable>
@@ -2472,8 +2540,8 @@ function AccountSheet({
                         onPress={() => setSearchOpen(true)}
                         style={[styles.linkTickerBtn, { backgroundColor: theme.accent }]}
                       >
-                        <Icon name="search" size={15} color="#fff" stroke={2.2} />
-                        <Text style={styles.linkTickerBtnText}>
+                        <Icon name="search" size={15} color={theme.onAccent} stroke={2.2} />
+                        <Text style={[styles.linkTickerBtnText, { color: theme.onAccent }]}>
                           {isZh ? '搜索并关联标的 (股票/币/黄金)' : 'Search & Link Live Ticker'}
                         </Text>
                       </Pressable>
@@ -2668,11 +2736,16 @@ const styles = StyleSheet.create({
   totalItemEnd: { borderLeftWidth: 1, paddingLeft: spacing.base },
   accountGroups: { marginHorizontal: spacing.base, borderRadius: radius.sm, overflow: 'hidden' },
   classSummary: { minHeight: 68, flexDirection: 'row', alignItems: 'center' },
-  classSummaryMain: { flex: 1, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  classSummaryMain: { flex: 1, minWidth: 0, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingLeft: spacing.base, paddingRight: spacing.md, paddingVertical: spacing.md },
   classMove: { paddingRight: spacing.base, paddingVertical: spacing.md },
   classSummaryIcon: { width: 36, height: 36, borderRadius: spacing.md, alignItems: 'center', justifyContent: 'center' },
   classSummaryCopy: { flex: 1, minWidth: 0 },
   classSummaryMeta: { marginTop: spacing.xs },
+  classSummaryValue: { alignItems: 'flex-end', flexShrink: 1, minWidth: 0, maxWidth: '46%' },
+  classSummaryAmountButton: { maxWidth: '100%' },
+  classSummaryGainButton: { maxWidth: '100%', minHeight: 20, justifyContent: 'center' },
+  classSummaryGain: { fontFamily: numFont(700), fontSize: 11.5, textAlign: 'right' },
+  classSummaryChevron: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: spacing.md },
   accountDetails: { overflow: 'hidden' },
   accountActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.sm, marginHorizontal: spacing.base, marginTop: spacing.md },
   tertiaryAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md },
@@ -2821,7 +2894,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 12,
   },
-  linkTickerBtnText: { fontFamily: uiFont(700), fontSize: 13.5, color: '#fff' },
+  linkTickerBtnText: { fontFamily: uiFont(700), fontSize: 13.5 },
   holdingSelectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2951,7 +3024,6 @@ const styles = StyleSheet.create({
   addDebtBtnText: {
     fontFamily: uiFont(700),
     fontSize: 13,
-    color: '#fff',
   },
   receivableDebtCard: {
     borderWidth: 1,

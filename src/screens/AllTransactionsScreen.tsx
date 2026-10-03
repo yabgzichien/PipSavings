@@ -129,10 +129,16 @@ export const TxnRow = React.memo(function TxnRow({
         <Text style={[styles.merchant, { color: colorTheme.ink }]} numberOfLines={1}>
           {transfer ? (isZh ? '转账' : 'Transfer') : catLabel}
         </Text>
-        <Text style={[styles.sub, { color: colorTheme.ink2 }]} numberOfLines={1}>
-          {description ? `${description} · ` : ''}
-          {formatShortDate(txn.date ?? txn.createdAt)}
-        </Text>
+        <View style={styles.subRow}>
+          {description ? (
+            <Text style={[styles.sub, styles.subMerchant, { color: colorTheme.ink2 }]} numberOfLines={1} ellipsizeMode="tail">
+              {description}
+            </Text>
+          ) : null}
+          <Text style={[styles.sub, styles.subDate, { color: colorTheme.ink2 }]} numberOfLines={1}>
+            {description ? ` · ${formatShortDate(txn.date ?? txn.createdAt)}` : formatShortDate(txn.date ?? txn.createdAt)}
+          </Text>
+        </View>
         {(trip || owed) && (
           <View style={styles.chipRow}>
             {trip && (
@@ -151,7 +157,7 @@ export const TxnRow = React.memo(function TxnRow({
                 accessibilityRole={onOpenTrip && !selectMode ? 'button' : undefined}
                 accessibilityLabel={`${t('tripsTitle')}: ${trip.name}`}
               >
-                <TripGlyph trip={trip} size={11} color={theme.accentInk} />
+                <TripGlyph trip={trip} size={11} color={theme.onTint} />
                 <Text style={[styles.tripChipText, { color: theme.onTint }]} numberOfLines={1}>
                   {trip.name}
                 </Text>
@@ -161,7 +167,7 @@ export const TxnRow = React.memo(function TxnRow({
                 cheap dinner without this. */}
             {owed && (
               <View style={[styles.owedChip, { backgroundColor: theme.accentTint }]}>
-                <Icon name="gift" size={10} color={theme.accentInk} />
+                <Icon name="gift" size={10} color={theme.onTint} />
                 <Text style={[styles.owedChipText, { color: theme.onTint }]}>
                   {isZh
                     ? `待收 ${fmtMoney(dc.convert(owed.owed), dc.code)} · 共 ${fmtMoney(dc.convert(owed.gross), dc.code)}`
@@ -558,7 +564,9 @@ export function AllTransactionsScreen({
 
           <Text style={[styles.countLine, { color: colorTheme.ink2 }]}>
             {selectMode
-              ? (isZh ? '点击以选择' : 'Tap to select')
+              ? (selected.size > selectedExpenseIds.length
+                ? t('tripExpensesOnly')
+                : (isZh ? '点击以选择' : 'Tap to select'))
               : (isZh ? `共 ${shown.length} 条记录 · 点击编辑，长按多选` : `${shown.length} record${shown.length === 1 ? '' : 's'} · tap to edit, long-press to select`)}
           </Text>
         </>
@@ -572,11 +580,22 @@ export function AllTransactionsScreen({
         {selectMode ? (
           <View style={styles.selectBar}>
             <IconButton name="x" onPress={cancelSelect} size={19} />
-            <Text style={[styles.selectTitle, { color: colorTheme.ink }]}>
+            <Text style={[styles.selectTitle, { color: colorTheme.ink }]} numberOfLines={1}>
               {isZh ? `已选择 ${selected.size} 项` : `${selected.size} selected`}
             </Text>
-            <Pressable onPress={() => setTripPickerOpen(true)} hitSlop={8} style={styles.tripAction} disabled={selectedExpenseIds.length === 0} accessibilityRole="button" accessibilityLabel={t('addToTrip')}>
-              <Icon name="pin" size={19} color={selectedExpenseIds.length === 0 ? colorTheme.ink3 : theme.accent} />
+            <Pressable
+              onPress={() => setTripPickerOpen(true)}
+              hitSlop={8}
+              style={[styles.tripAction, selectedExpenseIds.length > 0 && { backgroundColor: theme.accentTint }]}
+              disabled={selectedExpenseIds.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel={t('addToTrip')}
+              accessibilityState={{ disabled: selectedExpenseIds.length === 0 }}
+            >
+              <Icon name="pin" size={16} color={selectedExpenseIds.length === 0 ? colorTheme.ink3 : theme.accent} />
+              <Text style={[styles.tripActionText, { color: selectedExpenseIds.length === 0 ? colorTheme.ink3 : theme.accent }]} numberOfLines={1}>
+                {t('addToTrip')}
+              </Text>
             </Pressable>
             <Pressable onPress={deleteSelected} hitSlop={8} style={styles.delAction} disabled={selected.size === 0}>
               <Icon name="trash" size={20} color={selected.size === 0 ? colorTheme.ink3 : '#b3261e'} />
@@ -691,7 +710,8 @@ const styles = StyleSheet.create({
   selectBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 6 },
   selectTitle: { flex: 1, fontFamily: uiFont(700), fontSize: 18 },
   delAction: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  tripAction: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  tripAction: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 36, paddingHorizontal: 10, borderRadius: 999 },
+  tripActionText: { fontFamily: uiFont(700), fontSize: 13 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tripsChip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1 },
   tripsChipText: { fontFamily: uiFont(700), fontSize: 13 },
@@ -748,7 +768,10 @@ const styles = StyleSheet.create({
   rowLast: { borderBottomWidth: 1, borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md },
   divider: { borderTopWidth: 1 },
   merchant: { fontFamily: uiFont(600), fontSize: 14.5 },
-  sub: { fontFamily: uiFont(500), fontSize: 12, marginTop: 1 },
+  subRow: { flexDirection: 'row', alignItems: 'center', marginTop: 1, minWidth: 0 },
+  sub: { fontFamily: uiFont(500), fontSize: 12 },
+  subMerchant: { flexGrow: 0, flexShrink: 1, minWidth: 0 },
+  subDate: { flexGrow: 0, flexShrink: 0 },
   owedBanner: {
     flexDirection: 'row',
     alignItems: 'center',

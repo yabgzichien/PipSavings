@@ -1,4 +1,4 @@
-import { currencyPrefix, fmt, fmtCompact, fmtMoney, formatCurrencyBreakdown, readTimeLabel } from '../src/lib/format';
+import { currencyPrefix, fmt, fmtCompact, fmtCompactMoney, fmtMoney, formatCurrencyBreakdown, readTimeLabel } from '../src/lib/format';
 
 describe('currencyPrefix', () => {
   it('renders MYR as the local RM convention', () => {
@@ -47,6 +47,17 @@ describe('fmtCompact', () => {
   it('falls back to 0 for non-finite input, same as fmt', () => {
     expect(fmtCompact(NaN)).toBe(fmt(NaN));
     expect(fmtCompact(Infinity)).toBe(fmt(Infinity));
+  });
+});
+
+describe('fmtCompactMoney', () => {
+  it('uses the currency decimal rules below the compact threshold', () => {
+    expect(fmtCompactMoney(1200, 'JPY')).toBe('JPY 1,200');
+    expect(fmtCompactMoney(12.345, 'TND')).toBe('TND 12.345');
+  });
+
+  it('keeps the currency prefix while compacting large values', () => {
+    expect(fmtCompactMoney(125_000_000, 'MYR')).toBe('RM 125M');
   });
 });
 

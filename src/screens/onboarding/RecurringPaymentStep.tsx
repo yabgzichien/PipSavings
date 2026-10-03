@@ -115,8 +115,8 @@ export function RecurringPaymentStep({ onNext, onSkip }: { onNext: () => void; o
           style={[styles.addedBanner, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}
           offset={6}
         >
-          <Icon name="check" size={15} color={theme.accentInk} stroke={2.4} />
-          <Text style={[styles.addedText, { color: theme.accentInk }]}>
+          <Icon name="check" size={15} color={theme.onTint} stroke={2.4} />
+          <Text style={[styles.addedText, { color: theme.onTint }]}>
             {addedCount === 1
               ? t('wizardAddedConfirmOne')
               : t('wizardAddedConfirmMany', { count: addedCount })}

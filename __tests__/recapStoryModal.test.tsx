@@ -50,6 +50,7 @@ function press(tree: any, label: string) {
 }
 function grant(x = 300) { Renderer.act(() => gesture.onPanResponderGrant({ nativeEvent: { locationX: x } }, {})); }
 function release(dx = 0, x = 300) { Renderer.act(() => gesture.onPanResponderRelease({ nativeEvent: { locationX: x } }, { dx, dy: 0 })); }
+function tap(x: number) { grant(x); release(0, x); }
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -71,12 +72,15 @@ it('advances at 7.5 seconds and stops after the last scene', () => {
   advance(15000); expect(frame(tree).scene.id).toBe('finale');
 });
 
-it('visible buttons and the large left/right tap regions navigate', () => {
+it('taps the right side for next, the left side for previous, and the middle to pause', () => {
   const tree = render();
-  press(tree, 'Next'); expect(frame(tree).scene.id).toBe('identity');
-  press(tree, 'Previous'); expect(frame(tree).scene.id).toBe('ritual');
-  grant(); release(); expect(frame(tree).scene.id).toBe('identity');
-  grant(0); release(0, 0); expect(frame(tree).scene.id).toBe('ritual');
+  tap(300); expect(frame(tree).scene.id).toBe('identity');
+  tap(20); expect(frame(tree).scene.id).toBe('ritual');
+  tap(180);
+  expect(tree.root.findByProps({ testID: 'story-status' }).props.accessibilityLabel).toBe('Paused');
+  expect(tree.root.findByProps({ testID: 'story-status' }).props.children.props.children).toBe('1 of 3');
+  advance(8000); expect(frame(tree).scene.id).toBe('ritual');
+  tap(180); expect(frame(tree).scene.id).toBe('ritual');
 });
 
 it('one threshold-crossing swipe navigates once, with its direction taking precedence over release position', () => {
@@ -85,49 +89,49 @@ it('one threshold-crossing swipe navigates once, with its direction taking prece
   grant(0); release(80, 300); expect(frame(tree).scene.id).toBe('ritual');
 });
 
-it('holds the current progress and resumes only its remaining duration', () => {
-  const tree = render(); advance(2000); grant();
+it('a middle tap pauses and a second middle tap resumes only the remaining duration', () => {
+  const tree = render(); advance(2000); tap(180);
   const held = frame(tree).progress.__getValue();
   expect(held).toBeCloseTo(2000 / 7500, 2);
   advance(8000); expect(frame(tree).progress.__getValue()).toBeCloseTo(held, 2);
   expect(frame(tree).scene.id).toBe('ritual');
-  release(); advance(5499); expect(frame(tree).scene.id).toBe('ritual');
+  tap(180); advance(5499); expect(frame(tree).scene.id).toBe('ritual');
   advance(1); expect(frame(tree).scene.id).toBe('identity');
 });
 
-it('previous restarts a card including the clamped first card', () => {
-  const tree = render(); advance(3000); press(tree, 'Previous');
+it('a left tap restarts a card including the clamped first card', () => {
+  const tree = render(); advance(3000); tap(20);
   advance(7499); expect(frame(tree).scene.id).toBe('ritual');
   advance(1); expect(frame(tree).scene.id).toBe('identity');
-  advance(2000); press(tree, 'Previous');
+  advance(2000); tap(20);
   advance(7499); expect(frame(tree).scene.id).toBe('ritual');
   advance(1); expect(frame(tree).scene.id).toBe('identity');
 });
 
-it('plays continuously across scenes, pauses/resumes on hold or mute, and restarts on replay', () => {
+it('plays continuously across scenes and pauses on a middle tap or mute', () => {
   const tree = render(); expect(sound.storyIntro).toHaveBeenCalledTimes(1);
-  advance(500); grant(); expect(sound.pauseStoryIntro).toHaveBeenCalledTimes(1);
-  advance(600); release(); expect(sound.resumeStoryIntro).toHaveBeenCalledTimes(1);
-  press(tree, 'Next');
+  advance(500); tap(180); expect(sound.pauseStoryIntro).toHaveBeenCalledTimes(1);
+  tap(180); expect(sound.resumeStoryIntro).toHaveBeenCalledTimes(1);
+  tap(300);
   expect(sound.pauseStoryIntro).toHaveBeenCalledTimes(1);
-  press(tree, 'Previous');
+  tap(20);
   expect(sound.pauseStoryIntro).toHaveBeenCalledTimes(1);
   press(tree, 'Mute'); expect(sound.pauseStoryIntro).toHaveBeenCalledTimes(2);
   press(tree, 'Unmute'); expect(sound.resumeStoryIntro).toHaveBeenCalledTimes(2);
-  press(tree, 'Replay'); expect(sound.storyIntro).toHaveBeenCalledTimes(2);
+  expect(tree.root.findAll((node: any) => node.props.accessibilityLabel === 'Replay')).toHaveLength(0);
 });
 
 it.each([['reduced', false], ['off', false], ['full', true]])('motion %s OS reduction %s uses manual navigation and no sound', (motion, reduced) => {
   mockMotion = motion as string; mockReduced = reduced as boolean;
   const tree = render(); advance(20000);
   expect(frame(tree).scene.id).toBe('ritual'); expect(sound.storyIntro).not.toHaveBeenCalled();
-  press(tree, 'Next'); expect(frame(tree).scene.id).toBe('identity');
+  tap(300); expect(frame(tree).scene.id).toBe('identity');
   expect(frame(tree).motion).toBe(motion === 'off' ? 'off' : 'reduced');
 });
 
 it('unmounts the session on close/hidden and reopens at the start with fresh mute', () => {
   const onClose = jest.fn(); const tree = render({ onClose });
-  press(tree, 'Mute'); press(tree, 'Next'); press(tree, 'Close');
+  press(tree, 'Mute'); tap(300); press(tree, 'Close');
   expect(onClose).toHaveBeenCalledTimes(1); expect(sound.stopStoryIntro).toHaveBeenCalled();
   expect(tree.root.findAllByType(RecapStoryFrame)).toHaveLength(0);
   Renderer.act(() => tree.update(<RecapStoryModal {...defaults} visible={false} />));
@@ -138,12 +142,12 @@ it('unmounts the session on close/hidden and reopens at the start with fresh mut
   press(tree, 'Mute');
 });
 
-it('offers current-card sharing and finale selection callbacks outside the frame', () => {
-  const onShareScene = jest.fn(); const onChooseCards = jest.fn();
-  const tree = render({ onShareScene, onChooseCards });
+it('offers current-card sharing from the share icon', () => {
+  const onShareScene = jest.fn();
+  const tree = render({ onShareScene });
   press(tree, 'Share card'); expect(onShareScene).toHaveBeenCalledWith('ritual');
-  press(tree, 'Next'); press(tree, 'Next'); press(tree, 'Choose cards');
-  expect(onChooseCards).toHaveBeenCalledTimes(1);
+  expect(tree.root.findAll((node: any) => node.props.accessibilityLabel === 'Choose cards')).toHaveLength(0);
+  expect(tree.root.findAll((node: any) => node.props.accessibilityLabel === 'Replay')).toHaveLength(0);
 });
 
 it('opens the concrete picker from quiet share and finale defaults while preserving notifications', () => {
@@ -154,14 +158,11 @@ it('opens the concrete picker from quiet share and finale defaults while preserv
   expect(tree.root.findByType(RecapStoryShareSheet).props.initialSceneId).toBe('ritual');
   press(tree, 'Close share options');
   expect(tree.root.findAllByType(RecapStoryShareSheet)).toHaveLength(0);
-  press(tree, 'Next'); press(tree, 'Next'); press(tree, 'Choose cards');
-  expect(onChooseCards).toHaveBeenCalledTimes(1);
-  expect(tree.root.findByType(RecapStoryShareSheet).props.initialSceneId).toBeUndefined();
 });
 
 it('provides translated position/month/custom categories, safe scale, and 44-point controls', () => {
   const tree = render();
-  expect(frame(tree).accessibilityPositionLabel).toContain('Story 1 of 3');
+  expect(frame(tree).accessibilityPositionLabel).toContain('1 of 3');
   expect(frame(tree).monthLabel).toBe('August 2026');
   expect(frame(tree).categoryLabel('custom')).toBe('Pottery');
   const area = tree.root.findByProps({ testID: 'story-stage' });
@@ -175,7 +176,7 @@ it('provides translated position/month/custom categories, safe scale, and 44-poi
   }
   mockZh = true;
   Renderer.act(() => tree.update(<RecapStoryModal {...defaults} />));
-  expect(frame(tree).accessibilityPositionLabel).toBe('第 1 个故事，共 3 个');
+  expect(frame(tree).accessibilityPositionLabel).toBe('1 of 3');
 });
 
 it('keeps the gesture surface outside the transformed artwork so release coordinates use screen points', () => {
@@ -186,19 +187,20 @@ it('keeps the gesture surface outside the transformed artwork so release coordin
   expect(surface.props.accessible).toBe(false);
 });
 
-it('a visible pause control preserves its pause through a hold, and play continues the remaining time', () => {
-  const tree = render(); advance(2000); press(tree, 'Pause');
+it('a middle tap keeps the story paused through a later hold, and another middle tap continues', () => {
+  const tree = render(); advance(2000); tap(180);
   expect(tree.root.findByProps({ testID: 'story-status' }).props.accessibilityLabel).toBe('Paused');
-  grant(); advance(1000); release(); advance(6000);
+  grant(180); advance(1000); release(0, 180); advance(6000);
   expect(frame(tree).scene.id).toBe('ritual');
-  press(tree, 'Play'); advance(5500);
+  tap(180); advance(5500);
   expect(frame(tree).scene.id).toBe('identity');
 });
 
-it('a cancelled hold resumes without navigation and duplicate swipe releases do not advance again', () => {
+it('a cancelled gesture does not navigate and a duplicate swipe release does not advance again', () => {
   const tree = render(); advance(2000); grant(); advance(1000);
   Renderer.act(() => gesture.onPanResponderTerminate());
-  advance(5499); expect(frame(tree).scene.id).toBe('ritual');
+  expect(frame(tree).scene.id).toBe('ritual');
+  advance(4499); expect(frame(tree).scene.id).toBe('ritual');
   advance(1); expect(frame(tree).scene.id).toBe('identity');
   grant(); release(-48); release(-80);
   expect(frame(tree).scene.id).toBe('finale');
@@ -245,7 +247,7 @@ it.each(['held release', 'termination', 'tap', 'swipe'] as const)(
     };
     try {
       Renderer.act(() => before.onResponderGrant(event));
-      expect(tree.root.findByProps({ testID: 'story-status' }).props.accessibilityLabel).toBe('Paused');
+      expect(tree.root.findByProps({ testID: 'story-status' }).props.accessibilityLabel).toBe('1 of 3');
       expect(responder.getInteractionHandle()).not.toBeNull();
       if (action === 'held release' || action === 'termination') advance(500);
       if (action === 'swipe') {
@@ -265,9 +267,8 @@ it.each(['held release', 'termination', 'tap', 'swipe'] as const)(
       expect(surface().onResponderTerminate).toBe(before.onResponderTerminate);
       expect(create).toHaveBeenCalledTimes(1);
       if (action === 'held release' || action === 'termination') {
-        expect(sound.resumeStoryIntro).toHaveBeenCalledTimes(1);
-        advance(5499); expect(frame(tree).scene.id).toBe('ritual');
-        advance(1); expect(frame(tree).scene.id).toBe('identity');
+        expect(sound.pauseStoryIntro).not.toHaveBeenCalled();
+        expect(frame(tree).scene.id).toBe('ritual');
       } else {
         expect(sound.resumeStoryIntro).not.toHaveBeenCalled();
         expect(frame(tree).scene.id).toBe('identity');
@@ -303,20 +304,21 @@ it('renders spotlight scene and steps through 6-scene story', () => {
   };
   const tree = render({ model: fullModelWithSpotlight });
   expect(frame(tree).scene.id).toBe('ritual');
-  press(tree, 'Next');
+  tap(300);
   expect(frame(tree).scene.id).toBe('identity');
-  press(tree, 'Next');
+  tap(300);
   expect(frame(tree).scene.id).toBe('pattern');
-  press(tree, 'Next');
+  tap(300);
   expect(frame(tree).scene.id).toBe('spotlight');
   expect(frame(tree).scene.type).toBe('spotlight');
-  press(tree, 'Next');
+  tap(300);
   expect(frame(tree).scene.id).toBe('habit');
-  press(tree, 'Next');
+  tap(300);
   expect(frame(tree).scene.id).toBe('finale');
-  press(tree, 'Previous');
+  expect(tree.root.findByProps({ testID: 'story-status' }).props.children.props.children).toBe('6 of 6');
+  tap(20);
   expect(frame(tree).scene.id).toBe('habit');
-  press(tree, 'Previous');
+  tap(20);
   expect(frame(tree).scene.id).toBe('spotlight');
 });
 

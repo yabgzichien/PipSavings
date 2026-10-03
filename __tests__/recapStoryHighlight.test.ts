@@ -1,3 +1,4 @@
+import type { Trip } from '../src/lib/trips';
 import type { Transaction } from '../src/lib/types';
 import {
   detectStoryHighlight,
@@ -18,6 +19,17 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     categoryId: 'shopping',
     createdAt: '2026-08-10T12:00:00.000Z',
     source: 'manual',
+    ...overrides,
+  };
+}
+
+function makeTrip(overrides: Partial<Trip> & Pick<Trip, 'id' | 'name'>): Trip {
+  return {
+    createdAt: '2026-08-01T00:00:00.000Z',
+    archived: false,
+    startDate: null,
+    endDate: null,
+    icon: null,
     ...overrides,
   };
 }
@@ -56,6 +68,90 @@ describe('detectStoryHighlight', () => {
     expect(highlight?.itemLabel).toBe('MacBook');
     expect(highlight?.iconName).toBe('sparkles');
     assertPrivate(highlight);
+  });
+
+  it('lists saved trips with spending this month, highest spend first', () => {
+    const trips = [
+      makeTrip({ id: 'tokyo', name: 'Tokyo' }),
+      makeTrip({ id: 'osaka', name: 'Osaka' }),
+      makeTrip({ id: 'penang', name: 'Penang' }),
+      makeTrip({ id: 'seoul', name: 'Seoul' }),
+      makeTrip({ id: 'bali', name: 'Bali' }),
+    ];
+    const txns: Transaction[] = [
+      makeTxn({ tripId: 'tokyo', amount: 300, date: '2026-08-04' }),
+      makeTxn({ tripId: 'osaka', amount: 200, date: '2026-08-06' }),
+      makeTxn({ tripId: 'penang', amount: 100, date: '2026-08-08' }),
+      makeTxn({ tripId: 'seoul', amount: 50, date: '2026-08-10' }),
+      makeTxn({ tripId: 'bali', amount: 40, date: '2026-08-12' }),
+    ];
+
+    const highlight = detectStoryHighlight(txns, '2026-08', trips);
+    expect(highlight).toMatchObject({
+      kind: 'tripAdventure',
+      places: ['Tokyo', 'Osaka', 'Penang'],
+      moreCount: 2,
+      iconName: 'pin',
+    });
+    assertPrivate(highlight);
+  });
+
+  it('lets saved trips take the spotlight ahead of a car purchase', () => {
+    const trips = [makeTrip({ id: 'tokyo', name: 'Tokyo' })];
+    const txns: Transaction[] = [
+      makeTxn({
+        merchantRaw: 'Honda Showroom',
+        remark: 'Car downpayment deposit',
+        amount: 5000,
+        date: '2026-08-02',
+      }),
+      makeTxn({ tripId: 'tokyo', amount: 80, date: '2026-08-18' }),
+    ];
+
+    expect(detectStoryHighlight(txns, '2026-08', trips)?.kind).toBe('tripAdventure');
+  });
+
+  it('keeps the car milestone when the month has no trip spending', () => {
+    const trips = [makeTrip({ id: 'tokyo', name: 'Tokyo' })];
+    const txns: Transaction[] = [
+      makeTxn({
+        merchantRaw: 'Honda Showroom',
+        remark: 'Car downpayment deposit',
+        amount: 5000,
+        date: '2026-08-08',
+      }),
+      makeTxn({ tripId: 'tokyo', amount: 80, date: '2026-07-18' }),
+    ];
+
+    const highlight = detectStoryHighlight(txns, '2026-08', trips);
+    expect(highlight?.kind).toBe('vehicleMilestone');
+    expect(highlight?.itemLabel).toBe('Car');
+  });
+
+  it('ranks trips by the caller spend conversion', () => {
+    const trips = [
+      makeTrip({ id: 'tokyo', name: 'Tokyo' }),
+      makeTrip({ id: 'penang', name: 'Penang' }),
+    ];
+    const txns = [
+      makeTxn({ tripId: 'tokyo', amount: 100, currency: 'USD', date: '2026-08-04' }),
+      makeTxn({ tripId: 'penang', amount: 200, currency: 'MYR', date: '2026-08-06' }),
+    ];
+    const convert = (txn: { amount: number; currency: string }) =>
+      txn.currency === 'USD' ? txn.amount * 4 : txn.amount;
+
+    expect(detectStoryHighlight(txns, '2026-08', trips, convert)?.places).toEqual(['Tokyo', 'Penang']);
+  });
+
+  it('keeps an archived trip that still has spending this month', () => {
+    const trips = [makeTrip({ id: 'penang', name: 'Penang', archived: true })];
+    const txns = [makeTxn({ tripId: 'penang', amount: 120, date: '2026-08-09' })];
+
+    expect(detectStoryHighlight(txns, '2026-08', trips)).toMatchObject({
+      kind: 'tripAdventure',
+      places: ['Penang'],
+      iconName: 'pin',
+    });
   });
 
   it('detects a vehicle milestone from keywords', () => {

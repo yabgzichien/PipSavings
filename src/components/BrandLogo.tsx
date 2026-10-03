@@ -11,7 +11,8 @@ export type BankKey =
   | 'cimb'
   | 'rhb'
   | 'gxbank'
-  | 'ryt_bank';
+  | 'ryt_bank'
+  | 'wise';
 
 export type CryptoKey =
   | 'btc'
@@ -88,6 +89,7 @@ const BRAND_IMAGES: Record<BrandKey, ImageSourcePropType> = {
   rhb: require('../../assets/logos/banks/rhb.png'),
   gxbank: require('../../assets/logos/banks/gxbank.png'),
   ryt_bank: require('../../assets/logos/banks/ryt_bank.png'),
+  wise: require('../../assets/logos/banks/wise.png'),
 
   // Crypto
   btc: require('../../assets/logos/crypto/btc.png'),
@@ -249,6 +251,7 @@ export function matchBrand(text: string | null | undefined): BrandKey | null {
 
   // 1. Malaysian Banks & E-wallets (High Priority)
   if (q.includes('ryt bank') || q.includes('ryt') || q.includes('ytl digital bank') || q.includes('ytl bank')) return 'ryt_bank';
+  if (/(?:^|\W)wise(?:$|\W)/.test(q)) return 'wise';
   if (q.includes('gxbank') || q.includes('gx bank')) return 'gxbank';
   if (q.includes('maybank') || q.includes('mbb') || q.includes('maybank2u') || q.includes('mae')) return 'maybank';
   if (q.includes('touch n go') || q.includes("touch 'n go") || /(?:^|\W)tng(?:$|\W)/.test(q)) return 'tng';

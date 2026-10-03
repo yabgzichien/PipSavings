@@ -48,6 +48,15 @@ const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 // suppressed with reasoning_effort: 'none' so short JSON extraction is not eaten
 // by a reasoning budget. Override with EXPO_PUBLIC_GROQ_MODEL if Groq's lineup changes.
 const DEFAULT_MODEL = 'qwen/qwen3.8-27b';
+// Groq charges the reserved reply against the per-minute token cap before the key
+// has been used. This model bills an image as 2,048 tokens. `max_tokens` does not
+// cap that reservation; `max_completion_tokens` does. Left unset, Groq reserves the
+// model's 16,384-token maximum and rejects the first screenshot with Used 0.
+// 2,048 keeps image + prompt + reply inside an 8,000-token minute.
+const SCAN_MAX_OUTPUT_TOKENS = 2048;
+const SCAN_RETRY_OUTPUT_TOKENS = 1024;
+/** Marker for a 429 that means this request is too big, not that the key was spent. */
+export const GROQ_REQUEST_TOO_LARGE = 'scan_request_too_large';
 
 const SYSTEM_PROMPT =
   'You are a precise data extractor for a personal expenses app. You read a ' +
@@ -100,7 +109,8 @@ async function postChat(body: object, apiKey: string): Promise<Response> {
     throw new LLMError('auth', 'API key rejected.');
   }
   if (res.status === 429) {
-    throw new LLMError('rate_limit', 'Rate limit reached.');
+    const text = await safeText(res, 500);
+    throw new LLMError('rate_limit', text || 'Rate limit reached.');
   }
   if (!res.ok) {
     const text = await safeText(res);
@@ -109,9 +119,62 @@ async function postChat(body: object, apiKey: string): Promise<Response> {
   return res;
 }
 
-async function safeText(res: Response): Promise<string> {
+function groqLimitNumber(message: string, label: 'Limit' | 'Used' | 'Requested'): number | null {
+  const match = new RegExp(`${label}\\s+(\\d+)`, 'i').exec(message);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * A 429 whose `Used` is still under `Limit` means this request alone does not fit,
+ * usually because the reserved reply is too big. Returns a smaller output cap to
+ * try once. Returns null when the allowance is actually spent.
+ */
+export function fitScanOutputCap(message: string, currentCap: number): number | null {
+  const limit = groqLimitNumber(message, 'Limit');
+  const used = groqLimitNumber(message, 'Used');
+  const requested = groqLimitNumber(message, 'Requested');
+  if (limit == null || used == null || requested == null) return null;
+  if (used >= limit) return null;
+  const remaining = limit - used;
+  if (requested <= remaining) return null;
+  const smaller = Math.min(SCAN_RETRY_OUTPUT_TOKENS, currentCap - 1);
+  if (smaller < 256) return null;
+  const inputGuess = Math.max(0, requested - currentCap);
+  const room = remaining - inputGuess - 64;
+  if (room >= 256) return Math.min(smaller, Math.floor(room));
+  // Used 0 and a huge Requested: Groq ignored the previous cap and reserved the
+  // model maximum. A small explicit cap is worth one more try.
+  return used === 0 ? smaller : null;
+}
+
+async function postScanChat(body: object, apiKey: string): Promise<Response> {
+  const capped = (tokens: number) => ({ ...body, max_completion_tokens: tokens });
   try {
-    return (await res.text()).slice(0, 200);
+    return await postChat(capped(SCAN_MAX_OUTPUT_TOKENS), apiKey);
+  } catch (err) {
+    if (!(err instanceof LLMError) || err.code !== 'rate_limit') throw err;
+    const smaller = fitScanOutputCap(err.message, SCAN_MAX_OUTPUT_TOKENS);
+    if (smaller == null) throw err;
+    try {
+      return await postChat(capped(smaller), apiKey);
+    } catch (retryErr) {
+      if (
+        retryErr instanceof LLMError &&
+        retryErr.code === 'rate_limit' &&
+        (groqLimitNumber(retryErr.message, 'Used') ?? 1) === 0
+      ) {
+        throw new LLMError('rate_limit', GROQ_REQUEST_TOO_LARGE);
+      }
+      throw retryErr;
+    }
+  }
+}
+
+async function safeText(res: Response, max = 200): Promise<string> {
+  try {
+    return (await res.text()).slice(0, max);
   } catch {
     return '';
   }
@@ -165,7 +228,7 @@ async function visionJson(
     response_format: { type: 'json_object' },
     temperature: 0,
   };
-  return contentOf(await postChat(body, apiKey));
+  return contentOf(await postScanChat(body, apiKey));
 }
 
 export const GroqProvider: LLMProvider = {
@@ -193,7 +256,7 @@ export const GroqProvider: LLMProvider = {
       temperature: 0,
     };
 
-    const res = await postChat(body, apiKey);
+    const res = await postScanChat(body, apiKey);
 
     let json: any;
     try {

@@ -122,7 +122,8 @@ describe('BYOK local scan', () => {
     const res = await submitScan({ imageBase64: 'abc', mimeType: 'image/jpeg' }, 'free');
 
     expect(res.ok).toBe(false);
-    expect(res.webByokRequired).toBe(true);
+    expect(res.webByokRequired).not.toBe(true);
+    expect(res.byokErrorCode).toBe('rate_limit');
     expect(res.byokRateLimited).toBe(true);
     expect(res.serverFallbackAttempted).not.toBe(true);
     expect(global.fetch).not.toHaveBeenCalled();

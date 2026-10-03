@@ -207,6 +207,23 @@ export function ExtractScreen({
           setPhase('error');
           return;
         }
+        if (proxyResult.byokErrorCode === 'rate_limit' && !proxyResult.serverFallbackAttempted) {
+          if (!alive) return;
+          const tooBig = proxyResult.error === 'scan_request_too_large';
+          notifyWarning(
+            tooBig ? t('scanByokTooBigTitle') : t('scanByokLimitTitle'),
+            tooBig ? t('scanByokTooBigBody') : t('askPipKeyLimit'),
+          );
+          setError(tooBig ? t('scanByokTooBigBody') : t('askPipKeyLimit'));
+          setPhase('error');
+          return;
+        }
+        if (proxyResult.byokErrorCode === 'auth') {
+          if (!alive) return;
+          setError(t('askPipBadKey'));
+          setPhase('error');
+          return;
+        }
         if (!proxyResult.ok || !proxyResult.items || proxyResult.items.length === 0) {
           if (!alive) return;
           setError(proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image."));
@@ -445,7 +462,7 @@ export function ExtractScreen({
                       <Text style={[styles.incomeTag, { color: theme.accent }]}>{isZh ? '收入' : 'received'}</Text>
                     ) : null}
                   </View>
-                  <Amount value={e.amount} size={14} weight={600} color={e.type === 'income' ? theme.accent : colorTheme.ink} />
+                  <Amount value={e.amount} currency={e.currency ?? BASE_CURRENCY} size={14} weight={600} color={e.type === 'income' ? theme.accent : colorTheme.ink} />
                   <Pressable onPress={() => removeAt(i)} hitSlop={8} style={[styles.removeBtn, { backgroundColor: colorTheme.surface2 }]}>
                     <Icon name="x" size={15} color={colorTheme.ink3} />
                   </Pressable>

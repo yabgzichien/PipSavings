@@ -87,7 +87,7 @@ export function RecapEntry({
             { backgroundColor: accent.accent, opacity: pressed ? 0.75 : 1 },
           ]}
         >
-          <Label color="#FFFFFF" weight={700}>
+          <Label color={accent.onAccent} weight={700}>
             {t('recapStoryOpen')}
           </Label>
         </Pressable>

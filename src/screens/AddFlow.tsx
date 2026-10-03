@@ -6,14 +6,19 @@ import { getActiveCurrencies } from '../db/currencyRepo';
 import { getAutoFillForMonth, recordAutoFill } from '../db/memoryRepo';
 import { listFxRates } from '../db/fxRepo';
 import { currentMonthKey } from '../lib/budget';
-import { BASE_CURRENCY, deriveNative } from '../lib/currency';
+import {
+  applyCategorizeAdjustments,
+  keptCategorizeEffects,
+  liabilityCurrencyMissingRate,
+  type CategorizeAdjustment,
+} from '../lib/categorizeAdjustments';
+import { BASE_CURRENCY } from '../lib/currency';
 import { resolveSuggestion, shouldPreserveMerchantMemory } from '../lib/categorySuggestion';
 import { guessCategoryByKeyword } from '../lib/categoryKeywords';
 import { predictMerchantCategory } from '../lib/merchantClassifier';
 import { matchSourceCategory } from '../lib/import';
 import { todayISO } from '../lib/duplicates';
-import { rateFor, ratesFromCache } from '../lib/fx';
-import { defaultLinkEffect } from '../lib/networth';
+import { ratesFromCache } from '../lib/fx';
 import { notify } from '../lib/platformAlert';
 import { type ScannedReceipt } from '../lib/parseReceipt';
 import { recognizeTallImage, type TallRead } from '../lib/prepareScanImage';
@@ -24,7 +29,7 @@ import { prevMonthKey } from '../lib/recap';
 import { autoFillStats, suggestForMerchant, type AutoFillStats } from '../lib/recommend';
 import { merchantKey } from '../lib/normalize';
 import { workingsFromReceipt } from '../lib/splitMessage';
-import { DROP, type CategorySuggestion, type ExtractedTxn, type SplitDraft, type Transaction, type TxnSource, type TxnType } from '../lib/types';
+import type { CategorySuggestion, ExtractedTxn, SplitDraft, Transaction, TxnSource, TxnType } from '../lib/types';
 import { useAppData, type NewLearned } from '../state/store';
 import { useBackHandler } from '../state/useBackHandler';
 import { useThemeColors } from '../state/colorScheme';
@@ -433,21 +438,23 @@ function AddFlowPhases({
     assignments: (string | null)[],
     items: ExtractedTxn[],
     splitDrafts: (SplitDraft | null)[] = [],
-    settlements: (PendingSettlement | null)[] = []
+    settlements: (PendingSettlement | null)[] = [],
+    adjustments: CategorizeAdjustment[] = [],
   ) => {
-    // If the whole batch is tagged to an account, resolve its own-currency rate BEFORE
-    // committing anything below: a missing rate must fail here, with nothing created yet,
-    // rather than throwing partway through the per-row balance-link loop, which would leave
-    // some rows committed and linked and others not, with the screen never advancing (this
-    // is called fire-and-forget from CategorizeScreen, with no try/catch anywhere upstream).
-    const account = linkId ? accounts.find((a) => a.id === linkId) : null;
-    let rate: number | null = null;
-    if (account && account.currency !== BASE_CURRENCY) {
-      rate = rateFor(ratesFromCache(await listFxRates()), account.currency);
-      if (rate == null) {
-        notify("Couldn't save this batch", `No cached exchange rate for ${account.currency}. Try again when you're online.`);
-        return;
-      }
+    // Rates are resolved BEFORE anything is written. A missing one must fail here, with
+    // nothing created yet, rather than throwing partway through the per-row balance-link
+    // loop (this is called fire-and-forget from CategorizeScreen).
+    const fx = ratesFromCache(await listFxRates());
+    const effects = keptCategorizeEffects(
+      items,
+      assignments,
+      adjustments,
+      splitDrafts.map((draft) => draft?.gross ?? null),
+    );
+    const missingLiability = liabilityCurrencyMissingRate(effects, accounts, fx);
+    if (missingLiability) {
+      notify("Couldn't save this batch", `No cached exchange rate for ${missingLiability}. Try again when you're online.`);
+      return;
     }
 
     try {
@@ -471,23 +478,6 @@ function AddFlowPhases({
         memoryWritePolicies
       );
       await applyReliefDetection(created, null);
-      // If the whole batch was tagged to an account, move that account's balance
-      // per saved row — direction derived from account kind + txn type (an expense
-      // reduces an asset / pays down a liability; income does the reverse).
-      if (account) {
-        // `created` is the kept rows in order, so drop the same items commitCategorized dropped
-        // to line the drafts back up with them.
-        const keptDrafts = items.map((_, i) => splitDrafts[i] ?? null).filter((_, i) => assignments[i] !== DROP);
-        for (let k = 0; k < created.length; k++) {
-          const t = created[k];
-          // A split row saved at the payer's own share, but the whole bill left the account, so
-          // the balance moves by the gross or the cash side is short by what friends owe. `moved`
-          // is always MYR (receipt/extract-scan items and splits are MYR-only today); `rate` was
-          // already validated above, so this conversion cannot throw.
-          const moved = keptDrafts[k]?.gross ?? t.amount;
-          await recordBalanceLink(account.id, deriveNative(moved, account.currency, rate), defaultLinkEffect(account.kind, t.type), t.date ?? todayISO());
-        }
-      }
       // Repayments the user confirmed: settled against the receivable, never written as income.
       for (const s of settlements) {
         if (!s) continue;
@@ -511,9 +501,15 @@ function AddFlowPhases({
         setAutoFill(null);
       }
 
-      if (initialTripId && created.length > 0) {
-        await setTransactionsTrip(created.map((c) => c.id), initialTripId);
-      }
+      await applyCategorizeAdjustments({
+        created,
+        effects,
+        accounts,
+        rates: fx,
+        today: todayISO(),
+        setTransactionsTrip,
+        recordBalanceLink,
+      });
 
       setResult(created);
       setNewLearned(learned);
@@ -670,6 +666,7 @@ function AddFlowPhases({
         suggestions={suggestions}
         categories={entryCategories}
         linkId={linkId}
+        initialTripId={initialTripId}
         onBack={backFromCategorize}
         onComplete={onCategorized}
       />

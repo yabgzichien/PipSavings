@@ -272,7 +272,7 @@ export function AddCategorySheet({
                               <Text style={[styles.rowDescription, { color: colorTheme.ink2 }]}>{translation.desc}</Text>
                             </View>
                             <View style={[styles.checkbox, { borderColor: selected ? accent.accent : colorTheme.line2, backgroundColor: selected ? accent.accent : 'transparent' }]}>
-                              {selected && <Icon name="check" size={16} color="#fff" stroke={2.8} />}
+                              {selected && <Icon name="check" size={16} color={accent.onAccent} stroke={2.8} />}
                             </View>
                           </Pressable>
                         );

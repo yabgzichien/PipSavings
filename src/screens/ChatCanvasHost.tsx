@@ -3,6 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import { Caption } from '../components/ui';
 import { AskPipAnalyticsCard } from '../components/AskPipAnalyticsCard';
 import { getActiveCurrencies } from '../db/currencyRepo';
+import { listFxRates } from '../db/fxRepo';
+import {
+  applyCategorizeAdjustments,
+  keptCategorizeEffects,
+  liabilityCurrencyMissingRate,
+  type CategorizeAdjustment,
+} from '../lib/categorizeAdjustments';
+import { ratesFromCache } from '../lib/fx';
+import { notify } from '../lib/platformAlert';
 import type { AskPipEntryKind } from '../lib/askPip/catalog';
 import { ASK_PIP_LLM_PROVIDERS } from '../lib/askPip/keyTest';
 import { defaultAskPipKeyStore } from '../lib/askPip/keyStore';
@@ -14,7 +23,7 @@ import { guessCategoryByKeyword } from '../lib/categoryKeywords';
 import { predictMerchantCategory } from '../lib/merchantClassifier';
 import { merchantKey } from '../lib/normalize';
 import { todayISO } from '../lib/duplicates';
-import type { CategorySuggestion, ExtractedTxn, SplitDraft } from '../lib/types';
+import type { Account, CategorySuggestion, ExtractedTxn, SplitDraft } from '../lib/types';
 import { suggestForMerchant } from '../lib/recommend';
 import { useAppData } from '../state/store';
 import { useThemeColors } from '../state/colorScheme';
@@ -50,6 +59,29 @@ import { WidgetCustomizerScreen } from './WidgetCustomizerScreen';
 const noop = () => {};
 const noopId = (_id: string) => {};
 const noopExpense = (_tripId: string, _tripName: string) => {};
+
+/** Resolve trip and loan effects before anything is written. Null means the save must stop. */
+async function planScanAdjustments(args: {
+  items: ExtractedTxn[];
+  assignments: (string | null)[];
+  adjustments: CategorizeAdjustment[];
+  splitDrafts: (SplitDraft | null)[];
+  accounts: Account[];
+}) {
+  const rates = ratesFromCache(await listFxRates());
+  const effects = keptCategorizeEffects(
+    args.items,
+    args.assignments,
+    args.adjustments,
+    args.splitDrafts.map((draft) => draft?.gross ?? null),
+  );
+  const missing = liabilityCurrencyMissingRate(effects, args.accounts, rates);
+  if (missing) {
+    notify("Couldn't save this batch", `No cached exchange rate for ${missing}. Try again when you're online.`);
+    return null;
+  }
+  return { effects, rates };
+}
 
 export type ChatCanvasHostProps = {
   frame: AskPipFrame;
@@ -295,9 +327,11 @@ function ReceiptScanCanvas({
     entryCategories,
     commitCategorized,
     setTransactionsTrip,
+    recordBalanceLink,
     applyReliefDetection,
     memory,
     settleShare,
+    accounts,
   } = useAppData();
   const [confirm, setConfirm] = useState<ReceiptSplitResult | null | undefined>(undefined);
   const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null);
@@ -324,8 +358,25 @@ function ReceiptScanCanvas({
         categories={entryCategories}
         initialSplitDrafts={splitDrafts}
         onBack={onBack}
-        onComplete={async (assignments, nextItems, nextSplits, settlements) => {
+        onComplete={async (assignments, nextItems, nextSplits, settlements, adjustments = []) => {
+          const plan = await planScanAdjustments({
+            items: nextItems,
+            assignments,
+            adjustments,
+            splitDrafts: nextSplits,
+            accounts,
+          });
+          if (!plan) return;
           const { created } = await commitCategorized(nextItems, assignments, 'extracted', nextSplits);
+          await applyCategorizeAdjustments({
+            created,
+            effects: plan.effects,
+            accounts,
+            rates: plan.rates,
+            today: todayISO(),
+            setTransactionsTrip,
+            recordBalanceLink,
+          });
           await applyReliefDetection(created, items.length === 1 ? receipt : null);
           for (const settlement of settlements) {
             if (!settlement) continue;
@@ -412,7 +463,7 @@ function ExtractCanvas({
   onBack: () => void;
   onSaved: () => void;
 }) {
-  const { entryCategories, commitCategorized, memory, settleShare } = useAppData();
+  const { entryCategories, commitCategorized, memory, settleShare, accounts, setTransactionsTrip, recordBalanceLink } = useAppData();
   const [review, setReview] = useState<{ items: ExtractedTxn[]; linkId: string | null } | null>(null);
 
   if (review) {
@@ -427,8 +478,25 @@ function ExtractCanvas({
         categories={entryCategories}
         linkId={review.linkId}
         onBack={() => setReview(null)}
-        onComplete={async (assignments, nextItems, splitDrafts, settlements) => {
-          await commitCategorized(nextItems, assignments, 'extracted', splitDrafts);
+        onComplete={async (assignments, nextItems, splitDrafts, settlements, adjustments = []) => {
+          const plan = await planScanAdjustments({
+            items: nextItems,
+            assignments,
+            adjustments,
+            splitDrafts,
+            accounts,
+          });
+          if (!plan) return;
+          const { created } = await commitCategorized(nextItems, assignments, 'extracted', splitDrafts);
+          await applyCategorizeAdjustments({
+            created,
+            effects: plan.effects,
+            accounts,
+            rates: plan.rates,
+            today: todayISO(),
+            setTransactionsTrip,
+            recordBalanceLink,
+          });
           for (const settlement of settlements) {
             if (!settlement) continue;
             for (const alloc of settlement.allocations) {

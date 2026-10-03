@@ -78,7 +78,7 @@ export function GlossaryModal() {
                 <View style={styles.stepHeaderRow}>
                   {currentStep.badge ? (
                     <View style={[styles.stepBadge, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-                      <Text style={[styles.stepBadgeText, { color: theme.accentInk }]}>{currentStep.badge}</Text>
+                      <Text style={[styles.stepBadgeText, { color: theme.onTint }]}>{currentStep.badge}</Text>
                     </View>
                   ) : null}
                   {steps.length > 1 && (
@@ -132,7 +132,7 @@ export function GlossaryModal() {
                       <Text
                         style={[
                           styles.navBtnText,
-                          { color: activeStep === steps.length - 1 ? colorTheme.ink2 : '#ffffff', fontWeight: '700' },
+                          { color: activeStep === steps.length - 1 ? colorTheme.ink2 : theme.onAccent, fontWeight: '700' },
                         ]}
                       >
                         {isZh ? '下一步 →' : 'Next Step →'}
@@ -268,4 +268,3 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
 });
-

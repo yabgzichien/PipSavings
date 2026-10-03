@@ -77,6 +77,9 @@ export function Amount({
   color,
   cur = true,
   currency = 'MYR',
+  numberOfLines,
+  adjustsFontSizeToFit,
+  minimumFontScale,
 }: {
   value: number;
   size?: number;
@@ -88,12 +91,20 @@ export function Amount({
    *  as before. Matches `fmtMoney`'s own prefix rule: MYR shows "RM", anything else shows the
    *  code itself, since symbols are ambiguous (the yen sign covers both JPY and CNY). */
   currency?: string;
+  numberOfLines?: number;
+  adjustsFontSizeToFit?: boolean;
+  minimumFontScale?: number;
 }) {
   const colorTheme = useThemeColors();
   color = color ?? colorTheme.ink;
   const prefix = currencyPrefix(currency);
   return (
-    <Text style={{ fontFamily: numFont(weight), fontSize: size, color }}>
+    <Text
+      style={{ fontFamily: numFont(weight), fontSize: size, color }}
+      numberOfLines={numberOfLines}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}
+      minimumFontScale={minimumFontScale}
+    >
       {cur && (
         <Text style={{ fontFamily: numFont(600), fontSize: size * 0.66, color, opacity: 0.55 }}>{prefix} </Text>
       )}

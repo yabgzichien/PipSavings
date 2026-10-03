@@ -83,7 +83,7 @@ export function ReportBugModal({
                 { backgroundColor: accent.accent, opacity: canSend ? 1 : 0.5 },
               ]}
             >
-              <Text style={[styles.send, { color: accent.accentInk }]}>{t('reportBugSend')}</Text>
+              <Text style={[styles.send, { color: accent.onAccent }]}>{t('reportBugSend')}</Text>
             </Pressable>
           </View>
         </View>

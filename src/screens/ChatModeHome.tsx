@@ -1245,7 +1245,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
                 accessibilityRole="button"
                 accessibilityLabel={t('askPipSend')}
               >
-                <Icon name="arrowRight" size={16} color="#fff" />
+                <Icon name="arrowRight" size={16} color={theme.onAccent} />
               </Pressable>
             </View>
           </View>

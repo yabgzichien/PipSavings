@@ -1,4 +1,5 @@
 import { currentMonthKey, txnMonthKey } from './budget';
+import type { Trip } from './trips';
 import type { Transaction } from './types';
 import {
   detectStoryHighlight,
@@ -43,6 +44,10 @@ export interface BuildRecapStoryInput {
   month: string;
   now?: Date;
   merchantCameo?: string | null;
+  /** Saved trips. Spending dated in `month` names the On the Move spotlight. */
+  trips?: readonly Trip[];
+  /** Display-currency spend, so trip order matches Trips this month. */
+  spendOf?: (txn: { amount: number; currency: string; nativeAmount?: number | null }) => number;
 }
 
 const PERSONA_CATEGORY_IDS = new Set<RecapPersonaKey>([
@@ -185,6 +190,8 @@ export function buildRecapStoryModel({
   month,
   now = new Date(),
   merchantCameo,
+  trips = [],
+  spendOf,
 }: BuildRecapStoryInput): RecapStoryModel | null {
   if (!isCompletedStoryMonth(month, now)) return null;
 
@@ -223,7 +230,7 @@ export function buildRecapStoryModel({
   };
   const finale: Extract<RecapStoryScene, { id: 'finale' }> = { id: 'finale', type: 'finale', badges };
 
-  const highlight = detectStoryHighlight(transactions, month);
+  const highlight = detectStoryHighlight(transactions, month, trips, spendOf);
 
   if (expenses.length < 5 || expenseDays.size < 3 || !winner) {
     const sparseScenes: RecapStoryScene[] = [

@@ -83,7 +83,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
               </Text>
             </View>
             <View style={[styles.liveBadge, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.liveBadgeText, { color: theme.accentInk }]}>{isZh ? '真实 UI 预览' : 'Live UI'}</Text>
+              <Text style={[styles.liveBadgeText, { color: theme.onTint }]}>{isZh ? '真实 UI 预览' : 'Live UI'}</Text>
             </View>
           </View>
 
@@ -97,7 +97,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
               <Icon name="x" size={11} color={colorTheme.ink3} />
             </View>
             <View style={[styles.tableChip, styles.tableChipSelf, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.tableChipText, { color: theme.accentInk, fontFamily: uiFont(700) }]}>
+              <Text style={[styles.tableChipText, { color: theme.onTint, fontFamily: uiFont(700) }]}>
                 {isZh ? '你 (You)' : 'You'}
               </Text>
             </View>
@@ -145,7 +145,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                         style={[
                           styles.itemAvatarText,
                           { color: colorTheme.ink2 },
-                          hasNugget && { color: '#ffffff', fontFamily: uiFont(700) },
+                          hasNugget && { color: theme.onAccent, fontFamily: uiFont(700) },
                         ]}
                       >
                         N
@@ -166,7 +166,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                         style={[
                           styles.itemAvatarText,
                           { color: colorTheme.ink2 },
-                          hasYou && { color: '#ffffff', fontFamily: uiFont(700) },
+                          hasYou && { color: theme.onAccent, fontFamily: uiFont(700) },
                         ]}
                       >
                         YOU
@@ -193,8 +193,8 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
 
           {/* Exact Bottom Primary Button */}
           <View style={[styles.mockPrimaryBtn, { backgroundColor: theme.accentInk, marginTop: 12 }]}>
-            <Icon name="check" size={16} color="#ffffff" stroke={2.4} />
-            <Text style={styles.mockPrimaryBtnText}>{isZh ? '使用此分账结果' : 'Use this split'}</Text>
+            <Icon name="check" size={16} color={theme.onAccent} stroke={2.4} />
+            <Text style={[styles.mockPrimaryBtnText, { color: theme.onAccent }]}>{isZh ? '使用此分账结果' : 'Use this split'}</Text>
           </View>
         </View>
       );
@@ -219,7 +219,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
               <Text style={[styles.sheetSubtitle, { color: colorTheme.ink2 }]}>Din Tai Fung</Text>
             </View>
             <View style={[styles.liveBadge, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.liveBadgeText, { color: theme.accentInk }]}>{isZh ? '手动模式' : 'Manual Mode'}</Text>
+              <Text style={[styles.liveBadgeText, { color: theme.onTint }]}>{isZh ? '手动模式' : 'Manual Mode'}</Text>
             </View>
           </View>
 
@@ -394,8 +394,8 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
 
           {/* Exact Primary Button from SplitSheet.tsx */}
           <View style={[styles.mockPrimaryBtn, { backgroundColor: theme.accentInk }]}>
-            <Icon name="check" size={17} color="#ffffff" stroke={2.4} />
-            <Text style={styles.mockPrimaryBtnText}>{isZh ? '保存分账' : 'Save split'}</Text>
+            <Icon name="check" size={17} color={theme.onAccent} stroke={2.4} />
+            <Text style={[styles.mockPrimaryBtnText, { color: theme.onAccent }]}>{isZh ? '保存分账' : 'Save split'}</Text>
           </View>
         </View>
       );
@@ -418,7 +418,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
             <View style={styles.receivableRight}>
               <Text style={[styles.receivableAmount, { color: theme.accent }]}>+RM60.00</Text>
               <View style={[styles.assetBadge, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-                <Text style={[styles.assetBadgeText, { color: theme.accentInk }]}>{isZh ? '净资产' : 'Net Worth'}</Text>
+                <Text style={[styles.assetBadgeText, { color: theme.onTint }]}>{isZh ? '净资产' : 'Net Worth'}</Text>
               </View>
             </View>
           </View>
@@ -454,11 +454,11 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                 settledState === 'settled' && { backgroundColor: theme.accentInk },
               ]}
             >
-              <Icon name="check" size={14} color={settledState === 'settled' ? '#ffffff' : theme.accent} stroke={2.4} />
+              <Icon name="check" size={14} color={settledState === 'settled' ? theme.onAccent : theme.accent} stroke={2.4} />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: settledState === 'settled' ? '#ffffff' : theme.accentInk },
+                  { color: settledState === 'settled' ? theme.onAccent : theme.onTint },
                 ]}
               >
                 {isZh ? '结清 (Settle)' : 'Settle'}
@@ -487,7 +487,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
 
           {settledState === 'settled' ? (
             <View style={[styles.statusFeedback, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.statusFeedbackText, { color: theme.accentInk }]}>
+              <Text style={[styles.statusFeedbackText, { color: theme.onTint }]}>
                 {isZh
                   ? '✅ 结清成功：现金增加 RM60.00，应收款冲销，不产生虚假重复收入。'
                   : '✅ Settled: RM60.00 cash deposited, debt cleared, zero duplicate income recorded.'}
@@ -520,7 +520,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
               <Text style={[styles.inputSampleText, { color: colorTheme.ink }]}>lunch 12, grab 18</Text>
             </View>
             <View style={[styles.quickAddSubmit, { backgroundColor: theme.accent }]}>
-              <Icon name="check" size={16} color="#ffffff" stroke={2.4} />
+              <Icon name="check" size={16} color={theme.onAccent} stroke={2.4} />
             </View>
           </View>
 
@@ -588,7 +588,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
           </View>
 
           <View style={[styles.floorCallout, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-            <Text style={[styles.floorCalloutText, { color: theme.accentInk }]}>
+            <Text style={[styles.floorCalloutText, { color: theme.onTint }]}>
               {isZh
                 ? '以最低月份 RM3,800 制定支出计划，丰收月份自然转化为储蓄。'
                 : 'Plan your expenses against the RM3,800 floor; higher months automatically turn into savings.'}
@@ -688,7 +688,7 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
           </View>
 
           <View style={[styles.statusFeedback, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-            <Text style={[styles.statusFeedbackText, { color: theme.accentInk }]}>
+            <Text style={[styles.statusFeedbackText, { color: theme.onTint }]}>
               {cardEffect === 'add'
                 ? isZh
                   ? '💳 刷卡消费：信用卡欠款（负债）增加。'
@@ -707,8 +707,8 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
         <View style={[styles.appContainer, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
           <View style={styles.eqBox}>
             <View style={[styles.eqPill, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.eqTitle, { color: theme.accentInk }]}>{isZh ? '总资产' : 'Assets'}</Text>
-              <Text style={[styles.eqValue, { color: theme.accentInk }]}>RM52,000</Text>
+              <Text style={[styles.eqTitle, { color: theme.onTint }]}>{isZh ? '总资产' : 'Assets'}</Text>
+              <Text style={[styles.eqValue, { color: theme.onTint }]}>RM52,000</Text>
             </View>
             <Text style={[styles.eqOp, { color: colorTheme.ink3 }]}>−</Text>
             <View style={[styles.eqPill, { backgroundColor: colorTheme.redTint, borderColor: colorTheme.redSoft }]}>
@@ -730,8 +730,8 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
         <View style={[styles.appContainer, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
           <View style={styles.eqBox}>
             <View style={[styles.eqPill, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.eqTitle, { color: theme.accentInk }]}>{isZh ? '月收入' : 'Income'}</Text>
-              <Text style={[styles.eqValue, { color: theme.accentInk }]}>+RM5,500</Text>
+              <Text style={[styles.eqTitle, { color: theme.onTint }]}>{isZh ? '月收入' : 'Income'}</Text>
+              <Text style={[styles.eqValue, { color: theme.onTint }]}>+RM5,500</Text>
             </View>
             <Text style={[styles.eqOp, { color: colorTheme.ink3 }]}>−</Text>
             <View style={[styles.eqPill, { backgroundColor: colorTheme.amberTint, borderColor: colorTheme.amberSoft }]}>
@@ -1047,7 +1047,6 @@ const styles = StyleSheet.create({
   mockPrimaryBtnText: {
     fontFamily: uiFont(700),
     fontSize: 14,
-    color: '#ffffff',
   },
   receivableCard: {
     flexDirection: 'row',

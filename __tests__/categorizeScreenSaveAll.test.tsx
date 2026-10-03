@@ -65,6 +65,7 @@ jest.mock('../src/state/store', () => ({
     },
     openShares: [],
     people: [],
+    trips: [],
   }),
 }));
 
@@ -118,9 +119,11 @@ describe('CategorizeScreen Next Main Button & Save All Secondary Button', () => 
       );
     });
 
-    // Step 1: KFC is shown
+    // Step 1: KFC is shown, with pay-from chips and no merchant field under More details
     expect(copy(root!)).toContain('1 / 2');
     expect(copy(root!)).toContain('KFC');
+    expect(copy(root!)).toContain('Pay from (optional)');
+    expect(copy(root!)).not.toContain('Merchant (optional)');
 
     // Main button is PrimaryButton
     const primaryBtn = root!.root.findByType(PrimaryButton);
@@ -192,7 +195,11 @@ describe('CategorizeScreen Next Main Button & Save All Secondary Button', () => 
       ['food', 'transport'],
       extracted,
       [null, null],
-      [null, null]
+      [null, null],
+      [
+        { tripId: null, liabilityAccountId: null, fromAccountId: null },
+        { tripId: null, liabilityAccountId: null, fromAccountId: null },
+      ],
     );
   });
 

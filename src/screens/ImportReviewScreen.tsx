@@ -211,7 +211,7 @@ export function ImportReviewScreen({
                   keepSource && { backgroundColor: theme.accent, borderColor: theme.accent },
                 ]}
               >
-                {keepSource && <Icon name="check" size={13} color="#fff" stroke={2.6} />}
+                {keepSource && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
               </View>
             </Pressable>
             <Pressable style={{ flex: 1 }} onPress={() => toggleKeepSource(!keepSource)}>
@@ -241,7 +241,7 @@ export function ImportReviewScreen({
                   updateAccountBalances && { backgroundColor: theme.accent, borderColor: theme.accent },
                 ]}
               >
-                {updateAccountBalances && <Icon name="check" size={13} color="#fff" stroke={2.6} />}
+                {updateAccountBalances && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
               </View>
             </Pressable>
             <Pressable style={{ flex: 1 }} onPress={() => onToggleUpdateAccountBalances(!updateAccountBalances)}>
@@ -287,9 +287,9 @@ export function ImportReviewScreen({
               accessibilityLabel={`Add ${code}`}
             >
               {activatingCode === code ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={theme.onAccent} size="small" />
               ) : (
-                <Text style={styles.addCurrencyBtnText}>Add {code}</Text>
+                <Text style={[styles.addCurrencyBtnText, { color: theme.onAccent }]}>Add {code}</Text>
               )}
             </Pressable>
           </Card>
@@ -305,7 +305,7 @@ export function ImportReviewScreen({
               <View key={i} style={[styles.row, i > 0 && styles.divider, i > 0 && { borderTopColor: colorTheme.line2 }, !r.include && styles.rowOff]}>
                 <Pressable onPress={() => patchRow(i, { include: !r.include })} hitSlop={6} style={styles.check}>
                   <View style={[styles.box, { borderColor: colorTheme.line }, r.include && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                    {r.include && <Icon name="check" size={13} color="#fff" stroke={2.6} />}
+                    {r.include && <Icon name="check" size={13} color={theme.onAccent} stroke={2.6} />}
                   </View>
                 </Pressable>
 
@@ -544,7 +544,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addCurrencyBtnText: {
-    color: '#ffffff',
     fontFamily: uiFont(700),
     fontSize: 13,
   },

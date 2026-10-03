@@ -172,7 +172,7 @@ function AccountReviewList({
               ]}
             >
               {acc.include && (
-                <Text style={{ color: '#fff', fontSize: 11, fontFamily: uiFont(800), lineHeight: 14 }}>✓</Text>
+                <Text style={{ color: theme.onAccent, fontSize: 11, fontFamily: uiFont(800), lineHeight: 14 }}>✓</Text>
               )}
             </View>
 
@@ -1315,7 +1315,7 @@ export function AdvancedImportScreen({
                       ]}
                     >
                       {updateAccountBalances && (
-                        <Text style={{ color: '#fff', fontSize: 11, fontFamily: uiFont(800), lineHeight: 14 }}>✓</Text>
+                        <Text style={{ color: theme.onAccent, fontSize: 11, fontFamily: uiFont(800), lineHeight: 14 }}>✓</Text>
                       )}
                     </View>
                   </Pressable>
@@ -1412,7 +1412,7 @@ export function AdvancedImportScreen({
           <>
             {/* Step 1 */}
             <View style={styles.stepHeader}>
-              <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}><Text style={styles.stepNum}>1</Text></View>
+              <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}><Text style={[styles.stepNum, { color: theme.onAccent }]}>1</Text></View>
               <Text style={[styles.stepTitle, { color: colorTheme.ink }]}>{t('advImportStep1Title')}</Text>
             </View>
 
@@ -1461,7 +1461,7 @@ export function AdvancedImportScreen({
 
             {/* Step 2 */}
             <View style={styles.stepHeader}>
-              <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}><Text style={styles.stepNum}>2</Text></View>
+              <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}><Text style={[styles.stepNum, { color: theme.onAccent }]}>2</Text></View>
               <Text style={[styles.stepTitle, { color: colorTheme.ink }]}>{t('advImportStep2Title')}</Text>
             </View>
 
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
 
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 22, marginBottom: 10 },
   stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepNum: { fontFamily: uiFont(800), fontSize: 13, color: '#fff' },
+  stepNum: { fontFamily: uiFont(800), fontSize: 13 },
   stepTitle: { fontFamily: uiFont(700), fontSize: 16 },
 
   copyBtn: {

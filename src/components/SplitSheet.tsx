@@ -222,7 +222,7 @@ export function SplitSheet({
                   style={[styles.headerConfirmBtn, { backgroundColor: theme.accent }]}
                   accessibilityLabel={isZh ? '确认' : 'Confirm'}
                 >
-                  <Icon name="check" size={14} color="#fff" stroke={2.6} />
+                  <Icon name="check" size={14} color={theme.onAccent} stroke={2.6} />
                 </Pressable>
               </View>
             ) : (

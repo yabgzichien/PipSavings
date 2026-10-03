@@ -203,11 +203,11 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
             ]}
           >
             {backingUpLocal ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={theme.onAccent} size="small" />
             ) : (
               <>
-                <Icon name="download" size={16} color="#fff" />
-                <Text style={styles.primaryBtnText}>{isZh ? '立即备份' : 'Back up now'}</Text>
+                <Icon name="download" size={16} color={theme.onAccent} />
+                <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>{isZh ? '立即备份' : 'Back up now'}</Text>
               </>
             )}
           </Pressable>
@@ -276,7 +276,7 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
                         accessibilityState={{ selected, disabled: !cloud.isConfigured || busy }}
                         accessibilityLabel={value ? t('on') : t('off')}
                       >
-                        <Text style={[styles.modeText, { color: colorTheme.ink2 }, selected && { color: '#fff' }]}>
+                        <Text style={[styles.modeText, { color: colorTheme.ink2 }, selected && { color: theme.onAccent }]}>
                           {value ? t('on') : t('off')}
                         </Text>
                       </Pressable>
@@ -303,11 +303,11 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
                 ]}
               >
                 {backingUpCloud || cloud.status === 'backing-up' || cloud.status === 'connecting' ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={theme.onAccent} size="small" />
                 ) : (
                   <>
-                    <Icon name="download" size={16} color="#fff" />
-                    <Text style={styles.primaryBtnText}>{isZh ? '备份到 Google Drive' : 'Back up to Google Drive'}</Text>
+                    <Icon name="download" size={16} color={theme.onAccent} />
+                    <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>{isZh ? '备份到 Google Drive' : 'Back up to Google Drive'}</Text>
                   </>
                 )}
               </Pressable>
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   sub: { fontFamily: uiFont(500), fontSize: 12.5, marginTop: 1 },
   errorText: { fontFamily: uiFont(600), fontSize: 12.5, lineHeight: 17 },
   primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, borderRadius: 999 },
-  primaryBtnText: { fontFamily: uiFont(700), fontSize: 14.5, color: '#fff' },
+  primaryBtnText: { fontFamily: uiFont(700), fontSize: 14.5 },
   secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: 999, borderWidth: 1 },
   secondaryBtnText: { fontFamily: uiFont(600), fontSize: 13.5 },
   disconnectText: { fontFamily: uiFont(600), fontSize: 12.5, textDecorationLine: 'underline', paddingVertical: 6 },

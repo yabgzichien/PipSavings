@@ -85,9 +85,8 @@ describe.each(['animated', 'export'] as const)('%s story frame', (mode) => {
     const tree = render(scenes[2], { mode });
     expect(copy(tree)).toContain('Food');
     expect(copy(tree)).toContain('43%');
-    expect(copy(tree)).toContain('of recorded spending');
-    expect(copy(tree)).toContain('Higher than last month’s recorded share');
-    expect(copy(tree)).toContain('31%');
+    expect(copy(tree)).toContain('of your spending went to Food');
+    expect(copy(tree)).toContain('Higher than last month, at 31%');
     expect(copy(tree)).toContain('Little Kitchen');
     const simple = render({ id: 'pattern', type: 'pattern', categoryId: 'food', recordedSharePercent: 43 }, { mode });
     expect(copy(simple)).not.toMatch(/last month|Little Kitchen|31%/);
@@ -96,7 +95,7 @@ describe.each(['animated', 'export'] as const)('%s story frame', (mode) => {
   it.each(['lower', 'same'] as const)('keeps %s comparisons neutral', (changeDirection) => {
     const tree = render({ id: 'pattern', type: 'pattern', categoryId: 'food', recordedSharePercent: 43,
       previousRecordedSharePercent: changeDirection === 'lower' ? 51 : 43, changeDirection }, { mode });
-    expect(copy(tree)).toContain(changeDirection === 'lower' ? 'Lower than last month’s recorded share' : 'The same as last month’s recorded share');
+    expect(copy(tree)).toContain(changeDirection === 'lower' ? 'Lower than last month, at 51%' : 'The same as last month, at 43%');
   });
 
   it('states actual activity days and weeks beside a decorative calendar motif', () => {
@@ -129,6 +128,26 @@ describe.each(['animated', 'export'] as const)('%s story frame', (mode) => {
     expect(copy(tree)).toContain('The Big Upgrade');
     expect(copy(tree)).toContain('MacBook');
     expect(copy(tree)).toContain('The Special Story');
+  });
+
+  it('lists trip places on On the Move', () => {
+    const spotlightScene: RecapStoryScene = {
+      id: 'spotlight',
+      type: 'spotlight',
+      highlight: {
+        kind: 'tripAdventure',
+        places: ['Tokyo', 'Penang', 'Osaka'],
+        moreCount: 2,
+        iconName: 'pin',
+      },
+    };
+    const text = copy(render(spotlightScene, { mode }));
+    expect(text).toContain('On the Move');
+    expect(text).toContain('Tokyo, Penang, and Osaka, and 2 more');
+    expect(text.match(/Tokyo/g)).toHaveLength(2);
+    expect(text.match(/Penang/g)).toHaveLength(2);
+    expect(text.match(/Osaka/g)).toHaveLength(2);
+    expect(text).not.toContain('Car');
   });
 
   it('renders spotlight for date night counts', () => {

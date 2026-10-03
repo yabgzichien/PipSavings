@@ -18,7 +18,7 @@ export type IconName =
   | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar'
   | 'gym' | 'plane' | 'pet' | 'gamepad' | 'users' | 'pill'
   | 'robot' | 'human' | 'key'
-  | 'eye' | 'eyeOff';
+  | 'eye' | 'eyeOff' | 'speaker' | 'speakerOff';
 
 type RenderFn = (stroke: string, sw: number) => React.ReactNode;
 
@@ -482,6 +482,19 @@ const ICONS: Record<IconName, RenderFn> = {
     <G fill="none" stroke={s} strokeWidth={w}>
       <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z" />
       <Circle cx={12} cy={12} r={2.4} />
+    </G>
+  ),
+  speaker: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 9.5v5h3.2L12 19V5L7.2 9.5H4z" />
+      <Path d="M15.5 9.2a4 4 0 010 5.6" />
+      <Path d="M18 7a7 7 0 010 10" />
+    </G>
+  ),
+  speakerOff: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 9.5v5h3.2L12 19V5L7.2 9.5H4z" />
+      <Path d="M16 10l5 5M21 10l-5 5" />
     </G>
   ),
   eyeOff: (s, w) => (

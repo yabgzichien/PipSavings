@@ -528,10 +528,10 @@ export function ExportScreen({
               platformShadow(theme.accent, 0.28, 10, { width: 0, height: 5 }, 3),
             ]}
           >
-            {exporting ? <ActivityIndicator color="#fff" size="small" /> : (
+            {exporting ? <ActivityIndicator color={theme.onAccent} size="small" /> : (
               <>
-                <Icon name="download" size={18} color="#fff" />
-                <Text style={styles.primaryButtonText}>
+                <Icon name="download" size={18} color={theme.onAccent} />
+                <Text style={[styles.primaryButtonText, { color: theme.onAccent }]}>
                   {mode === 'summary'
                     ? (isZh ? '导出消费概览' : 'Export spending summary')
                     : advancedFormat === 'pdf'
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   sheetRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   sheetLabel: { flex: 1, fontFamily: uiFont(600), fontSize: 14 },
   primaryButton: { minHeight: 52, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 28 },
-  primaryButtonText: { color: '#fff', fontFamily: uiFont(700), fontSize: 15 },
+  primaryButtonText: { fontFamily: uiFont(700), fontSize: 15 },
   advancedFormatSwitch: { flexDirection: 'row', padding: 4, borderRadius: radius.md, marginBottom: 18, borderWidth: 1 },
   advancedFormatBtn: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.sm, borderWidth: 1, borderColor: 'transparent' },
   advancedFormatBtnText: { fontFamily: uiFont(700), fontSize: 13 },

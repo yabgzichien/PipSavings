@@ -1,3 +1,4 @@
+import type { Trip } from '../src/lib/trips';
 import type { Transaction } from '../src/lib/types';
 import {
   buildRecapStoryModel,
@@ -265,6 +266,26 @@ describe('buildRecapStoryModel', () => {
       id: 'spotlight',
       type: 'spotlight',
       highlight: { kind: 'techUpgrade', itemLabel: 'MacBook', iconName: 'sparkles' },
+    });
+    assertPrivate(model);
+  });
+
+  it('names this month’s trips on the spotlight ahead of a car purchase', () => {
+    const trips: Trip[] = [{
+      id: 'tokyo', name: 'Tokyo', createdAt: '2026-08-01T00:00:00.000Z',
+      archived: false, startDate: null, endDate: null, icon: null,
+    }];
+    const model = buildRecapStoryModel({
+      transactions: [
+        ...fullMonth(),
+        txn({ merchantRaw: 'Honda', remark: 'Car deposit', amount: 4000, date: '2026-08-20', tripId: 'tokyo' }),
+      ],
+      month: '2026-08',
+      now,
+      trips,
+    });
+    expect(scene(model, 'spotlight')).toMatchObject({
+      highlight: { kind: 'tripAdventure', places: ['Tokyo'], iconName: 'pin' },
     });
     assertPrivate(model);
   });

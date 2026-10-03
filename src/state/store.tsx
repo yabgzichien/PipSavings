@@ -542,7 +542,7 @@ export interface AppData {
   addHolding: (name: string, sub: string, symbol: string, ticker: string, quantity: number, cost: number | null, icon?: string | null, interestRate?: number | null) => Promise<string>;
   updateHoldingQuantity: (id: string, quantity: number) => Promise<void>;
   setHoldingCost: (id: string, cost: number | null) => Promise<void>;
-  refreshPrices: () => Promise<void>;
+  refreshPrices: () => Promise<{ accounts: Account[]; prices: Record<string, PriceQuote> } | null>;
   getCachedAdvice: () => Promise<{ hash: string; text: string } | null>;
   saveAdvice: (income: number, allocations: Record<string, number>, text: string) => Promise<void>;
 
@@ -1597,7 +1597,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     await refreshFxRates().catch(() => {});
     const accts = await listAccounts();
     const quotes = await fetchPrices(accts);
-    if (quotes.length === 0) return;
+    if (quotes.length === 0) return null;
     const day = todayKey();
     for (const q of quotes) await upsertPrice(q);
     const bySymbol: Record<string, PriceQuote> = Object.fromEntries(quotes.map((q) => [q.symbol, q]));
@@ -1607,7 +1607,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     }
     const [cache, entries] = await Promise.all([getPriceCache(), listBalanceEntries()]);
-    setPrices((prev) => ({ ...prev, ...Object.fromEntries(cache.map((q) => [q.symbol, q])) }));
+    const nextPrices = Object.fromEntries(cache.map((q) => [q.symbol, q]));
+    setPrices((prev) => ({ ...prev, ...nextPrices }));
     setBalanceEntries(entries);
 
     // A DCA tick into a holding with no cached price yet only moved `cost` at pay time (see
@@ -1642,8 +1643,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         const [finalAccts, occurrenceRows] = await Promise.all([listAccounts(), dbListOccurrences()]);
         setAccounts(finalAccts);
         setCommitmentOccurrences(occurrenceRows);
+        return { accounts: finalAccts, prices: nextPrices };
       }
     }
+    return { accounts: accts, prices: nextPrices };
   }, [commitmentOccurrences, commitments]);
 
   // --- Recurring commitments (bills + DCA investments) -----------------------------------

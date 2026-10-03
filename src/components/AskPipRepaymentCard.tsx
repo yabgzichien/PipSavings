@@ -201,7 +201,7 @@ export function AskPipRepaymentCard({
         ]}
         accessibilityRole="button"
       >
-        <Label color="#fff">{t('askPipRepaymentApply')}</Label>
+        <Label color={theme.onAccent}>{t('askPipRepaymentApply')}</Label>
       </Pressable>
     </View>
   );

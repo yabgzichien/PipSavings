@@ -130,9 +130,9 @@ export function RedeemCodeModal({
               ]}
             >
               {busy ? (
-                <ActivityIndicator color={accent.accentInk} />
+                <ActivityIndicator color={accent.onAccent} />
               ) : (
-                <Label color={accent.accentInk}>{t('promoCodeRedeem')}</Label>
+                <Label color={accent.onAccent}>{t('promoCodeRedeem')}</Label>
               )}
             </Pressable>
           </View>

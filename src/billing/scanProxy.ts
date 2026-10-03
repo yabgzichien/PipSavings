@@ -58,6 +58,7 @@ export interface ScanResult {
   byokRateLimited?: boolean;
   serverFallbackAttempted?: boolean;
   webByokRequired?: boolean;
+  byokErrorCode?: LLMErrorCode;
   error?: string;
 }
 
@@ -69,6 +70,7 @@ export interface ReceiptScanResult {
   byokRateLimited?: boolean;
   serverFallbackAttempted?: boolean;
   webByokRequired?: boolean;
+  byokErrorCode?: LLMErrorCode;
   error?: string;
 }
 
@@ -80,6 +82,7 @@ export interface SnapshotScanResult {
   byokRateLimited?: boolean;
   serverFallbackAttempted?: boolean;
   webByokRequired?: boolean;
+  byokErrorCode?: LLMErrorCode;
   error?: string;
 }
 
@@ -364,9 +367,10 @@ async function runLocalByokScan(
   bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string; scanType: ScanType },
   request: { categories?: Array<{ id: string; label: string; kind?: string }> },
   entitlement: 'free' | 'pro',
-  bandImages?: PreparedImage[]
+  bandImages: PreparedImage[] | undefined,
+  active: { providerId: 'gemini' | 'groq' | 'openrouter'; apiKey: string },
 ): Promise<CommonScanResult> {
-  const llm = await getLLM();
+  const llm = await getLLM(active);
   const allowance = byokAllowance(entitlement);
   const parts: DocPart[] = [];
   if (bodyPayload.ocrText) parts.push({ kind: 'text', text: bodyPayload.ocrText });
@@ -460,18 +464,9 @@ async function submitScanInternal(
   const active = await defaultAskPipKeyStore().getActive();
   let byokRateLimited = false;
   if (active?.apiKey) {
-    const local = await runLocalByokScan(scanType, bodyPayload, request, entitlement, bandImages);
-    if (
-      Platform.OS === 'web' &&
-      !local.ok &&
-      (local.byokErrorCode === 'no_key' || local.byokErrorCode === 'auth' || local.byokErrorCode === 'rate_limit')
-    ) {
-      return {
-        ...local,
-        webByokRequired: true,
-        error: "Pip's server AI isn't available on web. Add or update your own API key in Settings, then try again.",
-      };
-    }
+    const local = await runLocalByokScan(scanType, bodyPayload, request, entitlement, bandImages, active);
+    // A selected key that Groq rejects is a provider failure. Saying the key is
+    // missing sends the user back to Settings even though that key is already in use.
     if (!local.byokRateLimited) return local;
     if (Platform.OS === 'web') return local;
     byokRateLimited = true;
@@ -724,6 +719,7 @@ export async function submitScan(
     byokRateLimited: res.byokRateLimited,
     serverFallbackAttempted: res.serverFallbackAttempted,
     webByokRequired: res.webByokRequired,
+    byokErrorCode: res.byokErrorCode,
     error: res.error,
   };
 }
@@ -741,6 +737,7 @@ export async function submitReceiptScan(
     byokRateLimited: res.byokRateLimited,
     serverFallbackAttempted: res.serverFallbackAttempted,
     webByokRequired: res.webByokRequired,
+    byokErrorCode: res.byokErrorCode,
     error: res.error,
   };
 }
@@ -758,6 +755,7 @@ export async function submitSnapshotScan(
     byokRateLimited: res.byokRateLimited,
     serverFallbackAttempted: res.serverFallbackAttempted,
     webByokRequired: res.webByokRequired,
+    byokErrorCode: res.byokErrorCode,
     error: res.error,
   };
 }

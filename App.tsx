@@ -45,6 +45,7 @@ import { BackupScreen } from './src/screens/BackupScreen';
 import { WidgetCustomizerScreen } from './src/screens/WidgetCustomizerScreen';
 import { TripsScreen } from './src/screens/TripsScreen';
 import { TripDetailScreen } from './src/screens/TripDetailScreen';
+import { InvestmentSoarToast } from './src/components/InvestmentSoarToast';
 import { GlossaryModal } from './src/components/InfoButton';
 import { AppAlertModal } from './src/components/AppAlertModal';
 import { AskPipDiscloseSheet, type AskPipDiscloseKind } from './src/components/AskPipDiscloseSheet';
@@ -1304,6 +1305,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
         onCancel={() => finishDisclose(false)}
       />
       <GlossaryModal />
+      <InvestmentSoarToast />
       <AppAlertModal />
     </View>
     </PaywallProvider>

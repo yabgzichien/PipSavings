@@ -229,8 +229,8 @@ export function TourSpotlight({
                   pressed && { opacity: 0.88 },
                 ]}
               >
-                <Text style={styles.nextBtnText}>{nextLabel}</Text>
-                <Icon name={isFinalStep ? 'check' : 'arrowRight'} size={14} color="#fff" />
+                <Text style={[styles.nextBtnText, { color: theme.onAccent }]}>{nextLabel}</Text>
+                <Icon name={isFinalStep ? 'check' : 'arrowRight'} size={14} color={theme.onAccent} />
               </Pressable>
             )}
           </View>
@@ -319,7 +319,6 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   nextBtnText: {
-    color: '#fff',
     fontFamily: uiFont(700),
     fontSize: 13,
   },

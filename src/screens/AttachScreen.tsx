@@ -96,6 +96,7 @@ export function AttachScreen({
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.85,
+        base64: Platform.OS === 'web',
       });
       handleResult(res);
     } finally {
@@ -125,7 +126,7 @@ export function AttachScreen({
         notify(isZh ? '需要权限' : 'Permission needed', isZh ? '请允许访问相机以拍摄小票。' : 'Allow camera access to snap a receipt.');
         return;
       }
-      const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.85, base64: Platform.OS === 'web' });
       handleResult(res);
     } finally {
       setBusy(false);
@@ -160,11 +161,11 @@ export function AttachScreen({
 
         {!hasKey && (
           <Pressable onPress={onManual} style={[styles.keyNotice, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-            <Icon name="sparkles" size={18} color={theme.accentInk} />
+            <Icon name="sparkles" size={18} color={theme.onTint} />
             <Body weight={500} color={theme.onTint} style={{ flex: 1 }}>
               {isZh ? '当前暂无法扫描，请尝试手动记账。' : "Scanning isn't available right now. Enter a transaction manually instead."}
             </Body>
-            <Icon name="chevronRight" size={16} color={theme.accentInk} />
+            <Icon name="chevronRight" size={16} color={theme.onTint} />
           </Pressable>
         )}
 
@@ -326,7 +327,7 @@ function MiniButton({
       ]}
     >
       <Icon name={icon} size={19} color={theme.accent} />
-      <Label weight={700} color={theme.accentInk}>{label}</Label>
+      <Label weight={700} color={theme.onTint}>{label}</Label>
     </Pressable>
   );
 }

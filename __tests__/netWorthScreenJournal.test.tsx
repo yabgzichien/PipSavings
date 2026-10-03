@@ -85,6 +85,15 @@ function allText(root: any): string {
 }
 
 describe('NetWorthScreen journal layout', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-13T12:00:00Z'));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   test('leads with an estimated position and progressively discloses account rows', async () => {
     let renderer: any;
     await Renderer.act(async () => {
@@ -119,6 +128,73 @@ describe('NetWorthScreen journal layout', () => {
       expect(hasText(renderer.root, 'Record another monthly balance to see your trend.')).toBe(true);
     } finally {
       mockAppData.balanceEntries = originalEntries;
+    }
+  });
+
+  test('shows aggregate live-investment gain as an amount and toggles it to percentage', async () => {
+    const originalAccounts = mockAppData.accounts;
+    const originalValues = mockAppData.accountValues;
+    const holding: Account = {
+      id: 'btc', name: 'Bitcoin', kind: 'asset', cls: 'investments', archived: false,
+      createdAt: '2026-01-01', sub: 'crypto', symbol: 'BTC-USD', ticker: 'BTC', quantity: 1,
+      cost: 10000, currency: 'MYR', icon: null,
+    };
+    (mockAppData as any).accounts = [holding];
+    (mockAppData as any).accountValues = { btc: 11862.11 };
+
+    let renderer: any;
+    try {
+      await Renderer.act(async () => {
+        renderer = Renderer.create(<NetWorthScreen onBack={jest.fn()} onOpenHistory={jest.fn()} />);
+      });
+
+      const gain = renderer.root.findAll(
+        (node: any) => node.props.accessibilityLabel === 'Investment gain: +RM 1,862.11. Tap to show percentage.',
+      )[0];
+      expect(gain).toBeDefined();
+      expect(allText(gain)).toContain('+RM 1,862.11');
+      const investmentDisclosure = renderer.root.findAll(
+        (node: any) => node.props.accessibilityLabel === 'Expand Investments accounts',
+      )[0];
+
+      await Renderer.act(async () => gain.props.onPress());
+
+      expect(allText(renderer.root)).toContain('+18.6%');
+      expect(investmentDisclosure.props.accessibilityState).toEqual({ expanded: false });
+    } finally {
+      (mockAppData as any).accounts = originalAccounts;
+      (mockAppData as any).accountValues = originalValues;
+    }
+  });
+
+  test('compacts a large investment gain into a bounded single-line value', async () => {
+    const originalAccounts = mockAppData.accounts;
+    const originalValues = mockAppData.accountValues;
+    const holding: Account = {
+      id: 'fund', name: 'Growth Fund', kind: 'asset', cls: 'investments', archived: false,
+      createdAt: '2026-01-01', sub: 'stock', symbol: 'FUND', ticker: 'FUND', quantity: 1,
+      cost: 1000000, currency: 'MYR', icon: null,
+    };
+    (mockAppData as any).accounts = [holding];
+    (mockAppData as any).accountValues = { fund: 126000000 };
+
+    let renderer: any;
+    try {
+      await Renderer.act(async () => {
+        renderer = Renderer.create(<NetWorthScreen onBack={jest.fn()} onOpenHistory={jest.fn()} />);
+      });
+
+      const gainButton = renderer.root.findAll(
+        (node: any) => node.props.accessibilityLabel === 'Investment gain: +RM 125M. Tap to show percentage.',
+      )[0];
+      expect(gainButton).toBeDefined();
+      const gainText = gainButton.findByType(Text);
+      expect(gainText.props.numberOfLines).toBe(1);
+      expect(gainText.props.adjustsFontSizeToFit).toBe(true);
+      expect(gainText.props.minimumFontScale).toBe(0.72);
+    } finally {
+      (mockAppData as any).accounts = originalAccounts;
+      (mockAppData as any).accountValues = originalValues;
     }
   });
 });

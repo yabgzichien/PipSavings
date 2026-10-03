@@ -59,6 +59,8 @@ describe('BrandLogo Matching Engine', () => {
       expect(matchBrand('GX Bank')).toBe('gxbank');
       expect(matchBrand('Ryt Bank')).toBe('ryt_bank');
       expect(matchBrand('YTL Digital Bank')).toBe('ryt_bank');
+      expect(matchBrand('Wise')).toBe('wise');
+      expect(matchBrand('Wise SGD Account')).toBe('wise');
     });
   });
 

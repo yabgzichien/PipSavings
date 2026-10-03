@@ -143,7 +143,7 @@ export function TransactionFilterModal({
             <Text style={[styles.clearText, { color: colorTheme.ink2 }]}>{isZh ? '清空筛选' : 'Clear all'}</Text>
           </Pressable>
           <Pressable onPress={onClose} style={[styles.doneBtn, { backgroundColor: theme.accentInk }]}>
-            <Text style={styles.doneText}>{isZh ? '显示结果' : 'Show results'}</Text>
+            <Text style={[styles.doneText, { color: theme.onAccent }]}>{isZh ? '显示结果' : 'Show results'}</Text>
           </Pressable>
         </View>
         </View>
@@ -171,5 +171,5 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, gap: 14 },
   clearText: { fontFamily: uiFont(600), fontSize: 13.5 },
   doneBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: radius.sm },
-  doneText: { fontFamily: uiFont(700), fontSize: 14.5, color: '#fff' },
+  doneText: { fontFamily: uiFont(700), fontSize: 14.5 },
 });

@@ -279,7 +279,7 @@ export function PaywallScreen({
           (pressed || ctaDisabled) && styles.pressed,
         ]}
       >
-        <BtnLabel color="#ffffff">{ctaLabel}</BtnLabel>
+        <BtnLabel color={accent.onAccent}>{ctaLabel}</BtnLabel>
       </Pressable>
 
       <Caption color={colors.ink3} style={styles.disclosure}>{disclosure}</Caption>
@@ -337,7 +337,7 @@ function PlanCard({
             selected && { backgroundColor: accent.accent },
           ]}
         >
-          {selected ? <View style={styles.radioDot} /> : null}
+          {selected ? <View style={[styles.radioDot, { backgroundColor: accent.onAccent }]} /> : null}
         </View>
 
         <View style={styles.planContentCol}>
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   planInner: { justifyContent: 'center', minHeight: PAYWALL_LAYOUT.plan, paddingHorizontal: spacing.base, paddingVertical: spacing.md },
   planRadioRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   radioCircle: { alignItems: 'center', borderRadius: 999, borderWidth: 2, height: 20, justifyContent: 'center', width: 20 },
-  radioDot: { backgroundColor: '#ffffff', borderRadius: 999, height: 8, width: 8 },
+  radioDot: { borderRadius: 999, height: 8, width: 8 },
   planContentCol: { flex: 1, gap: spacing.xs },
   planTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs },
   planPriceRow: { alignItems: 'baseline', flexDirection: 'row', gap: spacing.xs, flexShrink: 1 },

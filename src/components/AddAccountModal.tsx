@@ -202,7 +202,13 @@ export function AddAccountModal({
   const mergeScaleX = useRef(new Animated.Value(1)).current;
   const mergeScaleY = useRef(new Animated.Value(1)).current;
   const mergeOpacity = useRef(new Animated.Value(1)).current;
+  const formScrollRef = useRef<ScrollView>(null);
+  const revealValueOnResize = useRef(false);
   const [isMergingValue, setIsMergingValue] = useState(false);
+
+  const revealValueField = () => {
+    requestAnimationFrame(() => formScrollRef.current?.scrollToEnd({ animated: true }));
+  };
 
   if (!visible) return <Modal visible={false} transparent />;
 
@@ -369,7 +375,16 @@ export function AddAccountModal({
             </Pressable>
           </View>
 
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            ref={formScrollRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.formContent}
+            onLayout={() => {
+              if (revealValueOnResize.current) revealValueField();
+            }}
+          >
             <View style={[styles.toggle, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
               {(['asset', 'liability'] as AccountKind[]).map((k) => {
                 const on = kind === k;
@@ -532,6 +547,13 @@ export function AddAccountModal({
                     <TextInput
                       value={valueText}
                       onChangeText={(t) => setValueText(cleanCalcInput(t, valueDecimals > 0))}
+                      onFocus={() => {
+                        revealValueOnResize.current = true;
+                        revealValueField();
+                      }}
+                      onBlur={() => {
+                        revealValueOnResize.current = false;
+                      }}
                       onSubmitEditing={handleMergeValue}
                       keyboardType="numbers-and-punctuation"
                       placeholder={valueDecimals === 0 ? '0' : '0.00'}
@@ -623,6 +645,7 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, marginBottom: 14 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   sheetTitle: { fontFamily: uiFont(700), fontSize: 17 },
+  formContent: { paddingBottom: 8 },
   input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 13, paddingVertical: 12, fontFamily: uiFont(600), fontSize: 15 },
   toggle: { flexDirection: 'row', borderRadius: 999, padding: 3, borderWidth: 1, marginBottom: 14 },
   toggleBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: 'transparent' },

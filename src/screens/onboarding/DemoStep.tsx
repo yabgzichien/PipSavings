@@ -311,7 +311,7 @@ export function DemoStep({
             >
               <Image source={RECEIPT_IMAGE} style={styles.receiptBig} resizeMode="contain" />
               <View style={[styles.tapPill, { backgroundColor: theme.accent }]}>
-                <Icon name="sparkles" size={15} color="#fff" />
+                <Icon name="sparkles" size={15} color={theme.onAccent} />
                 <BtnLabel>{t('demoTapToScan')}</BtnLabel>
               </View>
             </Pressable>
@@ -530,8 +530,8 @@ export function DemoStep({
                   resizeMode="contain"
                 />
                 <View style={[styles.viewPill, { backgroundColor: theme.accent }]}>
-                  <Icon name="search" size={14} color="#fff" />
-                  <Caption color="#fff">{t('demoTapToView')}</Caption>
+                  <Icon name="search" size={14} color={theme.onAccent} />
+                  <Caption color={theme.onAccent}>{t('demoTapToView')}</Caption>
                 </View>
               </Pressable>
             ) : (

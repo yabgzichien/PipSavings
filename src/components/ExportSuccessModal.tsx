@@ -187,7 +187,7 @@ export function ExportSuccessModal({
                 <>
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>1</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>1</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -201,7 +201,7 @@ export function ExportSuccessModal({
 
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>2</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>2</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -215,7 +215,7 @@ export function ExportSuccessModal({
 
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>3</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>3</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -231,7 +231,7 @@ export function ExportSuccessModal({
                 <>
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>1</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>1</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -245,7 +245,7 @@ export function ExportSuccessModal({
 
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>2</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>2</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -259,7 +259,7 @@ export function ExportSuccessModal({
 
                   <View style={styles.guideStep}>
                     <View style={[styles.stepNumberWrap, { backgroundColor: theme.accent }]}>
-                      <Text style={styles.stepNumberText}>3</Text>
+                      <Text style={[styles.stepNumberText, { color: theme.onAccent }]}>3</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.guideStepTitle, { color: themeColors.ink }]}>
@@ -294,8 +294,8 @@ export function ExportSuccessModal({
                   platformShadow(theme.accent, 0.35, 10, { width: 0, height: 5 }, 3),
                 ]}
               >
-                <Icon name="share" size={18} color="#fff" />
-                <Text style={styles.primaryBtnText}>
+                <Icon name="share" size={18} color={theme.onAccent} />
+                <Text style={[styles.primaryBtnText, { color: theme.onAccent }]}>
                   {isZh ? '保存到手机文件 / 分享' : 'Save to Phone / Share'}
                 </Text>
               </Pressable>
@@ -440,7 +440,6 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontFamily: uiFont(700),
     fontSize: 11,
-    color: '#fff',
   },
   guideStepTitle: {
     fontFamily: uiFont(600),
@@ -464,7 +463,6 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontFamily: uiFont(700),
     fontSize: 15,
-    color: '#fff',
   },
   secondaryBtn: {
     flexDirection: 'row',

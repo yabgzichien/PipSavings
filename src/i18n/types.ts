@@ -117,6 +117,8 @@ export interface Translations {
   askPipNeedsYouOwedOpenSub: string;
   scanByokLimitTitle: string;
   scanByokLimitBody: string;
+  scanByokTooBigTitle: string;
+  scanByokTooBigBody: string;
   webByokTitle: string;
   webByokBody: string;
 
@@ -314,6 +316,7 @@ export interface Translations {
   checkedInToday: string;
   streakReviewToast: string;
   streakNoSpendToast: string;
+  investmentSoared: string;
   checkedInNoSpend: string;
   weekDayMonInitial: string;
   weekDayTueInitial: string;
@@ -432,6 +435,10 @@ export interface Translations {
   recapStorySpotlight_tech_body: string;
   recapStorySpotlight_vehicle_title: string;
   recapStorySpotlight_vehicle_body: string;
+  recapStorySpotlight_trips_one: string;
+  recapStorySpotlight_trips_two: string;
+  recapStorySpotlight_trips_three: string;
+  recapStorySpotlight_trips_more: string;
   recapStorySpotlight_home_title: string;
   recapStorySpotlight_home_body: string;
   recapStorySpotlight_gift_title: string;
@@ -617,6 +624,7 @@ export interface Translations {
   addDates: string;
   addExistingExpenses: string;
   addToTrip: string;
+  tripExpensesOnly: string;
   noTrip: string;
   archivedTrips: string;
   archiveTrip: string;

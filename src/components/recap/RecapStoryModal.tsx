@@ -10,6 +10,7 @@ import { pauseStoryIntro, resumeStoryIntro, stopStoryIntro, storyIntro } from '.
 import { useAppData } from '../../state/store';
 import { useReducedMotion } from '../../state/useReducedMotion';
 import type { WidgetMascotConfig } from '../../widget/mascot/config';
+import { Icon, type IconName } from '../Icon';
 import { Label } from '../ui';
 import { RecapStoryFrame } from './RecapStoryFrame';
 import { RecapStoryShareSheet } from './RecapStoryShareSheet';
@@ -34,17 +35,16 @@ export function RecapStoryModal(props: RecapStoryModalProps) {
   }} />;
 }
 
-function Control({ label, hint, onPress, disabled = false }: {
-  label: string; hint: string; onPress: () => void; disabled?: boolean;
+function IconControl({ label, hint, icon, onPress }: {
+  label: string; hint: string; icon: IconName; onPress: () => void;
 }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
-    accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
-    style={[styles.control, disabled && styles.disabled]}>
-    <Label color="#FFFFFF">{label}</Label>
+    onPress={onPress} hitSlop={8} style={styles.control}>
+    <Icon name={icon} size={22} color="#FFFFFF" />
   </Pressable>;
 }
 
-function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCards }: RecapStoryModalProps) {
+function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStoryModalProps) {
   const { motionSetting, catById, transactions = [] } = useAppData();
   const reduced = useReducedMotion();
   const { t, tCat, isZh, formatMonthLabel } = useLanguage();
@@ -58,7 +58,7 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
   const pausedProgress = useRef(0);
   const playedCycle = useRef<number | null>(null);
   const soundActive = useRef(false);
-  const hold = useRef<{ started: number; wasPaused: boolean } | null>(null);
+  const hold = useRef<{ started: number } | null>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [sessionModel, setSessionModel] = useState(model);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
@@ -68,7 +68,7 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
 
   const total = sessionModel.scenes.length;
   const scene = sessionModel.scenes[state.index] ?? sessionModel.scenes[0];
-  const position = isZh ? `第 ${state.index + 1} 个故事，共 ${total} 个` : `Story ${state.index + 1} of ${total}`;
+  const position = `${state.index + 1} of ${total}`;
   const status = state.paused ? (isZh ? '已暂停' : 'Paused') : position;
   const scale = Math.max(0, Math.min(stage.width / STORY_LOGICAL_WIDTH, stage.height / STORY_LOGICAL_HEIGHT));
 
@@ -137,23 +137,10 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
     dispatch({ type: 'RESUME' });
   }
 
-  function finishHold() {
-    const previous = hold.current;
-    hold.current = null;
-    if (previous && !previous.wasPaused) resume();
-  }
-
   function openShareCurrent() {
     pause();
     onShareScene?.(scene.id);
     setShareInitialSceneId(scene.id);
-    setShareSheetVisible(true);
-  }
-
-  function openChooseCards() {
-    pause();
-    onChooseCards?.();
-    setShareInitialSceneId(undefined);
     setShareSheetVisible(true);
   }
 
@@ -170,29 +157,32 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
 
   // The responder owns a native interaction handle from grant through release.
   // Keep that owner stable while its handlers read the latest scene and callbacks.
-  const gestureActions = useRef({ paused: state.paused, scale, total, pause, resume, navigate, finishHold });
-  gestureActions.current = { paused: state.paused, scale, total, pause, resume, navigate, finishHold };
+  const gestureActions = useRef({ paused: state.paused, scale, total, pause, resume, navigate });
+  gestureActions.current = { paused: state.paused, scale, total, pause, resume, navigate };
   const [responder] = useState(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > Math.abs(gesture.dy),
     onPanResponderGrant: () => {
-      const { paused, pause } = gestureActions.current;
-      hold.current = { started: Date.now(), wasPaused: paused };
-      if (!paused) pause();
+      hold.current = { started: Date.now() };
     },
     onPanResponderRelease: (event, gesture) => {
-      const { navigate, total, scale, resume } = gestureActions.current;
+      const { navigate, total, scale, paused, pause, resume } = gestureActions.current;
       const held = hold.current;
       if (!held) return;
       hold.current = null;
       if (Math.abs(gesture.dx) >= 48 && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
         navigate(gesture.dx < 0 ? { type: 'NEXT', total } : { type: 'PREVIOUS' });
-      } else if (Date.now() - held.started < 250 && Math.abs(gesture.dy) < 48) {
-        navigate(event.nativeEvent.locationX < (STORY_LOGICAL_WIDTH * scale) / 2
-          ? { type: 'PREVIOUS' } : { type: 'NEXT', total });
-      } else if (!held.wasPaused) resume();
+        return;
+      }
+      if (Date.now() - held.started >= 250 || Math.abs(gesture.dy) >= 48) return;
+      const width = STORY_LOGICAL_WIDTH * scale;
+      const x = event.nativeEvent.locationX;
+      if (x < width / 3) navigate({ type: 'PREVIOUS' });
+      else if (x > (width * 2) / 3) navigate({ type: 'NEXT', total });
+      else if (paused) resume();
+      else pause();
     },
-    onPanResponderTerminate: () => gestureActions.current.finishHold(),
+    onPanResponderTerminate: () => { hold.current = null; },
     onPanResponderTerminationRequest: () => true,
   }));
 
@@ -202,12 +192,11 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
       paddingLeft: insets.left, paddingRight: insets.right,
     }]}>
       <View style={styles.toolbar}>
-        <Control label={t('close')} hint={isZh ? '关闭故事' : 'Close the story'} onPress={onClose} />
-        <Control label={t(state.muted ? 'recapStoryUnmute' : 'recapStoryMute')}
+        <IconControl icon={state.muted ? 'speakerOff' : 'speaker'}
+          label={t(state.muted ? 'recapStoryUnmute' : 'recapStoryMute')}
           hint={isZh ? '切换本次故事的声音' : 'Toggle sound for this viewing session'}
           onPress={() => dispatch({ type: 'TOGGLE_MUTE' })} />
-        <Control label={t('recapStoryReplay')} hint={isZh ? '从第一个故事重新开始' : 'Start again at the first story'}
-          onPress={() => navigate({ type: 'REPLAY' })} />
+        <IconControl icon="x" label={t('close')} hint={isZh ? '关闭故事' : 'Close the story'} onPress={onClose} />
       </View>
       <View testID="story-progress" accessibilityRole="progressbar" accessibilityLabel={position}
         accessibilityValue={{ min: 0, max: 100, now: state.completed ? 100 : Math.round(state.index / total * 100) }}
@@ -236,22 +225,14 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
             style={StyleSheet.absoluteFillObject} {...responder.panHandlers} />
         </View>
       </View>
-      <View testID="story-status" accessible accessibilityLiveRegion="polite" accessibilityLabel={status}
-        style={styles.status}><Label color="#FFFFFF">{status}</Label></View>
-      <View style={styles.toolbar}>
-        <Control label={t('recapStoryPrevious')} hint={isZh ? '重新播放上一张卡片' : 'Restart the previous card'}
-          onPress={() => navigate({ type: 'PREVIOUS' })} />
-        {autoplay && <Control label={t(state.paused ? 'recapStoryPlay' : 'recapStoryPause')}
-          hint={isZh ? '暂停或继续当前故事' : 'Pause or resume the current story'}
-          onPress={state.paused ? resume : pause} />}
-        <Control label={t('recapStoryNext')} hint={isZh ? '查看下一张卡片' : 'View the next card'}
-          disabled={state.index === total - 1} onPress={() => navigate({ type: 'NEXT', total })} />
-      </View>
-      <View style={styles.toolbar}>
-        <Control label={t('recapStoryShareCard')} hint={isZh ? '分享当前卡片' : 'Share the current card'}
-          onPress={openShareCurrent} />
-        {scene.id === 'finale' && <Control label={t('recapStoryChooseCards')}
-          hint={isZh ? '选择要分享的卡片' : 'Choose cards to share'} onPress={openChooseCards} />}
+      <View style={styles.footer}>
+        <View style={styles.footerSide} />
+        <View testID="story-status" accessible accessibilityLiveRegion="polite" accessibilityLabel={status}
+          style={styles.status}><Label color="#FFFFFF">{position}</Label></View>
+        <View style={styles.footerSide}>
+          <IconControl icon="share" label={t('recapStoryShareCard')}
+            hint={isZh ? '分享当前卡片' : 'Share the current card'} onPress={openShareCurrent} />
+        </View>
       </View>
       {shareSheetVisible && <RecapStoryShareSheet
         model={sessionModel}
@@ -269,13 +250,13 @@ function StorySession({ model, mascotConfig, onClose, onShareScene, onChooseCard
 
 const styles = StyleSheet.create({
   surround: { flex: 1, backgroundColor: '#000000' },
-  toolbar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 8 },
-  control: { minWidth: 44, minHeight: 44, paddingHorizontal: 12, paddingVertical: 12,
-    alignItems: 'center', justifyContent: 'center' },
-  disabled: { opacity: 0.5 },
+  toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 8 },
+  footer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  footerSide: { width: 44, alignItems: 'flex-end' },
+  control: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   segments: { flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingVertical: 8 },
   segment: { flex: 1, height: 4, backgroundColor: '#555555', borderRadius: 2, overflow: 'hidden' },
   fill: { height: 4, backgroundColor: '#FFFFFF' },
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 },
-  status: { minHeight: 24, alignItems: 'center', justifyContent: 'center' },
+  status: { flex: 1, minHeight: 24, alignItems: 'center', justifyContent: 'center' },
 });

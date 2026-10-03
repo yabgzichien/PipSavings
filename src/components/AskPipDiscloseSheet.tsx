@@ -46,7 +46,7 @@ export function AskPipDiscloseSheet({
               onPress={onContinue}
               style={[styles.primary, { backgroundColor: accent.accent }]}
             >
-              <Label color={accent.accentInk}>{t('askPipDiscloseContinue')}</Label>
+              <Label color={accent.onAccent}>{t('askPipDiscloseContinue')}</Label>
             </Pressable>
           </View>
         </View>

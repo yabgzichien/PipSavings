@@ -202,26 +202,28 @@ export function SettingsScreen({ onBack, onAdvancedImport, onOpenExport, onOpenC
         </View>
       )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        {/* Search bar */}
-        <View style={[styles.searchRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }]}>
-          <Icon name="search" size={16} color={colorTheme.ink3} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('searchSettingsPlaceholder')}
-            placeholderTextColor={colorTheme.ink3}
-            style={[styles.searchInput, { color: colorTheme.ink }]}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel={t('clear')}>
-              <Icon name="x" size={15} color={colorTheme.ink3} />
-            </Pressable>
-          )}
+        <View style={[styles.searchDock, { backgroundColor: colorTheme.bg }]}>
+          <View style={[styles.searchRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line2 }]}>
+            <Icon name="search" size={16} color={colorTheme.ink3} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t('searchSettingsPlaceholder')}
+              placeholderTextColor={colorTheme.ink3}
+              style={[styles.searchInput, { color: colorTheme.ink }]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel={t('clear')}>
+                <Icon name="x" size={15} color={colorTheme.ink3} />
+              </Pressable>
+            )}
+          </View>
         </View>
+
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
 
         {(!isSearching || hasVisibleSubscriptionCard) && (
           <ProMembershipCard
@@ -1274,6 +1276,7 @@ const styles = StyleSheet.create({
   iconPreviewSub: { fontFamily: uiFont(500), fontSize: 12, marginTop: 1 },
 
   /* search */
+  searchDock: { paddingHorizontal: 18, paddingTop: 18 },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',

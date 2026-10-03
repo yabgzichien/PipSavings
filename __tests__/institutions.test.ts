@@ -42,6 +42,8 @@ describe('matchInstitution', () => {
     expect(matchInstitution('Boost')?.id).toBe('boost');
     expect(matchInstitution('GrabPay')?.id).toBe('grabpay');
     expect(matchInstitution('ShopeePay')?.id).toBe('shopeepay');
+    expect(matchInstitution('Wise')?.id).toBe('wise');
+    expect(matchInstitution('Wise SGD Account')?.id).toBe('wise');
   });
 
   it('returns null when nothing reasonably matches', () => {

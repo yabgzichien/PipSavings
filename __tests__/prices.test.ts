@@ -1,5 +1,6 @@
 // __tests__/prices.test.ts
 import {
+  aggregateHoldingProfit,
   parseYahooSearch,
   cryptoUsdResults,
   matchedCommodities,
@@ -13,6 +14,9 @@ import {
   change24Pct,
   holdingValue,
   holdingProfit,
+  portfolioChange24Pct,
+  formatSoarPct,
+  INVESTMENT_SOAR_THRESHOLD_PCT,
   accountValue,
   mergeAccountValues,
   parseCryptoHoldings,
@@ -178,6 +182,54 @@ describe('change24Pct', () => {
   });
 });
 
+function quote(symbol: string, priceMYR: number, change24: number | null): PriceQuote {
+  return { symbol, priceMYR, change24, asOf: '2026-10-03T00:00:00.000Z' };
+}
+
+describe('portfolioChange24Pct', () => {
+  it('weights each holding by its current value', () => {
+    const accounts = [
+      acct({ id: 'btc', cls: 'investments', symbol: 'BTC-USD', ticker: 'BTC', quantity: 1 }),
+      acct({ id: 'eth', cls: 'investments', symbol: 'ETH-USD', ticker: 'ETH', quantity: 3 }),
+    ];
+    const prices = {
+      'BTC-USD': quote('BTC-USD', 100, 1),
+      'ETH-USD': quote('ETH-USD', 100, 3),
+    };
+    // 100×1% + 300×3% = 1000, over 400 of value → 2.5%
+    expect(portfolioChange24Pct(accounts, prices)).toBeCloseTo(2.5);
+  });
+
+  it('ignores archived rows, manual accounts, and quotes with no day change', () => {
+    const accounts = [
+      acct({ id: 'live', cls: 'investments', symbol: 'BTC-USD', ticker: 'BTC', quantity: 2 }),
+      acct({ id: 'quiet', cls: 'investments', symbol: 'ETH-USD', ticker: 'ETH', quantity: 10 }),
+      acct({ id: 'archived', cls: 'investments', symbol: 'SOL-USD', ticker: 'SOL', quantity: 5, archived: true }),
+      acct({ id: 'cash', cls: 'cash' }),
+    ];
+    const prices = {
+      'BTC-USD': quote('BTC-USD', 50, 4),
+      'ETH-USD': quote('ETH-USD', 50, null),
+      'SOL-USD': quote('SOL-USD', 50, 20),
+    };
+    expect(portfolioChange24Pct(accounts, prices)).toBeCloseTo(4);
+  });
+
+  it('returns null when nothing can be measured', () => {
+    expect(portfolioChange24Pct([], {})).toBeNull();
+    const accounts = [acct({ id: 'btc', symbol: 'BTC-USD', quantity: 1 })];
+    expect(portfolioChange24Pct(accounts, { 'BTC-USD': quote('BTC-USD', 10, null) })).toBeNull();
+  });
+});
+
+describe('formatSoarPct', () => {
+  it('keeps one decimal and drops a trailing .0', () => {
+    expect(formatSoarPct(2.36)).toBe('2.4');
+    expect(formatSoarPct(12)).toBe('12');
+    expect(INVESTMENT_SOAR_THRESHOLD_PCT).toBe(1.5);
+  });
+});
+
 describe('holdingValue', () => {
   it('multiplies quantity by price and rounds to cents', () => {
     expect(holdingValue(0.01, 250000)).toBe(2500);
@@ -195,6 +247,38 @@ describe('holdingProfit', () => {
   it('returns null pct when no cost recorded', () => {
     expect(holdingProfit(150, null)).toEqual({ profit: 150, pct: null });
     expect(holdingProfit(150, 0)).toEqual({ profit: 150, pct: null });
+  });
+});
+
+describe('aggregateHoldingProfit', () => {
+  it('combines live holdings from their summed value and cost basis', () => {
+    const accounts = [
+      acct({ id: 'btc', cls: 'investments', symbol: 'BTC-USD', ticker: 'BTC', quantity: 1, cost: 100 }),
+      acct({ id: 'eth', cls: 'investments', symbol: 'ETH-USD', ticker: 'ETH', quantity: 2, cost: 300 }),
+    ];
+
+    expect(aggregateHoldingProfit(accounts, { btc: 150, eth: 250 })).toEqual({
+      profit: 0,
+      pct: 0,
+    });
+  });
+
+  it('excludes manual, archived, and costless accounts from the aggregate', () => {
+    const accounts = [
+      acct({ id: 'priced', cls: 'investments', symbol: 'BTC-USD', ticker: 'BTC', quantity: 1, cost: 100 }),
+      acct({ id: 'costless', cls: 'investments', symbol: 'ETH-USD', ticker: 'ETH', quantity: 1, cost: null }),
+      acct({ id: 'manual', cls: 'investments', cost: 100 }),
+      acct({ id: 'archived', cls: 'investments', symbol: 'SOL-USD', ticker: 'SOL', quantity: 1, cost: 100, archived: true }),
+      acct({ id: 'other-class', cls: 'illiquid', symbol: 'ODD', ticker: 'ODD', quantity: 1, cost: 100 }),
+    ];
+
+    expect(aggregateHoldingProfit(accounts, {
+      priced: 150,
+      costless: 900,
+      manual: 200,
+      archived: 1000,
+      'other-class': 800,
+    })).toEqual({ profit: 50, pct: 50 });
   });
 });
 

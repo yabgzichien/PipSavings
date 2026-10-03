@@ -2,6 +2,7 @@
 // Same outcomes as the paywall: refresh on success (no welcome celebration), notify on empty/error.
 import React from 'react';
 const TestRenderer = require('react-test-renderer');
+import { ScrollView, TextInput } from 'react-native';
 import { SettingsScreen } from '../src/screens/SettingsScreen';
 import { en } from '../src/i18n/translations/en';
 
@@ -129,6 +130,15 @@ describe('settings restore purchases', () => {
     walk({ props: { children: scrollKids } });
     expect(ids.indexOf('settings-restore-purchases')).toBeLessThan(ids.indexOf('settings-redeem-code'));
     expect(redeemRow).toBeDefined();
+  });
+
+  it('keeps the settings search field outside the scrolling content', async () => {
+    const tree = await renderSettings();
+    const searchInput = tree.root.findByType(TextInput);
+    const scrollView = tree.root.findByType(ScrollView);
+
+    expect(searchInput.parent).not.toBeNull();
+    expect(scrollView.findAllByType(TextInput)).not.toContain(searchInput);
   });
 
   it('hides the restore row when the user is already Pro', async () => {

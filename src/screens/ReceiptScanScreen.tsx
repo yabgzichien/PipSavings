@@ -746,9 +746,9 @@ export function ReceiptScanScreen({
               accessibilityLabel={isZh ? `添加 ${receipt.currency}` : `Add ${receipt.currency}`}
             >
               {activatingCode === receipt.currency ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={theme.onAccent} size="small" />
               ) : (
-                <Text style={styles.addCurrencyBtnText}>{isZh ? `启用 ${receipt.currency}` : `Add ${receipt.currency}`}</Text>
+                <Text style={[styles.addCurrencyBtnText, { color: theme.onAccent }]}>{isZh ? `启用 ${receipt.currency}` : `Add ${receipt.currency}`}</Text>
               )}
             </Pressable>
           </Card>
@@ -1330,7 +1330,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addCurrencyBtnText: {
-    color: '#ffffff',
     fontFamily: uiFont(700),
     fontSize: 13,
   },

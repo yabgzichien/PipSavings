@@ -49,6 +49,9 @@ const BADGE_COLORS: BadgeColor[] = ['amber', 'red', 'green', 'blue', 'violet'];
 const WIDGET_SLOTS: ('slot1' | 'slot2')[] = ['slot1', 'slot2'];
 const SLOT_CONTENTS: SlotContent[] = ['income', 'expense', 'streak', 'none'];
 const SLOT_TILE_SIZE = Math.round(TILE_SIZE * 0.75);
+const TILE_GRID_COLUMNS = 3;
+const TILE_GRID_GAP = 10;
+const TILE_GRID_WIDTH = TILE_SIZE * TILE_GRID_COLUMNS + TILE_GRID_GAP * (TILE_GRID_COLUMNS - 1);
 
 /** A sample streak for the preview, with a matching week: a 7-day streak means all seven days
  *  are active, so showing gaps here would preview a state that cannot exist. */
@@ -396,7 +399,13 @@ const styles = StyleSheet.create({
   preview: { alignItems: 'center', justifyContent: 'center', padding: 16 },
   content: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24, gap: 20 },
   section: { gap: 12 },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tiles: {
+    width: TILE_GRID_WIDTH,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: TILE_GRID_GAP,
+  },
   controlCard: { padding: 12, gap: 8 },
   slotSection: { gap: 6 },
   slotEyebrow: { fontSize: 10, letterSpacing: 0.8 },

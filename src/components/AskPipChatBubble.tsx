@@ -68,7 +68,7 @@ export function AskPipChatBubble({
         ]}
       >
         {text ? (
-          <Body color={mine ? '#fff' : colors.ink} style={styles.copy}>
+          <Body color={mine ? accent.onAccent : colors.ink} style={styles.copy}>
             {text}
           </Body>
         ) : null}

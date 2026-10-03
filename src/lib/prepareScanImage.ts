@@ -511,13 +511,17 @@ export async function prepareDualPathScan(
         const encoded = await encodeBandImage(bandUri);
         if (encoded) bandImages.push(encoded);
       }
-      if (transcript || bandImages.length > 0) {
+      // A transcript is worth sending even when a band failed to encode.
+      // Unread bands with no transcript are slices from a failed OCR pass.
+      // Sending each slice as its own vision call spends the provider minute
+      // before the key has been used, so fall through and send the screenshot once.
+      if (transcript) {
         return {
           body: {
-            ocrText: transcript || undefined,
+            ocrText: transcript,
             scanType,
           },
-          inputKind: transcript && bandImages.length > 0 ? 'hybrid' : transcript ? 'text' : 'vision',
+          inputKind: bandImages.length > 0 ? 'hybrid' as const : 'text' as const,
           ocrOutcome: tall.outcome,
           preparedImage: bandImages[0] ?? null,
           bandImages: bandImages.length > 0 ? bandImages : undefined,

@@ -60,6 +60,7 @@ export const INSTITUTIONS: Institution[] = [
   { id: 'bigpay', name: 'BigPay', aliases: [], kind: 'ewallet', monogram: 'Big', color: '#1B1B1B' },
   { id: 'mae', name: 'MAE by Maybank2u', aliases: ['MAE'], kind: 'ewallet', monogram: 'MAE', color: '#FFC726' },
   { id: 'setel', name: 'Setel', aliases: ['Setel Petronas'], kind: 'ewallet', monogram: 'Setel', color: '#00A19A' },
+  { id: 'wise', name: 'Wise', aliases: ['TransferWise'], kind: 'ewallet', monogram: 'Wise', color: '#163300' },
 
   // ── Automotive / Car Brands (Car Loans & Vehicles) ───────────────────────
   { id: 'porsche', name: 'Porsche', aliases: ['Porsche Loan', 'Porsche Financial', 'Macan', 'Cayenne', 'Taycan', 'Panamera', '911'], kind: 'auto', monogram: 'POR', color: '#D4AF37' },

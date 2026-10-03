@@ -253,7 +253,7 @@ export function CommitmentsScreen({ onBack, embedded }: { onBack: () => void; em
                 accessibilityLabel="Add a recurring commitment"
                 style={[styles.addCircleBtn, { backgroundColor: theme.accent }]}
               >
-                <Icon name="plus" size={15} color="#ffffff" stroke={2.8} />
+                <Icon name="plus" size={15} color={theme.onAccent} stroke={2.8} />
               </Pressable>
             }
           />
