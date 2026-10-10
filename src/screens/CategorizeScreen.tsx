@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddAccountModal } from '../components/AddAccountModal';
 import { AddCategorySheet } from '../components/AddCategorySheet';
@@ -7,7 +7,9 @@ import { AccountChipIcon, AccountPickerModal, ChoiceChip, getAccountPriority, MA
 import { Icon } from '../components/Icon';
 import { InfoButton } from '../components/InfoButton';
 import { MoreDetails } from '../components/MoreDetails';
+import { CurrencyPickerSheet } from '../components/CurrencyPickerSheet';
 import { SplitSheet } from '../components/SplitSheet';
+import { ZoomableImageViewer } from '../components/ZoomableImageViewer';
 import { TripGlyph } from '../components/TripBadge';
 import { TripPickerModal } from '../components/TripPickerModal';
 import { Amount, B, BtnLabel, BubbleText, Card, CategoryChip, Eyebrow, PipSays, PrimaryButton, ProgressTrack, SecondaryButton, TopBar } from '../components/ui';
@@ -18,6 +20,7 @@ import { findDuplicate, todayISO } from '../lib/duplicates';
 import { currencyPrefix, fmtMoney } from '../lib/format';
 import { tap } from '../lib/haptics';
 import { BASE_CURRENCY } from '../lib/currency';
+import { getActiveCurrencies } from '../db/currencyRepo';
 import { useModalHandoff } from '../lib/modalHandoff';
 import { CLASS_BY_ID } from '../lib/networth';
 import { confirmAction } from '../lib/platformAlert';
@@ -52,9 +55,12 @@ export function CategorizeScreen({
   linkId = null,
   initialSplitDrafts,
   initialTripId = null,
+  sourceImageUri = null,
   onBack,
   onComplete,
 }: {
+  /** The screenshot these rows were read from, shown as a tappable thumbnail in the top bar. */
+  sourceImageUri?: string | null;
   extracted: ExtractedTxn[];
   suggestions: (CategorySuggestion | null)[];
   categories: Category[];
@@ -93,6 +99,26 @@ export function CategorizeScreen({
 
   // Editable working copy (amount can be changed inline).
   const [items, setItems] = useState<ExtractedTxn[]>(() => extracted.map((e) => ({ ...e })));
+  // Mirrors `items` synchronously. A Next/Back tap can commit an open field and finish the
+  // step in one event, before React has re-rendered, and the completion payload has to
+  // include that edit.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const replaceItems = (recipe: (prev: ExtractedTxn[]) => ExtractedTxn[]) => {
+    const next = recipe(itemsRef.current);
+    itemsRef.current = next;
+    setItems(next);
+  };
+  const amountCommit = useRef(() => {});
+  const dateCommit = useRef(() => {});
+  const merchantCommit = useRef(() => {});
+  const remarkCommit = useRef(() => {});
+  const flushDrafts = () => {
+    amountCommit.current();
+    dateCommit.current();
+    merchantCommit.current();
+    remarkCommit.current();
+  };
   // Every item is a step now  income included (so it can be dropped / dup-warned).
   // Statement providers commonly return newest-first. Review in ledger order instead, keeping
   // an item's original index as the tie-breaker so assignments and split drafts stay aligned.
@@ -106,7 +132,11 @@ export function CategorizeScreen({
           if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
           if (dateA && !dateB) return -1;
           if (!dateA && dateB) return 1;
-          return a - b;
+          const timeA = items[a].time;
+          const timeB = items[b].time;
+          if (timeA && timeB && timeA !== timeB) return timeA.localeCompare(timeB);
+          // Same day with no usable times: statements list newest-first, so flip to oldest-first.
+          return b - a;
         }),
     [items]
   );
@@ -120,6 +150,7 @@ export function CategorizeScreen({
   );
   const [acked, setAcked] = useState<Record<number, boolean>>({});
   const [step, setStep] = useState(0);
+  const [viewingSource, setViewingSource] = useState(false);
   const [adding, setAdding] = useState(false);
   const [splitting, setSplitting] = useState(false);
   const [splitDrafts, setSplitDrafts] = useState<(SplitDraft | null)[]>(() =>
@@ -142,6 +173,20 @@ export function CategorizeScreen({
   const [notRepayment, setNotRepayment] = useState<Record<number, boolean>>({});
   /** Expansion state for multi-debt allocation breakdown. */
   const [expandedSettlement, setExpandedSettlement] = useState<Record<number, boolean>>({});
+
+  const [activeCurrencies, setActiveCurrencies] = useState<string[]>([BASE_CURRENCY]);
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+
+  useEffect(() => {
+    getActiveCurrencies().then((list) => {
+      setActiveCurrencies(list);
+    });
+  }, []);
+
+  const refreshActiveCurrencies = async () => {
+    const list = await getActiveCurrencies();
+    setActiveCurrencies(list);
+  };
 
   const fade = useRef(new Animated.Value(1)).current;
   const slide = useRef(new Animated.Value(0)).current;
@@ -254,23 +299,34 @@ export function CategorizeScreen({
   };
 
   const setAmount = (amount: number) => {
-    setItems((prev) => {
+    replaceItems((prev) => {
       const next = [...prev];
       next[originalIndex] = { ...next[originalIndex], amount };
       return next;
     });
   };
 
+  const changeItemCurrency = (newCurrency: string) => {
+    if (!item || item.currency === newCurrency) return;
+
+    replaceItems((prev) => {
+      const next = [...prev];
+      next[originalIndex] = { ...next[originalIndex], currency: newCurrency };
+      return next;
+    });
+
+  };
+
   // Editing the date can rewrite the *whole batch* (year-propagation), so it
   // goes through the pure helper rather than a single-field splice.
   const setDate = (date: string | null) => {
-    setItems((prev) => applyDateEdit(prev, originalIndex, date));
+    replaceItems((prev) => applyDateEdit(prev, originalIndex, date));
   };
 
   // Flip an item between expense and income; clears the category pick since the
   // available categories change with the kind.
   const setRemark = (remark: string | null) => {
-    setItems((prev) => {
+    replaceItems((prev) => {
       const next = [...prev];
       next[originalIndex] = { ...next[originalIndex], remark };
       return next;
@@ -278,7 +334,7 @@ export function CategorizeScreen({
   };
 
   const setMerchant = (merchant: string) => {
-    setItems((prev) => {
+    replaceItems((prev) => {
       const next = [...prev];
       next[originalIndex] = { ...next[originalIndex], merchant };
       return next;
@@ -318,7 +374,7 @@ export function CategorizeScreen({
 
   const setType = (t: TxnType) => {
     if (!item || t === item.type) return;
-    setItems((prev) => {
+    replaceItems((prev) => {
       const next = [...prev];
       next[originalIndex] = { ...next[originalIndex], type: t };
       return next;
@@ -336,6 +392,7 @@ export function CategorizeScreen({
   };
 
   const promptSaveAll = () => {
+    flushDrafts();
     const unassignedIdx = stepIndices.find((i) => assignments[i] === null);
     if (unassignedIdx !== undefined) {
       setStep(stepIndices.indexOf(unassignedIdx));
@@ -347,7 +404,10 @@ export function CategorizeScreen({
         ? `确认将这 ${keptCount} 笔交易全部保存到账本吗？`
         : `Save all ${keptCount} transactions to your ledger now?`,
       isZh ? '保存全部' : 'Save all',
-      () => onComplete(assignments, items, splitDrafts, settlements, adjustmentsFor(items)),
+      () => {
+        const rows = itemsRef.current;
+        onComplete(assignments, rows, splitDrafts, settlements, adjustmentsFor(rows));
+      },
       undefined,
       isZh ? '返回查看' : 'Review first'
     );
@@ -359,13 +419,15 @@ export function CategorizeScreen({
     nextAssignments: (string | null)[],
     nextSettlements: (PendingSettlement | null)[] = settlements
   ) => {
+    flushDrafts();
+    const rows = itemsRef.current;
     if (isLast) {
       const unassignedIdx = stepIndices.find((i) => nextAssignments[i] === null);
       if (unassignedIdx !== undefined) {
         setStep(stepIndices.indexOf(unassignedIdx));
         return;
       }
-      onComplete(nextAssignments, items, splitDrafts, nextSettlements, adjustmentsFor(items));
+      onComplete(nextAssignments, rows, splitDrafts, nextSettlements, adjustmentsFor(rows));
     } else {
       setStep((s) => s + 1);
     }
@@ -415,7 +477,7 @@ export function CategorizeScreen({
 
     if (settlementHit.excess > 0) {
       // User decision: "Just name it excess"
-      setItems((prev) => {
+      replaceItems((prev) => {
         const next = [...prev];
         next[originalIndex] = {
           ...next[originalIndex],
@@ -436,6 +498,7 @@ export function CategorizeScreen({
   const addAnyway = () => setAcked((a) => ({ ...a, [originalIndex]: true }));
 
   const go = (dir: number) => {
+    flushDrafts();
     if (dir > 0 && isLast) {
       advanceOrFinish(assignments);
       return;
@@ -458,9 +521,25 @@ export function CategorizeScreen({
           title={isZh ? '确认分类' : 'Categorize'}
           onBack={() => go(-1)}
           right={
-            <Text style={[styles.counter, { color: colorTheme.ink2 }]}>
-              {safeStep + 1}/{stepIndices.length}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {sourceImageUri ? (
+                <Pressable
+                  onPress={() => setViewingSource(true)}
+                  hitSlop={8}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={isZh ? '查看原图' : 'View original screenshot'}
+                >
+                  <Image
+                    source={{ uri: sourceImageUri }}
+                    style={{ width: 28, height: 36, borderRadius: 6, backgroundColor: colorTheme.surface2, borderWidth: StyleSheet.hairlineWidth, borderColor: colorTheme.line2 }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ) : null}
+              <Text style={[styles.counter, { color: colorTheme.ink2 }]}>
+                {safeStep + 1}/{stepIndices.length}
+              </Text>
+            </View>
           }
         />
         <View style={{ paddingHorizontal: 18, paddingTop: 2 }}>
@@ -518,7 +597,7 @@ export function CategorizeScreen({
           {/* amount + date focus (both editable) */}
           <Card style={[styles.focus, { alignItems: 'flex-start' }]}>
             <View style={{ flex: 1 }}>
-              <MerchantEditor itemKey={originalIndex} value={item!.merchant} onChange={setMerchant} />
+              <MerchantEditor itemKey={originalIndex} value={item!.merchant} onChange={setMerchant} commitSlot={merchantCommit} />
               {linkedAccount ? (
                 <View style={styles.acctRow}>
                   <Icon name={(CLASS_BY_ID[linkedAccount.cls]?.icon ?? 'wallet') as IconName} size={12} color={colorTheme.ink3} />
@@ -527,10 +606,18 @@ export function CategorizeScreen({
               ) : item!.method ? (
                 <Text style={[styles.focusSub, { color: colorTheme.ink2 }]}>{item!.method}</Text>
               ) : null}
-              <DateEditor value={item!.date} onChange={setDate} />
-              <RemarkEditor itemKey={originalIndex} value={item!.remark ?? null} onChange={setRemark} />
+              <DateEditor itemKey={originalIndex} value={item!.date} time={item!.time} onChange={setDate} commitSlot={dateCommit} />
+              <RemarkEditor itemKey={originalIndex} value={item!.remark ?? null} onChange={setRemark} commitSlot={remarkCommit} />
             </View>
-            <AmountEditor value={item!.amount} currency={item!.currency ?? BASE_CURRENCY} income={isIncome} onChange={setAmount} />
+            <AmountEditor
+              itemKey={originalIndex}
+              value={item!.amount}
+              currency={itemCurrency}
+              income={isIncome}
+              onChange={setAmount}
+              onOpenCurrencyPicker={() => setCurrencyPickerOpen(true)}
+              commitSlot={amountCommit}
+            />
           </Card>
 
           {!isIncome && !showBanner && (
@@ -891,8 +978,18 @@ export function CategorizeScreen({
         }}
       />
 
+      <CurrencyPickerSheet
+        visible={currencyPickerOpen}
+        selectedCurrency={itemCurrency}
+        activeCurrencies={activeCurrencies}
+        onClose={() => setCurrencyPickerOpen(false)}
+        onSelect={changeItemCurrency}
+        onActivated={refreshActiveCurrencies}
+      />
+
       <SplitSheet
         visible={splitting}
+        currency={itemCurrency}
         gross={item?.amount ?? 0}
         merchant={item?.merchant}
         initial={activeSplit}
@@ -965,33 +1062,116 @@ export function CategorizeScreen({
           }}
         />
       )}
+      {sourceImageUri ? (
+        <ZoomableImageViewer
+          visible={viewingSource}
+          uri={sourceImageUri}
+          topInset={insets.top}
+          onClose={() => setViewingSource(false)}
+        />
+      ) : null}
     </View>
   );
 }
 
+/**
+ * Inline editors stay mounted while Next/Back changes the transaction. The draft and the
+ * commit target are pinned to the transaction being edited, so a half-typed amount or date
+ * is saved there and cannot appear on the next or previous one.
+ */
+function useScopedDraft(
+  itemKey: number,
+  displayText: string,
+  apply: (draft: string) => void,
+  commitSlot: React.MutableRefObject<() => void>,
+) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(displayText);
+  const textRef = useRef(displayText);
+  const displayRef = useRef(displayText);
+  const editingRef = useRef(false);
+  const editingKeyRef = useRef<number | null>(null);
+  const applyByKey = useRef(new Map<number, (draft: string) => void>());
+
+  textRef.current = text;
+  displayRef.current = displayText;
+  applyByKey.current.set(itemKey, apply);
+
+  // Keystrokes update the ref immediately. Next/Back can commit in the same turn, before
+  // the controlled input's state has re-rendered.
+  const setDraft = (value: string) => {
+    textRef.current = value;
+    setText(value);
+  };
+
+  const commit = () => {
+    if (!editingRef.current) return;
+    const key = editingKeyRef.current;
+    const draft = textRef.current;
+    editingRef.current = false;
+    editingKeyRef.current = null;
+    setEditing(false);
+    if (key == null) return;
+    applyByKey.current.get(key)?.(draft);
+  };
+
+  commitSlot.current = commit;
+
+  const begin = () => {
+    editingKeyRef.current = itemKey;
+    editingRef.current = true;
+    setDraft(displayRef.current);
+    setEditing(true);
+  };
+
+  useEffect(() => {
+    const key = itemKey;
+    return () => {
+      if (!editingRef.current || editingKeyRef.current !== key) return;
+      const draft = textRef.current;
+      editingRef.current = false;
+      editingKeyRef.current = null;
+      applyByKey.current.get(key)?.(draft);
+    };
+  }, [itemKey]);
+
+  useEffect(() => {
+    editingRef.current = false;
+    editingKeyRef.current = null;
+    setEditing(false);
+    textRef.current = displayRef.current;
+    setText(displayRef.current);
+  }, [itemKey]);
+
+  useEffect(() => {
+    if (editingRef.current) return;
+    textRef.current = displayText;
+    setText(displayText);
+  }, [displayText]);
+
+  useEffect(() => () => {
+    commitSlot.current = () => {};
+  }, [commitSlot]);
+
+  return { editing, text, setText: setDraft, commit, begin };
+}
+
 /** Tap the merchant, or the pencil beside it, to rename the statement line. */
-function MerchantEditor({ value, itemKey, onChange }: { value: string; itemKey: number; onChange: (merchant: string) => void }) {
+function MerchantEditor({
+  value,
+  itemKey,
+  onChange,
+  commitSlot,
+}: {
+  value: string;
+  itemKey: number;
+  onChange: (merchant: string) => void;
+  commitSlot: React.MutableRefObject<() => void>;
+}) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value);
-
-  useEffect(() => {
-    if (!editing) setText(value);
-  }, [value, editing]);
-
-  // The input stays mounted across steps. Reset it so a name typed for one line
-  // never shows up on the next one.
-  useEffect(() => {
-    setText(value);
-    setEditing(false);
-  }, [itemKey]);
-
-  const commit = () => {
-    onChange(text.trim());
-    setEditing(false);
-  };
+  const { editing, text, setText, commit, begin } = useScopedDraft(itemKey, value, (draft) => onChange(draft.trim()), commitSlot);
 
   if (editing) {
     return (
@@ -1011,7 +1191,7 @@ function MerchantEditor({ value, itemKey, onChange }: { value: string; itemKey: 
 
   return (
     <Pressable
-      onPress={() => setEditing(true)}
+      onPress={begin}
       hitSlop={6}
       style={styles.merchantRow}
       accessibilityRole="button"
@@ -1025,28 +1205,59 @@ function MerchantEditor({ value, itemKey, onChange }: { value: string; itemKey: 
   );
 }
 
-/** Tap the amount to edit it inline. */
-function AmountEditor({ value, currency, income, onChange }: { value: number; currency: string; income: boolean; onChange: (n: number) => void }) {
+/** Tap the amount to edit it inline, or tap the currency pill to change currency. */
+function AmountEditor({
+  value,
+  itemKey,
+  currency,
+  income,
+  onChange,
+  onOpenCurrencyPicker,
+  commitSlot,
+}: {
+  value: number;
+  itemKey: number;
+  currency: string;
+  income: boolean;
+  onChange: (n: number) => void;
+  onOpenCurrencyPicker: () => void;
+  commitSlot: React.MutableRefObject<() => void>;
+}) {
   const theme = useAccent();
   const signedUp = useSignedUp();
   const colorTheme = useThemeColors();
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value.toFixed(2));
+  const { editing, text, setText, commit, begin } = useScopedDraft(
+    itemKey,
+    value.toFixed(2),
+    (draft) => {
+      const n = parseFloat(draft.replace(/[^0-9.]/g, ''));
+      if (Number.isFinite(n) && n >= 0) onChange(Math.round(n * 100) / 100);
+    },
+    commitSlot,
+  );
 
-  useEffect(() => {
-    if (!editing) setText(value.toFixed(2));
-  }, [value, editing]);
-
-  const commit = () => {
-    const n = parseFloat(text.replace(/[^0-9.]/g, ''));
-    if (Number.isFinite(n) && n >= 0) onChange(Math.round(n * 100) / 100);
-    setEditing(false);
-  };
+  const currencyPill = (
+    <Pressable
+      onPress={onOpenCurrencyPicker}
+      hitSlop={6}
+      style={[
+        styles.currencyPill,
+        { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line2 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Currency: ${currency}`}
+    >
+      <Text style={[styles.currencyPillText, { color: colorTheme.ink }]}>
+        {currencyPrefix(currency)}
+      </Text>
+      <Icon name="chevronDown" size={12} color={colorTheme.ink3} />
+    </Pressable>
+  );
 
   if (editing) {
     return (
       <View style={styles.amountEditRow}>
-        <Text style={[styles.rmPrefix, { color: colorTheme.ink2 }]}>{currencyPrefix(currency)}</Text>
+        {currencyPill}
         <TextInput
           value={text}
           onChangeText={setText}
@@ -1062,31 +1273,43 @@ function AmountEditor({ value, currency, income, onChange }: { value: number; cu
   }
 
   return (
-    <Pressable onPress={() => setEditing(true)} hitSlop={8} style={styles.amountTap}>
-      <Amount value={value} size={26} weight={700} color={income ? signedUp : colorTheme.ink} />
-      <Icon name="pencil" size={15} color={colorTheme.ink3} />
-    </Pressable>
+    <View style={styles.amountEditRow}>
+      {currencyPill}
+      <Pressable onPress={begin} hitSlop={8} style={styles.amountTap}>
+        <Amount value={value} cur={false} currency={currency} size={26} weight={700} color={income ? signedUp : colorTheme.ink} />
+        <Icon name="pencil" size={15} color={colorTheme.ink3} />
+      </Pressable>
+    </View>
   );
 }
 
 /** Tap the date to edit it inline, as a `YYYY-MM-DD` string (mirrors AmountEditor). */
-function DateEditor({ value, onChange }: { value: string | null; onChange: (d: string | null) => void }) {
+function DateEditor({
+  value,
+  itemKey,
+  time,
+  onChange,
+  commitSlot,
+}: {
+  value: string | null;
+  itemKey: number;
+  time?: string | null;
+  onChange: (d: string | null) => void;
+  commitSlot: React.MutableRefObject<() => void>;
+}) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value ?? '');
-
-  useEffect(() => {
-    if (!editing) setText(value ?? '');
-  }, [value, editing]);
-
-  const commit = () => {
-    const trimmed = text.trim();
-    if (!trimmed) onChange(null);
-    else if (ISO_DATE_RE.test(trimmed) && isValidIsoDate(trimmed)) onChange(trimmed);
-    // else: leave the date unchanged (invalid input is dropped, not saved)
-    setEditing(false);
-  };
+  const { editing, text, setText, commit, begin } = useScopedDraft(
+    itemKey,
+    value ?? '',
+    (draft) => {
+      const trimmed = draft.trim();
+      if (!trimmed) onChange(null);
+      else if (ISO_DATE_RE.test(trimmed) && isValidIsoDate(trimmed)) onChange(trimmed);
+      // else: leave the date unchanged (invalid input is dropped, not saved)
+    },
+    commitSlot,
+  );
 
   if (editing) {
     return (
@@ -1105,9 +1328,11 @@ function DateEditor({ value, onChange }: { value: string | null; onChange: (d: s
   }
 
   return (
-    <Pressable onPress={() => setEditing(true)} hitSlop={8} style={styles.dateTap}>
+    <Pressable onPress={begin} hitSlop={8} style={styles.dateTap}>
       <Icon name="clock" size={13} color={colorTheme.ink3} />
-      <Text style={[styles.dateText, { color: colorTheme.ink2 }]}>{value ? fullDateWithWeekday(value) : 'Add date'}</Text>
+      <Text style={[styles.dateText, { color: colorTheme.ink2 }]}>
+        {value ? `${fullDateWithWeekday(value)}${time ? ` · ${time}` : ''}` : 'Add date'}
+      </Text>
       <Icon name="pencil" size={13} color={colorTheme.ink3} />
     </Pressable>
   );
@@ -1115,28 +1340,25 @@ function DateEditor({ value, onChange }: { value: string | null; onChange: (d: s
 
 /** Tap to add or edit a short free-text remark (mirrors DateEditor). Never extracted from the
  *  screenshot; purely something the user types during review. */
-function RemarkEditor({ itemKey, value, onChange }: { itemKey: number; value: string | null; onChange: (r: string | null) => void }) {
+function RemarkEditor({
+  itemKey,
+  value,
+  onChange,
+  commitSlot,
+}: {
+  itemKey: number;
+  value: string | null;
+  onChange: (r: string | null) => void;
+  commitSlot: React.MutableRefObject<() => void>;
+}) {
   const theme = useAccent();
   const colorTheme = useThemeColors();
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(value ?? '');
-
-  useEffect(() => {
-    if (!editing) setText(value ?? '');
-  }, [value, editing]);
-
-  // A focused TextInput survives the parent screen changing step. Reset both its local draft and
-  // editing state so a note typed for one transaction can never appear on the next transaction.
-  useEffect(() => {
-    setText(value ?? '');
-    setEditing(false);
-  }, [itemKey]);
-
-  const commit = () => {
-    const trimmed = text.trim();
-    onChange(trimmed || null);
-    setEditing(false);
-  };
+  const { editing, text, setText, commit, begin } = useScopedDraft(
+    itemKey,
+    value ?? '',
+    (draft) => onChange(draft.trim() || null),
+    commitSlot,
+  );
 
   if (editing) {
     return (
@@ -1154,7 +1376,7 @@ function RemarkEditor({ itemKey, value, onChange }: { itemKey: number; value: st
   }
 
   return (
-    <Pressable onPress={() => setEditing(true)} hitSlop={8} style={styles.dateTap}>
+    <Pressable onPress={begin} hitSlop={8} style={styles.dateTap}>
       <Icon name="pencil" size={13} color={colorTheme.ink3} />
       <Text style={[styles.dateText, { color: colorTheme.ink2 }]} numberOfLines={1}>{value || 'Add a remark'}</Text>
     </Pressable>
@@ -1208,7 +1430,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   amountTap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  amountEditRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  amountEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  currencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  currencyPillText: { fontFamily: numFont(700), fontSize: 13.5 },
   rmPrefix: { fontFamily: numFont(600), fontSize: 16 },
   amountInput: {
     fontFamily: numFont(700),

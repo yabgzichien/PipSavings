@@ -644,6 +644,10 @@ export interface Translations {
   tripIconAutoHint: string;
   tripIconGallery: string;
   tripIconChange: string;
+  tripCoverSet: string;
+  tripCoverChange: string;
+  tripCoverRemove: string;
+  tripChangeCurrency: string;
   tripTotalSubtext: string;
   tripsShareOfMonth: string;
 

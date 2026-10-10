@@ -17,6 +17,7 @@ import {
   callGroqText,
   callOpenRouterVision,
   callOpenRouterText,
+  OPENROUTER_SCAN_MODEL,
   type ScanType,
   type ScanResultData,
 } from './providers';
@@ -48,6 +49,10 @@ export interface ScanRequestBody {
   ocrText?: string;
   scanType?: ScanType;
   categories?: any[];
+  /** Commit a free scan without calling a model. Used when the phone already read the picture. */
+  countOnly?: boolean;
+  /** Hash of the on-device transcript. Idempotency only; the transcript itself stays on the phone. */
+  contentHash?: string;
 }
 
 export function isUsableResult(scanType: ScanType, data: ScanResultData): boolean {
@@ -94,6 +99,29 @@ async function executeWithTimeout<T>(
 
 const CORS_ALLOW_HEADERS =
   'Content-Type, x-installation-id, x-idempotency-key, x-rc-app-user-id, x-client-preprocess';
+
+function allowanceBody(isPro: boolean, dayUsed: number, monthUsed: number) {
+  let blockedBy: 'daily' | 'monthly' | null = null;
+  let canScan = true;
+  if (!isPro) {
+    if (dayUsed >= FREE_DAILY_LIMIT) {
+      blockedBy = 'daily';
+      canScan = false;
+    } else if (monthUsed >= FREE_MONTHLY_LIMIT) {
+      blockedBy = 'monthly';
+      canScan = false;
+    }
+  }
+  return {
+    tier: isPro ? 'pro' : 'free',
+    monthUsed,
+    monthLimit: isPro ? 'Infinity' : FREE_MONTHLY_LIMIT,
+    dayUsed,
+    dayLimit: isPro ? 'Infinity' : FREE_DAILY_LIMIT,
+    canScan,
+    blockedBy,
+  };
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -260,6 +288,68 @@ export default {
 
         const { imageBase64, mimeType, ocrText, scanType = 'transactions' } = body || {};
 
+        // The phone already parsed a receipt or statement. Count the free scan and skip the model.
+        if (body?.countOnly === true) {
+          if (scanType !== 'transactions' && scanType !== 'receipt') {
+            return new Response(JSON.stringify({ error: 'countOnly supports transactions and receipt scans' }), {
+              status: 400,
+              headers,
+            });
+          }
+          const contentHash = typeof body.contentHash === 'string' ? body.contentHash.trim() : '';
+          if (!contentHash || contentHash.length > 128) {
+            return new Response(JSON.stringify({ error: 'Missing contentHash' }), {
+              status: 400,
+              headers,
+            });
+          }
+
+          const countKey = await canonicalIdempotencyKey(installationId, `count:${scanType}`, contentHash, '');
+          const cachedCount = await readScanResult(env.DB, countKey);
+          if (cachedCount) {
+            return new Response(cachedCount, { status: 200, headers });
+          }
+
+          const reservation = await checkAndReserve(env.DB, hash, countKey, isPro, Date.now());
+          if (!reservation.ok) {
+            return new Response(
+              JSON.stringify({
+                ok: false,
+                quotaBlocked: true,
+                error: reservation.blockedBy === 'daily' ? 'daily_limit' : 'monthly_limit',
+                allowance: allowanceBody(false, reservation.dayUsed, reservation.monthUsed),
+              }),
+              { status: 429, headers }
+            );
+          }
+
+          if (!reservation.alreadyCommitted) {
+            await commitReservation(env.DB, countKey, isPro, Date.now(), { hash, dayKey, monthKey });
+          }
+
+          const finalDayUsed = isPro
+            ? 0
+            : reservation.alreadyCommitted
+            ? reservation.dayUsed
+            : reservation.dayUsed + 1;
+          const finalMonthUsed = isPro
+            ? 0
+            : reservation.alreadyCommitted
+            ? reservation.monthUsed
+            : reservation.monthUsed + 1;
+          const successBody = JSON.stringify({
+            ok: true,
+            countOnly: true,
+            scanType,
+            items: [],
+            receipt: null,
+            snapshot: null,
+            allowance: allowanceBody(isPro, finalDayUsed, finalMonthUsed),
+          });
+          await writeScanResult(env.DB, countKey, successBody, Date.now());
+          return new Response(successBody, { status: 200, headers });
+        }
+
         // Size limits: imageBase64 <= 400KB, ocrText <= 48KB.
         // 48KB is enough for a long scrolling statement read as text, which is one scan.
         if (imageBase64 && imageBase64.length > 400 * 1024) {
@@ -339,9 +429,9 @@ export default {
         }
 
         // 2. Cascade providers (Gemini -> Groq -> OpenRouter)
-        // 8s timeout per provider, 20s overall cascade budget
-        const CASCADE_TOTAL_BUDGET_MS = 20_000;
-        const PROVIDER_TIMEOUT_MS = 8_000;
+        // 12s timeout per provider, 24s overall cascade budget (the app aborts at 25s)
+        const CASCADE_TOTAL_BUDGET_MS = 24_000;
+        const PROVIDER_TIMEOUT_MS = 12_000;
         const cascadeStartTime = Date.now();
 
         let scanResult: ScanResultData = {};
@@ -349,6 +439,18 @@ export default {
         let winningProvider: 'gemini' | 'groq' | 'openrouter' | 'mock' | null = null;
         let lastErr: any = null;
         let providerAttempts = 0;
+        const attempts: { provider: string; ms: number; outcome: string }[] = [];
+        const recordAttempt = (provider: string, start: number) => {
+          const outcome =
+            winningProvider === provider
+              ? 'ok'
+              : lastErr?.name === 'AbortError'
+              ? 'timeout'
+              : lastErr?.message?.includes('unusable or empty result')
+              ? 'unusable'
+              : 'error';
+          attempts.push({ provider, ms: Date.now() - start, outcome });
+        };
 
         // Gemini attempt
         if (env.GEMINI_API_KEY) {
@@ -357,6 +459,7 @@ export default {
           if (remaining > 0) {
             providerAttempts++;
             const callTimeout = Math.min(PROVIDER_TIMEOUT_MS, remaining);
+            const attemptStart = Date.now();
             try {
               let candidate: ScanResultData;
               if (inputKind === 'text') {
@@ -389,6 +492,7 @@ export default {
             } catch (e) {
               lastErr = e;
             }
+            recordAttempt('gemini', attemptStart);
           }
         }
 
@@ -399,6 +503,7 @@ export default {
           if (remaining > 0) {
             providerAttempts++;
             const callTimeout = Math.min(PROVIDER_TIMEOUT_MS, remaining);
+            const attemptStart = Date.now();
             try {
               let candidate: ScanResultData;
               if (inputKind === 'text') {
@@ -431,6 +536,7 @@ export default {
             } catch (e) {
               lastErr = e;
             }
+            recordAttempt('groq', attemptStart);
           }
         }
 
@@ -441,6 +547,7 @@ export default {
           if (remaining > 0) {
             providerAttempts++;
             const callTimeout = Math.min(PROVIDER_TIMEOUT_MS, remaining);
+            const attemptStart = Date.now();
             try {
               let candidate: ScanResultData;
               if (inputKind === 'text') {
@@ -450,7 +557,7 @@ export default {
                       env.OPENROUTER_API_KEY!,
                       ocrText!,
                       validatedScanType,
-                      'google/gemini-2.5-flash',
+                      OPENROUTER_SCAN_MODEL,
                       signal
                     ),
                   callTimeout
@@ -464,7 +571,7 @@ export default {
                       mimeType!,
                       validatedScanType,
                       inputKind === 'hybrid' ? ocrText : undefined,
-                      'google/gemini-2.5-flash',
+                      OPENROUTER_SCAN_MODEL,
                       signal
                     ),
                   callTimeout
@@ -480,6 +587,7 @@ export default {
             } catch (e) {
               lastErr = e;
             }
+            recordAttempt('openrouter', attemptStart);
           }
         }
 
@@ -546,6 +654,7 @@ export default {
               payloadBytes,
               winningProvider: null,
               providerAttempts,
+              attempts,
               reserveMs,
               llmMs,
               commitMs: 0,
@@ -619,6 +728,7 @@ export default {
             payloadBytes,
             winningProvider,
             providerAttempts,
+            attempts,
             reserveMs,
             llmMs,
             commitMs,

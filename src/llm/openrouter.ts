@@ -30,6 +30,7 @@ import {
   RECEIPT_USER_PROMPT,
   SNAPSHOT_SYSTEM_PROMPT,
   SNAPSHOT_USER_PROMPT,
+  STATEMENT_ROW_RULES,
 } from './extractPrompt';
 import {
   buildCategoryGuessPrompt,
@@ -62,6 +63,7 @@ Return a JSON object exactly in this shape:
       "amount": number — positive value, no currency symbol,
       "direction": "out" for money leaving the account (spending), "in" for money received,
       "date": "YYYY-MM-DD if derivable, otherwise null",
+      "time": "HH:mm when that row prints a clock time, otherwise null",
       "method": "optional sub-label like 'DuitNow QR' or 'RFID Payment', otherwise null"
     }
   ]
@@ -69,9 +71,10 @@ Return a JSON object exactly in this shape:
 
 Rules:
 - One object per transaction row. Do not merge or invent rows.
+- ${STATEMENT_ROW_RULES}
 - amount is always positive; use "direction" to indicate spend vs received.
 - Keep merchant text close to what is shown (you may trim trailing reference codes).
-- If you cannot read a field, use null (for date/method) — never guess amounts.
+- If you cannot read a field, use null (for date/time/method) — never guess amounts.
 - Output JSON only.`;
 
 async function postChat(body: object, apiKey: string): Promise<Response> {

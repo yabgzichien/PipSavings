@@ -69,6 +69,12 @@ describe('backTargetFor', () => {
     expect(backTargetFor('tripDetail', { ...origins, tripDetailOrigin: 'transactions' })).toBe('transactions');
   });
 
+  it('sends the trips list back to Activity unless Home opened it', () => {
+    expect(backTargetFor('trips', origins)).toBe('transactions');
+    expect(backTargetFor('trips', { ...origins, tripsOrigin: 'transactions' })).toBe('transactions');
+    expect(backTargetFor('trips', { ...origins, tripsOrigin: 'home' })).toBe('home');
+  });
+
   it('returns owed, calendar and export to wherever they were opened from', () => {
     expect(backTargetFor('owed', { ...origins, owedOrigin: 'home' })).toBe('home');
     expect(backTargetFor('owed', { ...origins, owedOrigin: 'transactions' })).toBe('transactions');

@@ -103,7 +103,7 @@ export function parseReceipt(content: string): ScannedReceipt {
     if (!row || typeof row !== 'object') return;
     const r = row as Record<string, unknown>;
     const amount = coerceAmount(r.amount);
-    if (amount === null) return; // a row with no readable price cannot be assigned to anyone
+    if (amount === null || amount === 0) return; // a row with no readable price cannot be assigned to anyone
     items.push({ label: coerceLabel(r.label, `Item ${i + 1}`), amount, quantity: coerceQuantity(r.quantity) });
   });
 

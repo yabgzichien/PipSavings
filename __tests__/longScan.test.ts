@@ -1,6 +1,8 @@
 import {
   bandNeedsAnotherPass,
   dedupeExtracted,
+  dropEchoRows,
+  transcriptCoversImage,
   extractionLooksShort,
   mergeOcrChunks,
   MLKIT_BAND_MAX,
@@ -57,6 +59,23 @@ describe('mergeOcrChunks', () => {
     ]);
     expect(merged).toBe('MBO FRUITSHOP    RM  11.00\nSUNSHINE BAKERY RM 42.00');
   });
+
+  it('drops a points line that repeated the payment above it', () => {
+    const rows = dropEchoRows([
+      txn({ merchant: 'FP-AEON', amount: 13, date: '2026-09-27' }),
+      txn({ merchant: 'DuitNow QR 0 points FP-AEON', amount: 13, date: '2026-09-27' }),
+      txn({ merchant: 'Transfer to FONG YAN YAN', amount: 32.4, date: '2026-09-27' }),
+    ]);
+    expect(rows.map((row) => row.merchant)).toEqual(['FP-AEON', 'Transfer to FONG YAN YAN']);
+  });
+
+  it('treats Q ME and QME as the same overlapped row', () => {
+    const merged = mergeOcrChunks([
+      'Q ME BUDGET STORE    3.90 SGD\nSent    3.95 SGD',
+      'QME BUDGET STORE    3.90 SGD\nSent    3.95 SGD\nIMAM BANANA LEAF',
+    ]);
+    expect(merged).toBe('Q ME BUDGET STORE    3.90 SGD\nSent    3.95 SGD\nIMAM BANANA LEAF');
+  });
 });
 
 describe('band reads and extract recovery', () => {
@@ -94,6 +113,18 @@ describe('splitOcrChunks', () => {
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks.join('\n')).toContain('three RM 3.00');
     for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(24);
+  });
+});
+
+describe('transcriptCoversImage', () => {
+  it('rejects a top-of-screen read of a tall screenshot', () => {
+    const text = ['3.95 SGD', '6.50 SGD', '11.99 SGD', '11.90 SGD', '2.50 SGD', '20.03 SGD'].join('\n');
+    expect(transcriptCoversImage(text, 1080, 2400)).toBe(false);
+  });
+
+  it('accepts a read that has an amount for every row', () => {
+    const text = Array.from({ length: 18 }, (_, i) => `Shop ${i} ${(i + 1).toFixed(2)} SGD`).join('\n');
+    expect(transcriptCoversImage(text, 1080, 2400)).toBe(true);
   });
 });
 

@@ -7,9 +7,12 @@ import {
   ocrLooksGarbled,
   richerOcrText,
   sliceRects,
+  transcriptCoversImage,
   type SliceRect,
 } from './longScan';
 import { recognizeReceiptText, type OcrOutcome, type OcrScript } from './receiptOcr';
+import { betterReceiptText, parseReceiptOcr } from './receiptFromOcr';
+import { parseStatementRows } from './statementRows';
 
 export type ScanType = 'transactions' | 'receipt' | 'snapshot';
 
@@ -389,8 +392,30 @@ async function bitmapForCrop(
   }
 }
 
+/** ML Kit drops letters when the screenshot is only a hundred pixels wide. */
+const NARROW_SHORT_SIDE = 400;
+const NARROW_TARGET_SHORT_SIDE = 800;
+
+async function upscaleIfNarrow(uri: string): Promise<string> {
+  const dims = await getImageDimensions(uri);
+  const short = Math.min(dims.width, dims.height);
+  if (!(short > 0) || short >= NARROW_SHORT_SIDE || !(dims.width > 0)) return uri;
+  const width = Math.round(dims.width * (NARROW_TARGET_SHORT_SIDE / short));
+  try {
+    const rendered = await manipulateAsync(uri, [{ resize: { width } }], {
+      compress: 0.92,
+      format: SaveFormat.JPEG,
+      base64: false,
+    });
+    return rendered.uri || uri;
+  } catch {
+    return uri;
+  }
+}
+
 /** OCR each band of a scrolling screenshot. Null when the image is short enough for one pass. */
 export async function recognizeTallImage(uri: string): Promise<TallRead | null> {
+  uri = await upscaleIfNarrow(uri);
   const file = await getImageDimensions(uri);
   if (sliceRects(file.width, file.height).length <= 1) return null;
 
@@ -470,16 +495,90 @@ async function encodeBandImage(uri: string): Promise<PreparedImage | null> {
  * Pass `opts.prefetchedOcr` when ScanKind already started OCR so ML Kit is not run twice.
  * Scrolling screenshots reuse `prefetchedTallOcr` when supplied, otherwise read each band.
  */
+/** A dated list that the local reader cannot finish is not safe to send as text alone. */
+function datedStatementUnreadable(text: string): boolean {
+  if (!/(?:\d{4}-\d{2}-\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b)/i.test(text)) {
+    return false;
+  }
+  return parseStatementRows(text) == null;
+}
+
+/** Slices of a tall screenshot for a model rescan. No on-device text recognition. */
+async function visionBandImages(uri: string): Promise<PreparedImage[] | null> {
+  const file = await getImageDimensions(uri);
+  if (sliceRects(file.width, file.height).length <= 1) return null;
+  const bitmap = await bitmapForCrop(uri, file.width, file.height);
+  const bands = sliceRects(bitmap.width, bitmap.height);
+  if (bands.length <= 1) return null;
+  const images: PreparedImage[] = [];
+  for (const rect of bands) {
+    const cropped = await cropFile(bitmap.uri, rect);
+    if (!cropped) continue;
+    const encoded = await encodeBandImage(cropped.uri);
+    if (encoded) images.push(encoded);
+  }
+  return images.length > 1 ? images : null;
+}
+
 export async function prepareDualPathScan(
   uri: string,
   scanType: ScanType,
   fallbackBase64?: string,
   fallbackMime: string = 'image/jpeg',
-  opts?: { prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>; prefetchedTallOcr?: Promise<TallRead | null> }
+  opts?: {
+    prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
+    prefetchedTallOcr?: Promise<TallRead | null>;
+    /** Send the photo to the model. Do not run on-device text recognition. */
+    forceVision?: boolean;
+  }
 ): Promise<DualPathResult> {
   const t0 = Date.now();
   let ocrMs = 0;
   let resizeMs = 0;
+
+  // A rescan the user asked for. The first pass already tried on-device text, and they
+  // want the photo read by the model instead.
+  if (opts?.forceVision) {
+    const started = Date.now();
+    if (scanType === 'transactions') {
+      try {
+        const bands = await visionBandImages(uri);
+        if (bands && bands.length > 1) {
+          return {
+            body: {
+              imageBase64: bands[0].base64,
+              mimeType: bands[0].mime,
+              scanType,
+            },
+            inputKind: 'vision',
+            ocrOutcome: { status: 'unavailable' },
+            preparedImage: bands[0],
+            bandImages: bands,
+            timings: { ocrMs: 0, resizeMs: Date.now() - started, totalPreprocessMs: Date.now() - t0 },
+          };
+        }
+      } catch {
+        // One photo is still enough for the model.
+      }
+    }
+    let preparedImage: PreparedImage | null = null;
+    try {
+      preparedImage = await prepareScanImage(uri, scanType, fallbackBase64, fallbackMime);
+    } catch {
+      preparedImage = null;
+    }
+    return {
+      body: {
+        imageBase64: preparedImage?.base64 || fallbackBase64,
+        mimeType: preparedImage?.mime || fallbackMime,
+        scanType,
+      },
+      inputKind: 'vision',
+      ocrOutcome: { status: 'unavailable' },
+      preparedImage,
+      timings: { ocrMs: 0, resizeMs: Date.now() - started, totalPreprocessMs: Date.now() - t0 },
+    };
+  }
 
   // A scrolling screenshot is taller than a vision model or a single ML Kit pass can read.
   // Slice it first. A full-image ML Kit read only returns the top rows, and sending that
@@ -494,7 +593,13 @@ export async function prepareDualPathScan(
     if (tall) {
       ocrMs = Date.now() - started;
       const transcript = tall.outcome.status === 'ok' ? tall.outcome.text : '';
-      if (transcript && tall.unreadUris.length === 0) {
+      const frame = await getImageDimensions(uri).catch(() => ({ width: 0, height: 0 }));
+      const covers =
+        scanType !== 'transactions' ||
+        (transcriptCoversImage(transcript, frame.width, frame.height) && !datedStatementUnreadable(transcript));
+      // Every band returned text. A till slip stays on device only when that text already adds up.
+      const receiptReady = scanType === 'receipt' && parseReceiptOcr(transcript) != null;
+      if (transcript && tall.unreadUris.length === 0 && ((covers && scanType !== 'receipt') || receiptReady)) {
         return {
           body: {
             ocrText: transcript,
@@ -504,6 +609,26 @@ export async function prepareDualPathScan(
           ocrOutcome: tall.outcome,
           preparedImage: null,
           timings: { ocrMs, resizeMs, totalPreprocessMs: Date.now() - t0 },
+        };
+      }
+      // Bands came back, but only a handful of amounts. A local parse of that
+      // transcript looks finished and drops the rows ML Kit skipped. Keep the picture.
+      if (transcript && tall.unreadUris.length === 0 && (scanType === 'receipt' || !covers)) {
+        const preparedImage = await prepareScanImage(uri, scanType, fallbackBase64, fallbackMime);
+        resizeMs = Date.now() - started - ocrMs;
+        // Band OCR of a till slip mislabels the shop and drops decimals. The photo is the read.
+        const keepTranscript = scanType !== 'receipt';
+        return {
+          body: {
+            ocrText: keepTranscript ? transcript : undefined,
+            imageBase64: preparedImage?.base64 || fallbackBase64,
+            mimeType: preparedImage?.mime || fallbackMime,
+            scanType,
+          },
+          inputKind: (keepTranscript ? 'hybrid' : 'vision') as 'hybrid' | 'vision',
+          ocrOutcome: tall.outcome,
+          preparedImage,
+          timings: { ocrMs, resizeMs: Math.max(0, resizeMs), totalPreprocessMs: Date.now() - t0 },
         };
       }
       const bandImages: PreparedImage[] = [];
@@ -562,10 +687,30 @@ export async function prepareDualPathScan(
     }
   })();
 
-  const ocrOutcome = await ocrPromise;
+  let ocrOutcome = await ocrPromise;
+  if (scanType === 'receipt' && ocrOutcome.status === 'ok') {
+    const latin = await Promise.resolve(recognizeReceiptText(uri, 'Latin')).catch(() => null);
+    if (latin && latin.status === 'ok') {
+      const chosen = betterReceiptText(ocrOutcome.text, latin.text);
+      if (chosen !== ocrOutcome.text) ocrOutcome = { status: 'ok', text: chosen };
+    }
+  }
+  const frame = await getImageDimensions(uri).catch(() => ({ width: 0, height: 0 }));
+  const ocrText = ocrOutcome.status === 'ok' ? ocrOutcome.text : '';
+  const covers =
+    scanType !== 'transactions' ||
+    (ocrOutcome.status === 'ok' &&
+      transcriptCoversImage(ocrText, frame.width, frame.height) &&
+      !datedStatementUnreadable(ocrText));
+  const receiptReady = scanType === 'receipt' && ocrText ? parseReceiptOcr(ocrText) != null : false;
 
-  // 1. Text-only path: OCR is usable -> send ONLY ocrText
-  if (isUsableOcrText(ocrOutcome) && ocrOutcome.status === 'ok') {
+  // 1. Text-only path: OCR read the whole screenshot -> send ONLY ocrText.
+  // A receipt takes this path only when the till slip already adds up. Otherwise the photo goes to the model.
+  if (
+    isUsableOcrText(ocrOutcome) &&
+    ocrOutcome.status === 'ok' &&
+    (scanType === 'receipt' ? receiptReady : covers)
+  ) {
     return {
       body: {
         ocrText: sanitizeOcrText(ocrOutcome.text),
@@ -582,6 +727,21 @@ export async function prepareDualPathScan(
   const timings = { ocrMs, resizeMs, totalPreprocessMs: Date.now() - t0 };
   const effectiveBase64 = preparedImage?.base64 || fallbackBase64;
   const effectiveMime = preparedImage?.mime || fallbackMime;
+
+  // A receipt ML Kit could not turn into a bill. Send the photo and leave the rough transcript behind.
+  if (scanType === 'receipt' && isUsableOcrText(ocrOutcome) && !receiptReady && effectiveBase64) {
+    return {
+      body: {
+        imageBase64: effectiveBase64,
+        mimeType: effectiveMime,
+        scanType,
+      },
+      inputKind: 'vision',
+      ocrOutcome,
+      preparedImage,
+      timings,
+    };
+  }
 
   // 2. Hybrid path: OCR produced text but without clear amounts -> send ocrText + image
   if (ocrOutcome.status === 'ok' && ocrOutcome.text.trim().length > 0) {

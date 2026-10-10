@@ -84,6 +84,7 @@ export function DashboardScreen({
   onToggleChat = () => {},
   onOpenNetWorth = () => {},
   onOpenTrip = () => {},
+  onOpenTrips = () => {},
   onOpenOwed = () => {},
   onOpenCommitments = () => {},
   onOpenCalendar = () => {},
@@ -102,6 +103,8 @@ export function DashboardScreen({
   onToggleChat?: () => void;
   onOpenNetWorth?: () => void;
   onOpenTrip?: (tripId: string) => void;
+  /** Opens the Trips list. Always available, including when no trip is featured. */
+  onOpenTrips?: () => void;
   onOpenOwed?: () => void;
   onOpenCommitments?: () => void;
   /** Opens the activity calendar (CalendarScreen), defaulted to the current month, so the
@@ -358,6 +361,21 @@ export function DashboardScreen({
 
   const empty = transactions.length === 0 && !featuredTrip;
 
+  const tripsRow = (
+    <Pressable
+      onPress={onOpenTrips}
+      style={({ pressed }) => [styles.needsRow, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft, opacity: pressed ? 0.9 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={t('tripsTitle')}
+    >
+      <Icon name="plane" size={17} color={theme.accent} />
+      <View style={{ flex: 1 }}>
+        <Label>{t('tripsTitle')}</Label>
+      </View>
+      <Icon name="chevronRight" size={16} color={colorTheme.ink3} />
+    </Pressable>
+  );
+
   // A returning user who has gone quiet, not a first-run empty state  the header mascot goes
   // sleepy rather than judging the gap (docs/ui-engagement-plan.md §1: reward looking, never
   // the state of the finances; a lapse in *logging* is fair game, a lapse in *spending* is not).
@@ -451,7 +469,10 @@ export function DashboardScreen({
         ) : null}
 
         {empty ? (
-          <EmptyState />
+          <>
+            <EmptyState />
+            {tripsRow}
+          </>
         ) : (
           <>
             {/* 1 — Streak, kept at the top: the habit loop is the first thing a returning user
@@ -521,6 +542,8 @@ export function DashboardScreen({
                 <Icon name="chevronRight" size={16} color={colorTheme.ink3} />
               </Pressable>
             )}
+
+            {tripsRow}
 
             <RecapEntry
               transactions={transactions}

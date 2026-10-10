@@ -26,12 +26,15 @@ export function TripIconPickerSheet({
   trip,
   onClose,
   onPick,
+  onCover,
 }: {
   visible: boolean;
   trip: Trip;
   onClose: () => void;
   /** A destination key, an image URI, or null for automatic. */
   onPick: (icon: string | null) => void;
+  /** Present only once a trip exists to store a cover. A URI sets it; null removes it. */
+  onCover?: (cover: string | null) => void;
 }) {
   const insets = useSafeAreaInsets();
   const theme = useAccent();
@@ -64,6 +67,32 @@ export function TripIconPickerSheet({
       setBusy(false);
     }
   };
+
+  const pickCover = async () => {
+    if (busy || !onCover) return;
+    setBusy(true);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) return;
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        base64: true,
+        // Wide, and compressed: the cover is stored inline and travels in the backup, same as
+        // a gallery icon. A full-resolution photo would bloat every backup.
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.45,
+      });
+      if (!res.canceled && res.assets?.length) {
+        const a = res.assets[0];
+        onCover(a.base64 ? `data:${a.mimeType ?? 'image/jpeg'};base64,${a.base64}` : a.uri);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hasCover = isCustomImageUri(trip.cover);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -116,6 +145,38 @@ export function TripIconPickerSheet({
                 <Icon name="chevronRight" size={15} color={colorTheme.ink3} />
               </Pressable>
             </View>
+
+            {onCover && (
+              <View style={styles.topRow}>
+                <Pressable
+                  onPress={pickCover}
+                  accessibilityRole="button"
+                  accessibilityLabel={hasCover ? t('tripCoverChange') : t('tripCoverSet')}
+                  style={[styles.wideOption, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}
+                >
+                  <View style={[styles.autoBadge, { backgroundColor: colorTheme.surface }]}>
+                    <Icon name="image" size={20} color={colorTheme.ink2} />
+                  </View>
+                  <Text style={[styles.optionLabel, { color: colorTheme.ink, flex: 1 }]}>
+                    {hasCover ? t('tripCoverChange') : t('tripCoverSet')}
+                  </Text>
+                  <Icon name="chevronRight" size={15} color={colorTheme.ink3} />
+                </Pressable>
+                {hasCover && (
+                  <Pressable
+                    onPress={() => onCover(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('tripCoverRemove')}
+                    style={[styles.wideOption, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}
+                  >
+                    <View style={[styles.autoBadge, { backgroundColor: colorTheme.surface }]}>
+                      <Icon name="trash" size={18} color={colorTheme.ink2} />
+                    </View>
+                    <Text style={[styles.optionLabel, { color: colorTheme.ink, flex: 1 }]}>{t('tripCoverRemove')}</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
 
             <Text style={[styles.groupLabel, { color: colorTheme.ink2 }]}>
               {isZh ? '地标' : 'Landmarks'}

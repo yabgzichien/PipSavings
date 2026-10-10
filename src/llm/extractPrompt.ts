@@ -4,6 +4,12 @@
 
 import type { CategoryOption } from './categoryGuessPrompt';
 
+export const STATEMENT_ROW_RULES = `One printed payment is one object, even when that row shows two amounts.
+- Wise and similar apps print the amount sent and, on the next line, what left the balance (a fee, or another currency). Emit one transaction. When both amounts use the same currency, use the larger one. When they differ, use the currency the rest of the list is in, not both.
+- A date heading such as "25 September" applies to every row under it until the next heading.
+- A timestamp printed on a row, such as "25 Sep, 20:12", belongs to that row only. Put it in "time" as "HH:mm". Do not give a row the next row's date.
+- Two payments to the same merchant stay two transactions when the time or the amount differs.`;
+
 export const DOC_SYSTEM_PROMPT =
   'You are a precise data extractor for a personal expenses app. You read a ' +
   'bank statement, an exported transaction file, or a screenshot and return ONLY ' +
@@ -28,6 +34,7 @@ Return a JSON object exactly in this shape:
       "currency": "3-letter ISO code read from the symbol or text shown, e.g. \"MYR\", \"CNY\", \"SGD\"  use \"MYR\" if none is shown",
       "direction": "out" for money leaving the account (spending), "in" for money received,
       "date": "YYYY-MM-DD if derivable, otherwise null",
+      "time": "HH:mm when that row prints a clock time, otherwise null",
       "category": "the best-fitting category id from the Categories list above, or the label from the source document, otherwise null",
       "method": "optional sub-label, otherwise null"
     }
@@ -36,6 +43,7 @@ Return a JSON object exactly in this shape:
 
 Rules:
 - One object per transaction. Do not merge, split, or invent rows.
+- ${STATEMENT_ROW_RULES}
 - Return every row, including on a long screenshot or statement. Do not stop after the first few.
 - amount is always positive; use "direction" for spend vs received.
 - For "category": pick the single best-fitting category id from the Categories list above for the merchant / description. If the document carries an explicit category label, prefer that if it matches. Never invent a category id that is not in the provided list. If unsure, use null.
@@ -62,6 +70,7 @@ Return a JSON object exactly in this shape:
       "currency": "3-letter ISO code read from the symbol or text shown, e.g. \"MYR\", \"CNY\", \"SGD\"  use \"MYR\" if none is shown",
       "direction": "out" for money leaving the account (spending), "in" for money received,
       "date": "YYYY-MM-DD if derivable, otherwise null",
+      "time": "HH:mm when that row prints a clock time, otherwise null",
       "category": "the category/label from the source if the document has one, otherwise null",
       "method": "optional sub-label, otherwise null"
     }
@@ -70,6 +79,7 @@ Return a JSON object exactly in this shape:
 
 Rules:
 - One object per transaction. Do not merge, split, or invent rows.
+- ${STATEMENT_ROW_RULES}
 - Return every row, including on a long screenshot or statement. Do not stop after the first few.
 - amount is always positive; use "direction" for spend vs received.
 - For tabular data, infer which columns are date, description, amount, and (debit/credit) direction.

@@ -339,11 +339,6 @@ function AddFlowPhases({
       return;
     }
 
-    // Batch path: CategorizeScreen hardcodes an RM prefix, so a foreign amount would be
-    // mislabelled. Force base currency and say so rather than lie about the denomination.
-    if (drafts.some((d) => d.currency && d.currency !== BASE_CURRENCY)) {
-      notify(t('quickAddForeignBatchTitle'), t('quickAddForeignBatch'));
-    }
     setExtracted(
       drafts.map((d) => ({
         merchant: d.label,
@@ -352,7 +347,7 @@ function AddFlowPhases({
         date: d.date ?? todayISO(),
         method: null,
         remark: null,
-        currency: BASE_CURRENCY,
+        currency: d.currency ?? BASE_CURRENCY,
         fxRate: null,
       }))
     );
@@ -667,6 +662,7 @@ function AddFlowPhases({
         categories={entryCategories}
         linkId={linkId}
         initialTripId={initialTripId}
+        sourceImageUri={image?.uri ?? null}
         onBack={backFromCategorize}
         onComplete={onCategorized}
       />

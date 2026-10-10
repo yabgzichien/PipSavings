@@ -13,6 +13,8 @@ import {
   setTransactionTrip,
   setTransactionsTrip,
   setTripArchived,
+  setTripCover,
+  setTripCurrency,
 } from '../src/db/tripsRepo';
 
 interface Statement {
@@ -100,7 +102,53 @@ describe('listTrips', () => {
         startDate: '2026-09-10',
         endDate: '2026-09-15',
         icon: null,
+        cover: null,
+        currency: null,
       },
+    ]);
+  });
+
+  it('reads a cover image and a saved display currency', async () => {
+    install(
+      fakeDb({
+        all: {
+          'FROM trips': [
+            {
+              id: 't1',
+              name: 'Singapore',
+              created_at: '2026-09-01T00:00:00.000Z',
+              archived: 0,
+              start_date: null,
+              end_date: null,
+              icon: null,
+              cover: 'data:image/jpeg;base64,abc',
+              currency: 'SGD',
+            },
+          ],
+        },
+      })
+    );
+    const trips = await listTrips();
+    expect(trips[0].cover).toBe('data:image/jpeg;base64,abc');
+    expect(trips[0].currency).toBe('SGD');
+  });
+});
+
+describe('trip cover and currency', () => {
+  it('writes the cover and the currency override on their own columns', async () => {
+    const db = install(fakeDb());
+    await setTripCover('t1', 'data:image/jpeg;base64,abc');
+    await setTripCover('t1', null);
+    await setTripCurrency('t1', 'SGD');
+    expect(db.sql()).toEqual([
+      'UPDATE trips SET cover = ? WHERE id = ?',
+      'UPDATE trips SET cover = ? WHERE id = ?',
+      'UPDATE trips SET currency = ? WHERE id = ?',
+    ]);
+    expect(db.statements.map((s) => s.args)).toEqual([
+      ['data:image/jpeg;base64,abc', 't1'],
+      [null, 't1'],
+      ['SGD', 't1'],
     ]);
   });
 });

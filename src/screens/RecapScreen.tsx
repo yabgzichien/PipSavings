@@ -83,9 +83,12 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   const current = month === todayMonth;
   const future = month > todayMonth;
   const summary = useMemo(() => monthlyRecapSummary(transactions, month, dc.convertTxn), [transactions, month, dc.code, dc.rates]); // eslint-disable-line react-hooks/exhaustive-deps
+  const previousMonth = prevMonthKey(month);
+  const previousSummary = useMemo(() => monthlyRecapSummary(transactions, previousMonth, dc.convertTxn), [transactions, previousMonth, dc.code, dc.rates]); // eslint-disable-line react-hooks/exhaustive-deps
   const comparisons = useMemo(() => completedRecapComparisons(transactions, month, now, dc.convertTxn).slice(0, 2), [transactions, month, todayMonth, dc.code, dc.rates]); // eslint-disable-line react-hooks/exhaustive-deps
   const recordCount = summary.incomeCount + summary.expenseCount;
   const empty = recordCount === 0;
+  const previousHasEntries = previousSummary.incomeCount + previousSummary.expenseCount > 0;
   const allocations = snapshots[month]?.allocations ?? {};
   const budgetIds = Object.keys(allocations);
   const merchantsKnown = Object.keys(memory).length;
@@ -158,10 +161,16 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
             ? <Title numeric>{heroAmount}</Title>
             : <Display numeric>{heroAmount}</Display>)}
           {empty ? (
-            onAdd && <Pressable onPress={onAdd} accessibilityRole="button" accessibilityLabel={isZh ? '添加交易' : 'Add a transaction'} style={({ pressed }) => [styles.addButton, { backgroundColor: accent.accentInk, opacity: pressed ? 0.8 : 1 }]}>
-              <Icon name="plus" size={20} color={accent.onAccent} />
-              <Body weight={700} color={accent.onAccent}>{isZh ? '添加交易' : 'Add a transaction'}</Body>
-            </Pressable>
+            <>
+              {onAdd && <Pressable onPress={onAdd} accessibilityRole="button" accessibilityLabel={isZh ? '添加交易' : 'Add a transaction'} style={({ pressed }) => [styles.addButton, { backgroundColor: accent.accentInk, opacity: pressed ? 0.8 : 1 }]}>
+                <Icon name="plus" size={20} color={accent.onAccent} />
+                <Body weight={700} color={accent.onAccent}>{isZh ? '添加交易' : 'Add a transaction'}</Body>
+              </Pressable>}
+              {previousHasEntries && <Pressable onPress={() => chooseMonth(previousMonth)} accessibilityRole="button" accessibilityLabel={isZh ? '查看上个月' : 'Show previous month'} style={({ pressed }) => [styles.previousButton, { borderColor: accent.onTint, opacity: pressed ? 0.7 : 1 }]}>
+                <Icon name="chevronLeft" size={18} color={accent.onTint} />
+                <Body weight={700} color={accent.onTint}>{isZh ? '查看上个月' : 'Show previous month'}</Body>
+              </Pressable>}
+            </>
           ) : incomeOnly || summary.incomeCount === 0 ? (
             <Label weight={500} color={colors.ink2} style={styles.recordNote}>{incomeOnly ? (isZh ? '尚未记录支出' : 'No expenses recorded') : (isZh ? '尚未记录收入' : 'No income recorded')}</Label>
           ) : (
@@ -386,6 +395,7 @@ const styles = StyleSheet.create({
   stack: { flexDirection: 'column', alignItems: 'stretch' },
   recordNote: { marginTop: spacing.sm },
   addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 48, gap: spacing.sm, padding: spacing.base, marginTop: spacing.md, borderRadius: radius.sm },
+  previousButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 48, gap: spacing.sm, padding: spacing.base, marginTop: spacing.sm, borderRadius: radius.sm, borderWidth: 1 },
   section: { marginTop: spacing.lg, gap: spacing.md },
   sectionHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   surface: { borderRadius: radius.md, overflow: 'hidden' },

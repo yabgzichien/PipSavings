@@ -42,6 +42,18 @@ describe('groupLinesSpatially', () => {
     );
   });
 
+  it('keeps the spatial rows when joining a merchant to its amount shortens the line count', () => {
+    const spatial = 'Q ME BUDGET STORE    3.90 SGD\nSent    3.95 SGD';
+    const raw = 'Q ME BUDGET STORE\nSent\n3.90 SGD\n3.95 SGD';
+    expect(preferOcrText(spatial, raw)).toBe(spatial);
+  });
+
+  it('keeps the raw transcript when grouping lost an amount', () => {
+    expect(preferOcrText('Shop    3.90 SGD', 'Shop\n3.90 SGD\nOther 1.50 SGD')).toBe(
+      'Shop\n3.90 SGD\nOther 1.50 SGD'
+    );
+  });
+
   it('returns an empty string for no recognized lines', () => {
     expect(groupLinesSpatially([])).toBe('');
   });

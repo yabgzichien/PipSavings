@@ -74,12 +74,14 @@ export async function syncStreakWidget(txns?: Transaction[], checkIns?: CheckInM
     const data = await getStreakWidgetData(txns, checkIns);
     await requestWidgetUpdate({
       widgetName: 'StreakWidget',
-      renderWidget: () => (
+      renderWidget: (info) => (
         <StreakWidget
           streak={data.streak}
           dots={data.dots}
           config={data.config}
           chrome={data.chrome}
+          width={info.width}
+          height={info.height}
         />
       ),
     });

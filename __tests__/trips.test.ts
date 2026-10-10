@@ -2,7 +2,7 @@
 // The totals contract is the whole of Trips that can be wrong quietly. Every case here is one
 // the spec names explicitly, and each has a way of producing a plausible-looking number that is
 // not the number the user means.
-import { computeTripTotals, expenseIdsFromSelection, expensesForTrip, inheritedTripId, isCustomImageUri, reassignedFromOtherTrips, resolveTripIcon, tripMonthTotals, tripRowSecondary } from '../src/lib/trips';
+import { computeTripTotals, expenseIdsFromSelection, expensesForTrip, inheritedTripId, isCustomImageUri, reassignedFromOtherTrips, resolveTripIcon, tripCurrencyCode, tripMonthTotals, tripRowSecondary } from '../src/lib/trips';
 import * as tripsLib from '../src/lib/trips';
 import type { Trip, TripMonthTotal } from '../src/lib/trips';
 import type { Transaction } from '../src/lib/types';
@@ -26,6 +26,18 @@ function txn(over: Partial<Transaction>): Transaction {
     ...over,
   };
 }
+
+describe('tripCurrencyCode', () => {
+  it('follows the app currency when the trip has not chosen one', () => {
+    expect(tripCurrencyCode({ currency: null }, 'MYR')).toBe('MYR');
+    expect(tripCurrencyCode({}, 'MYR')).toBe('MYR');
+    expect(tripCurrencyCode({ currency: '   ' }, 'SGD')).toBe('SGD');
+  });
+
+  it('uses the currency saved on the trip', () => {
+    expect(tripCurrencyCode({ currency: 'SGD' }, 'MYR')).toBe('SGD');
+  });
+});
 
 describe('computeTripTotals', () => {
   it('sums only the expenses linked to this trip', () => {

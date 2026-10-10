@@ -195,8 +195,8 @@ export async function restoreFromBackupPayload(
     for (const trip of payload.trips ?? []) {
       if (!trip?.id || !trip?.name) continue;
       await db.runAsync(
-        `INSERT INTO trips (id, name, created_at, archived, start_date, end_date, icon)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO trips (id, name, created_at, archived, start_date, end_date, icon, cover, currency)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         trip.id,
         trip.name,
         trip.createdAt || nowIso(),
@@ -205,7 +205,9 @@ export async function restoreFromBackupPayload(
         trip.endDate ?? null,
         // Carries a whole base64 image for a gallery icon. Restoring null is correct for a
         // backup taken before icons existed: the name-derived match takes over.
-        trip.icon ?? null
+        trip.icon ?? null,
+        trip.cover ?? null,
+        trip.currency ?? null
       );
     }
 

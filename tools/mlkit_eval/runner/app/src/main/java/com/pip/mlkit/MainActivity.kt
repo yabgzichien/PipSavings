@@ -47,13 +47,13 @@ class MainActivity : Activity() {
         // Latin-only recognizer
         val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-        val imageFiles = listOf(
-            "1000105419.jpg",
-            "1000105421.jpg",
-            "1000105423.jpg",
-            "tngscreenshot.png",
-            "pasted_image.png"
-        )
+        val imageFiles = imagesDir.listFiles()
+            ?.filter { file ->
+                file.isFile && file.extension.lowercase() in setOf("jpg", "jpeg", "png")
+            }
+            ?.sortedBy { it.name }
+            ?.map { it.name }
+            ?: emptyList()
 
         val rootJson = JSONObject()
 
@@ -169,6 +169,10 @@ class MainActivity : Activity() {
                 put("spatial_text", spatialText)
                 put("blocks", blocksArray)
             }
+            if (filename.startsWith("10001054") || filename.startsWith("Pasted")) {
+                val latin = Tasks.await(latinRecognizer.process(inputImage))
+                imgJson.put("latin_spatial", spatialTextOf(latin))
+            }
 
             rootJson.put(filename, imgJson)
             bitmap.recycle()
@@ -185,5 +189,37 @@ class MainActivity : Activity() {
         }
 
         Log.i("MLKitBench", "Benchmark completed successfully! Results written to ${outputFile.absolutePath}")
+    }
+
+    private fun spatialTextOf(textResult: Text): String {
+        data class LineInfo(val text: String, val top: Int, val left: Int, val bottom: Int)
+        val allLines = mutableListOf<LineInfo>()
+        for (block in textResult.textBlocks) {
+            for (line in block.lines) {
+                val box = line.boundingBox
+                if (box != null) allLines.add(LineInfo(line.text, box.top, box.left, box.bottom))
+                else allLines.add(LineInfo(line.text, 0, 0, 0))
+            }
+        }
+        allLines.sortBy { it.top }
+        val rows = mutableListOf<MutableList<LineInfo>>()
+        for (line in allLines) {
+            var placed = false
+            for (row in rows) {
+                val avgTop = row.map { it.top }.average()
+                val avgHeight = row.map { it.bottom - it.top }.average()
+                val threshold = if (avgHeight > 0) avgHeight * 0.6 else 15.0
+                if (abs(line.top - avgTop) < threshold) {
+                    row.add(line)
+                    placed = true
+                    break
+                }
+            }
+            if (!placed) rows.add(mutableListOf(line))
+        }
+        return rows.joinToString("\n") { row ->
+            row.sortBy { it.left }
+            row.joinToString("    ") { it.text }
+        }
     }
 }

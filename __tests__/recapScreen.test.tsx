@@ -91,6 +91,19 @@ it('gives an empty month a working add action and avoids invented totals', () =>
   press(tree, 'Add a transaction');
   expect(onAdd).toHaveBeenCalledTimes(1);
   expect(copy(tree)).not.toContain('RM 0.00');
+  expect(copy(tree)).not.toContain('Show previous month');
+});
+
+it('jumps to the previous month when this month is empty and that month has entries', () => {
+  mockState.transactions = [expense({ date: '2026-08-09' })];
+  const onMonthChange = jest.fn();
+  const tree = render({ onMonthChange, onAdd: jest.fn() });
+  expect(copy(tree)).toContain('No entries yet');
+  expect(copy(tree)).toContain('Show previous month');
+  press(tree, 'Show previous month');
+  expect(onMonthChange).toHaveBeenCalledWith('2026-08');
+  expect(copy(tree)).toContain('Recorded spending');
+  expect(copy(tree)).not.toContain('Show previous month');
 });
 
 it('labels absent income and does not compare the unfinished month with August', () => {

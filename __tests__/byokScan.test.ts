@@ -45,6 +45,36 @@ describe('BYOK local scan', () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, writable: true, value: originalPlatform });
   });
 
+  it('does not spend a free scan when ML Kit reads the picture and the user key is selected', async () => {
+    mockGetActive.mockResolvedValue({
+      id: 'k1',
+      providerId: 'groq',
+      apiKey: 'gsk_user',
+      createdAt: '2026-01-01',
+    });
+
+    const res = await submitScan(
+      {
+        ocrText: [
+          '25 September',
+          '25 Sep, 20:12    -RM15.41',
+          'HANDAL INDAH SDN. BHD.',
+          'Payment',
+          '25 Sep, 18:43    -RM15.41',
+          'HANDAL INDAH SDN. BHD.',
+          'Payment',
+        ].join('\n'),
+      },
+      'free'
+    );
+
+    expect(res.ok).toBe(true);
+    expect(res.items.length).toBeGreaterThan(0);
+    expect(res.quotaBlocked).toBe(false);
+    expect(mockExtract).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('calls the user key locally and never posts to the worker', async () => {
     mockGetActive.mockResolvedValue({
       id: 'k1',

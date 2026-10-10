@@ -47,4 +47,33 @@ describe('scanReceiptImage result metadata', () => {
       scanReceiptImage({ uri: 'file:///receipt.jpg', base64: 'abc', mime: 'image/jpeg' }),
     ).resolves.toEqual({ receipt, usedPipAllowance: false });
   });
+
+  it('asks the model to read a rescan and leaves the on-device text behind', async () => {
+    mockSubmitReceiptScan.mockResolvedValue({
+      ok: true,
+      receipt,
+      quotaBlocked: false,
+      allowance: { tier: 'free', monthUsed: 1, dayUsed: 1 },
+    });
+    const prefetched = { status: 'ok' as const, text: 'garbled' };
+
+    await scanReceiptImage(
+      { uri: 'file:///receipt.jpg', base64: 'abc', mime: 'image/jpeg' },
+      'free',
+      prefetched,
+      Promise.resolve(null),
+      true,
+    );
+
+    expect(mockSubmitReceiptScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uri: 'file:///receipt.jpg',
+        imageBase64: 'abc',
+        forceModel: true,
+        prefetchedOcr: undefined,
+        prefetchedTallOcr: undefined,
+      }),
+      'free',
+    );
+  });
 });

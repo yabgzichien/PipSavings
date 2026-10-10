@@ -372,18 +372,24 @@ export function SecondaryButton({
   disabled,
   children,
   height = 46,
+  testID,
+  accessibilityLabel,
 }: {
   onPress: () => void;
   disabled?: boolean;
   children: React.ReactNode;
   height?: number;
+  testID?: string;
+  accessibilityLabel?: string;
 }) {
   const theme = useAccent();
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         styles.btnPrimary,

@@ -27,6 +27,16 @@ export interface Trip {
    * rename could then either overwrite a deliberate choice or be unable to update a stale guess.
    */
   icon: string | null;
+  /**
+   * A photo behind the recorded-expenses card, or null when that card is plain.
+   * Separate from `icon`: a landmark badge and a wide cover are different choices.
+   */
+  cover?: string | null;
+  /**
+   * Currency the recorded-expenses total and category amounts convert into.
+   * Null or absent follows the app display currency. Transaction rows keep their own currency.
+   */
+  currency?: string | null;
 }
 
 export interface TripTotals {
@@ -79,6 +89,15 @@ export function featuredTripForDate(trips: readonly Trip[], today: string): Feat
     .filter((trip) => trip.endDate! < today)
     .sort((a, b) => b.endDate!.localeCompare(a.endDate!));
   return past[0] ? { trip: past[0], timing: 'past' } : null;
+}
+
+/**
+ * The currency a trip's recorded-expenses total should render in.
+ * A blank or missing choice follows the app display currency rather than pinning a code.
+ */
+export function tripCurrencyCode(trip: { currency?: string | null }, appCode: string): string {
+  const code = typeof trip.currency === 'string' ? trip.currency.trim() : '';
+  return code || appCode;
 }
 
 /**

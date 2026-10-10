@@ -11,7 +11,7 @@ import {
 } from '../components/AccountChips';
 import { AddAccountModal } from '../components/AddAccountModal';
 import { Icon } from '../components/Icon';
-import { Amount, B, BtnLabel, BubbleText, Card, Eyebrow, PipSays, PrimaryButton, TopBar } from '../components/ui';
+import { Amount, B, BtnLabel, BubbleText, Card, Eyebrow, PipSays, PrimaryButton, SecondaryButton, TopBar } from '../components/ui';
 import { fmtMoney } from '../lib/format';
 import { BASE_CURRENCY } from '../lib/currency';
 import { visibleChoices } from '../lib/chipRow';
@@ -84,7 +84,6 @@ export function ExtractScreen({
   const {
     tier,
     isPro,
-    canScan,
     hasByok,
     scansRemaining,
     scansLimit,
@@ -96,6 +95,9 @@ export function ExtractScreen({
   const [proCardMoment, setProCardMoment] = useState<UpsellMoment | null>(null);
   const [phase, setPhase] = useState<Phase>(cachedItems ? 'result' : 'scanning');
   const [items, setItems] = useState<ExtractedTxn[]>(cachedItems ?? []);
+  const [attempt, setAttempt] = useState(0);
+  const itemsRef = useRef<ExtractedTxn[]>(cachedItems ?? []);
+  itemsRef.current = items;
   const [error, setError] = useState('');
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [readingSecs, setReadingSecs] = useState(0);
@@ -164,18 +166,21 @@ export function ExtractScreen({
   // callbacks change on resume/rerender; they must not restart a paid scan or replace
   // successful results with an error. Capture those inputs when this image starts.
   useEffect(() => {
-    if (cachedItems) {
+    if (cachedItems && attempt === 0) {
       onItemsExtracted?.(cachedItems);
-      return;
-    }
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      setError(t('scansDailyNone') || 'Scan limit reached');
-      setPhase('error');
       return;
     }
     let alive = true;
     const start = Date.now();
+    const forceModel = attempt > 0;
+    const kept = itemsRef.current;
+    const keepPrevious = (message: string) => {
+      if (!forceModel || kept.length === 0) return false;
+      setItems(kept);
+      setError(message);
+      setPhase('result');
+      return true;
+    };
     setPhase('scanning');
     setError('');
     setItems([]);
@@ -188,21 +193,25 @@ export function ExtractScreen({
             uri: image.uri,
             imageBase64: image.base64,
             mimeType: image.mime,
-            prefetchedOcr,
-            prefetchedTallOcr,
+            prefetchedOcr: forceModel ? undefined : prefetchedOcr,
+            prefetchedTallOcr: forceModel ? undefined : prefetchedTallOcr,
+            forceModel,
           },
           tier
         );
         if (proxyResult.quotaBlocked) {
           if (!alive) return;
           openPaywall('scan_quota', 'add');
-          setError(t('scansDailyNone') || 'Scan limit reached');
+          const message = t('scansDailyNone') || 'Scan limit reached';
+          if (keepPrevious(message)) return;
+          setError(message);
           setPhase('error');
           return;
         }
         if (proxyResult.webByokRequired) {
           if (!alive) return;
           notifyWarning(t('webByokTitle'), t('webByokBody'));
+          if (keepPrevious(t('webByokBody'))) return;
           setError(t('webByokBody'));
           setPhase('error');
           return;
@@ -214,19 +223,24 @@ export function ExtractScreen({
             tooBig ? t('scanByokTooBigTitle') : t('scanByokLimitTitle'),
             tooBig ? t('scanByokTooBigBody') : t('askPipKeyLimit'),
           );
-          setError(tooBig ? t('scanByokTooBigBody') : t('askPipKeyLimit'));
+          const message = tooBig ? t('scanByokTooBigBody') : t('askPipKeyLimit');
+          if (keepPrevious(message)) return;
+          setError(message);
           setPhase('error');
           return;
         }
         if (proxyResult.byokErrorCode === 'auth') {
           if (!alive) return;
+          if (keepPrevious(t('askPipBadKey'))) return;
           setError(t('askPipBadKey'));
           setPhase('error');
           return;
         }
         if (!proxyResult.ok || !proxyResult.items || proxyResult.items.length === 0) {
           if (!alive) return;
-          setError(proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image."));
+          const message = proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image.");
+          if (keepPrevious(message)) return;
+          setError(message);
           setPhase('error');
           return;
         }
@@ -249,14 +263,16 @@ export function ExtractScreen({
         }
       } catch (e) {
         if (!alive) return;
-        setError(llmErrorMessage(e));
+        const message = llmErrorMessage(e);
+        if (keepPrevious(message)) return;
+        setError(message);
         setPhase('error');
       }
     })();
     return () => {
       alive = false;
     };
-  }, [image.uri, cachedItems]);
+  }, [image.uri, cachedItems, attempt]);
 
   useEffect(() => {
     if (phase !== 'found') return;
@@ -288,7 +304,7 @@ export function ExtractScreen({
   return (
     <View style={[styles.root, { backgroundColor: colorTheme.bg }]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: embedded ? 4 : insets.top + 4, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: embedded ? 4 : insets.top + 4, paddingBottom: 200 }}
         showsVerticalScrollIndicator={false}
       >
         {!embedded && (
@@ -354,7 +370,12 @@ export function ExtractScreen({
               <BubbleText>{error}</BubbleText>
             </PipSays>
           )}
-          {phase === 'result' && items.length > 0 && (
+          {phase === 'result' && error !== '' && (
+            <PipSays expr="curious">
+              <BubbleText>{error}</BubbleText>
+            </PipSays>
+          )}
+          {phase === 'result' && error === '' && items.length > 0 && (
             <PipSays expr="happy">
               <BubbleText>
                 {isZh ? (
@@ -478,6 +499,17 @@ export function ExtractScreen({
 
       {/* sticky footer */}
       <View style={[styles.footer, { backgroundColor: colorTheme.bg, borderTopColor: colorTheme.line2 }, { paddingBottom: insets.bottom + 16 }]}>
+        {(phase === 'result' || phase === 'error') && (
+          <SecondaryButton
+            testID="rescan-with-model"
+            onPress={() => setAttempt((n) => n + 1)}
+            height={46}
+            accessibilityLabel={isZh ? '重试这张截图' : 'Retry this screenshot'}
+          >
+            <Icon name="retry" size={16} color={theme.accent} />
+            <BtnLabel color={theme.accent}>{isZh ? '重试' : 'Retry'}</BtnLabel>
+          </SecondaryButton>
+        )}
         {phase === 'result' && items.length > 0 && (
           <PrimaryButton onPress={() => onDone(items, linkId, elapsedMs)}>
             <BtnLabel>{isZh ? `分类 ${items.length} 笔账单` : `Sort ${items.length} item${items.length > 1 ? 's' : ''}`}</BtnLabel>
@@ -560,6 +592,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     borderTopWidth: 1,

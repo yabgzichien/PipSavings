@@ -12,8 +12,15 @@ export async function syncQuickRecordWidget(txns?: Transaction[]): Promise<void>
     const data = await getStreakWidgetData(txns);
     await requestWidgetUpdate({
       widgetName: 'QuickRecordWidget',
-      renderWidget: () => (
-        <QuickRecordWidget streak={data.streak} dots={data.dots} config={data.config} chrome={data.chrome} />
+      renderWidget: (info) => (
+        <QuickRecordWidget
+          streak={data.streak}
+          dots={data.dots}
+          config={data.config}
+          chrome={data.chrome}
+          width={info.width}
+          height={info.height}
+        />
       ),
     });
   } catch {

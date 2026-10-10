@@ -54,7 +54,8 @@ export function sliceRects(width: number, height: number): SliceRect[] {
 }
 
 function sameOcrLine(a: string, b: string): boolean {
-  return a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
+  const key = (line: string) => line.toLowerCase().replace(/[^a-z0-9.]+/g, '');
+  return key(a) === key(b) && key(a).length > 0;
 }
 
 /** Join per-band OCR, dropping the lines the overlap printed twice. */
@@ -101,6 +102,22 @@ export function ocrLineCount(text: string): number {
 /** Lines that look like a transaction amount, used to tell a partial read from a full one. */
 export function moneyLineCount(text: string): number {
   return text.split('\n').filter((line) => /\d+[.,]\d{2}/.test(line)).length;
+}
+
+/**
+ * A single ML Kit pass often returns only the upper rows of a screenshot.
+ * Those rows still look like a finished list, so a local parse of them must
+ * not stand in for the rest of the picture.
+ */
+export function transcriptCoversImage(text: string, width: number, height: number): boolean {
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+  if (!(shortSide > 40) || !(longSide > 0)) return false;
+  const money = moneyLineCount(text);
+  const rowPitch = Math.max(48, shortSide * 0.16);
+  const expected = Math.floor(longSide / rowPitch);
+  if (expected <= 4) return money >= 1;
+  return money >= Math.ceil(expected * 0.55);
 }
 
 export function richerOcrText(a: string, b: string): string {
@@ -164,12 +181,43 @@ export function splitOcrChunks(text: string, maxChars: number): string[] {
   return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
 }
 
+function merchantKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * A points line glued onto the next merchant ("DuitNow QR 0 points FP-AEON")
+ * repeats the payment above it. Keep the shorter name.
+ */
+export function dropEchoRows(items: ExtractedTxn[]): ExtractedTxn[] {
+  const out: ExtractedTxn[] = [];
+  for (const item of items) {
+    const prev = out[out.length - 1];
+    const samePayment =
+      prev &&
+      prev.amount === item.amount &&
+      (!(prev.date && item.date) || prev.date === item.date) &&
+      (prev.time ?? '') === (item.time ?? '') &&
+      prev.type === item.type;
+    if (samePayment && prev) {
+      const a = merchantKey(prev.merchant);
+      const b = merchantKey(item.merchant);
+      if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) {
+        if (b.length < a.length) out[out.length - 1] = item;
+        continue;
+      }
+    }
+    out.push(item);
+  }
+  return out;
+}
+
 /** Drop a row the band overlap caused the model to return twice. */
 export function dedupeExtracted(items: ExtractedTxn[]): ExtractedTxn[] {
   const seen = new Set<string>();
   const out: ExtractedTxn[] = [];
   for (const item of items) {
-    const key = `${item.type}|${item.date ?? ''}|${Math.round(item.amount * 100)}|${item.merchant.trim().toLowerCase()}`;
+    const key = `${item.type}|${item.date ?? ''}|${item.time ?? ''}|${Math.round(item.amount * 100)}|${item.merchant.trim().toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(item);

@@ -430,6 +430,97 @@ describe('Worker proxy endpoint', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('counts a free on-device receipt or statement without calling a model', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn();
+    const post = (contentHash: string, scanType: 'transactions' | 'receipt') =>
+      worker.fetch(
+        new Request('https://proxy.pip.local/scan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-installation-id': 'device-on-device',
+          },
+          body: JSON.stringify({ countOnly: true, scanType, contentHash }),
+        }),
+        { DB: db, GROQ_API_KEY: 'gsk_should_not_be_used' }
+      );
+
+    try {
+      const first = await (await post('statement-a', 'transactions')).json();
+      expect(first.ok).toBe(true);
+      expect(first.allowance.dayUsed).toBe(1);
+      expect(first.allowance.monthUsed).toBe(1);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+
+      const retry = await (await post('statement-a', 'transactions')).json();
+      expect(retry.allowance.dayUsed).toBe(1);
+
+      const receipt = await (await post('receipt-b', 'receipt')).json();
+      expect(receipt.allowance.dayUsed).toBe(2);
+      expect(receipt.allowance.monthUsed).toBe(2);
+
+      await post('statement-c', 'transactions');
+      const blockedRes = await post('statement-d', 'transactions');
+      expect(blockedRes.status).toBe(429);
+      const blocked = await blockedRes.json();
+      expect(blocked.quotaBlocked).toBe(true);
+      expect(blocked.error).toBe('daily_limit');
+      expect(blocked.allowance.dayUsed).toBe(3);
+      expect(blocked.allowance.blockedBy).toBe('daily');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('does not count an on-device scan for a Pro installation', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({ items: [{ entitlement_id: 'pip_pro' }] }),
+    })) as typeof fetch;
+
+    try {
+      const res = await worker.fetch(
+        new Request('https://proxy.pip.local/scan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-installation-id': 'device-pro-count',
+            'x-rc-app-user-id': 'user-pro',
+          },
+          body: JSON.stringify({ countOnly: true, scanType: 'receipt', contentHash: 'receipt-pro' }),
+        }),
+        {
+          DB: db,
+          REVENUECAT_SECRET_KEY: 'sk_test',
+          REVENUECAT_PROJECT_ID: 'proj_test',
+        }
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.allowance.tier).toBe('pro');
+      expect(json.allowance.dayUsed).toBe(0);
+
+      const allowance = await worker.fetch(
+        new Request('https://proxy.pip.local/allowance', {
+          headers: {
+            'x-installation-id': 'device-pro-count',
+            'x-rc-app-user-id': 'user-pro',
+          },
+        }),
+        {
+          DB: db,
+          REVENUECAT_SECRET_KEY: 'sk_test',
+          REVENUECAT_PROJECT_ID: 'proj_test',
+        }
+      );
+      expect((await allowance.json()).dayUsed).toBe(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe('isUsableResult', () => {

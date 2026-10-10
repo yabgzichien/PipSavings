@@ -154,6 +154,98 @@ describe('submitScan', () => {
     expect(res.allowance.canScan).toBe(true);
   });
 
+  it('reads a statement from ML Kit text without calling the model and spends a free daily scan', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        countOnly: true,
+        allowance: { tier: 'free', monthUsed: 4, dayUsed: 1 },
+      }),
+    } as never);
+    const res = await submitScan({
+      ocrText: [
+        '25 September',
+        'Q ME BUDGET STORE    3.90 SGD',
+        '3.95 SGD',
+        'IMAM BANANA LEAF RESTAURANT PTE. LTD.    3.50 SGD',
+        '25 Sep, 20:12    -RM15.41',
+        'HANDAL INDAH SDN. BHD.',
+        'Payment',
+        '25 Sep, 18:43    -RM15.41',
+        'HANDAL INDAH SDN. BHD.',
+        'Payment',
+      ].join('\n'),
+    });
+    expect(res.ok).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body).toEqual({
+      countOnly: true,
+      scanType: 'transactions',
+      contentHash: expect.any(String),
+    });
+    expect(body.contentHash.length).toBeGreaterThan(8);
+    expect(res.allowance.dayUsed).toBe(1);
+    expect(res.allowance.monthUsed).toBe(4);
+    const year = String(new Date().getFullYear());
+    expect(res.items.filter((row) => row.merchant.includes('ME BUDGET'))).toEqual([
+      expect.objectContaining({ amount: 3.95, currency: 'SGD', date: `${year}-09-25` }),
+    ]);
+    expect(res.items.filter((row) => row.merchant.includes('HANDAL')).map((row) => row.time)).toEqual(['20:12', '18:43']);
+  });
+
+  it('does not spend a daily scan when a pro statement is read on device', async () => {
+    global.fetch = jest.fn();
+    const res = await submitScan(
+      {
+        ocrText: [
+          '25 September',
+          '25 Sep, 20:12    -RM15.41',
+          'HANDAL INDAH SDN. BHD.',
+          'Payment',
+          '25 Sep, 18:43    -RM15.41',
+          'HANDAL INDAH SDN. BHD.',
+          'Payment',
+        ].join('\n'),
+      },
+      'pro'
+    );
+    expect(res.ok).toBe(true);
+    expect(res.items.length).toBeGreaterThan(0);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('blocks an on-device statement when the free daily scans are used up', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        ok: false,
+        quotaBlocked: true,
+        error: 'daily_limit',
+        allowance: { tier: 'free', monthUsed: 6, dayUsed: 3 },
+      }),
+    } as never);
+    const res = await submitScan({
+      ocrText: [
+        '25 September',
+        '25 Sep, 20:12    -RM15.41',
+        'HANDAL INDAH SDN. BHD.',
+        'Payment',
+        '25 Sep, 18:43    -RM15.41',
+        'HANDAL INDAH SDN. BHD.',
+        'Payment',
+      ].join('\n'),
+    });
+    expect(res.ok).toBe(false);
+    expect(res.quotaBlocked).toBe(true);
+    expect(res.items).toEqual([]);
+    expect(res.allowance.blockedBy).toBe('daily');
+    expect(res.allowance.dayUsed).toBe(3);
+  });
+
   it('activates dual-path preprocessing when uri is present even if imageBase64 is also passed', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -324,6 +416,40 @@ describe('submitScan', () => {
     expect(res.allowance.blockedBy).toBe('monthly');
     expect(res.allowance.canScan).toBe(false);
   });
+
+  it('sends a statement rescan to the model and ignores the on-device text', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        items: [{ merchant: 'McDonalds', amount: 17.6, type: 'expense', currency: 'MYR', date: '2026-10-09' }],
+        allowance: { tier: 'free', monthUsed: 5, dayUsed: 2 },
+      }),
+    } as never);
+
+    const res = await submitScan({
+      ocrText: [
+        '25 September',
+        '25 Sep, 20:12    -RM15.41',
+        'HANDAL INDAH SDN. BHD.',
+        'Payment',
+      ].join('\n'),
+      imageBase64: 'statement-photo',
+      mimeType: 'image/jpeg',
+      forceModel: true,
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.items).toEqual([
+      expect.objectContaining({ merchant: 'McDonalds', amount: 17.6 }),
+    ]);
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.countOnly).toBeUndefined();
+    expect(body.ocrText).toBeUndefined();
+    expect(body.imageBase64).toBe('statement-photo');
+    expect(body.scanType).toBe('transactions');
+  });
 });
 
 describe('submitReceiptScan', () => {
@@ -370,6 +496,68 @@ describe('submitReceiptScan', () => {
     expect(res.ok).toBe(true);
     expect(res.receipt).toEqual(mockReceipt);
     expect(res.allowance.monthUsed).toBe(5);
+  });
+
+  it('reads a receipt from ML Kit text without calling the model and spends a free daily scan', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        countOnly: true,
+        allowance: { tier: 'free', monthUsed: 2, dayUsed: 2 },
+      }),
+    } as never);
+
+    const res = await submitReceiptScan({
+      ocrText: ['NS PLT', 'A15    12.00', 'A18    14.00', 'TOTAL    26.00'].join('\n'),
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.receipt).toEqual(expect.objectContaining({ merchant: 'NS PLT', total: 26 }));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.countOnly).toBe(true);
+    expect(body.scanType).toBe('receipt');
+    expect(res.allowance.dayUsed).toBe(2);
+  });
+
+  it('sends a receipt rescan to the model and ignores the on-device text', async () => {
+    const modelReceipt = {
+      merchant: 'Gerbang Alaf',
+      currency: 'MYR',
+      items: [{ label: 'Hash Browns', amount: 16.55, quantity: 1 }],
+      subtotal: 16.55,
+      serviceCharge: null,
+      tax: 1,
+      total: 17.6,
+      discount: null,
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        scanType: 'receipt',
+        receipt: modelReceipt,
+        allowance: { tier: 'free', monthUsed: 3, dayUsed: 2 },
+      }),
+    } as never);
+
+    const res = await submitReceiptScan({
+      ocrText: ['NS PLT', 'A15    12.00', 'A18    14.00', 'TOTAL    26.00'].join('\n'),
+      imageBase64: 'receipt-photo',
+      mimeType: 'image/jpeg',
+      forceModel: true,
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.receipt).toEqual(modelReceipt);
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body.countOnly).toBeUndefined();
+    expect(body.ocrText).toBeUndefined();
+    expect(body.imageBase64).toBe('receipt-photo');
+    expect(body.scanType).toBe('receipt');
   });
 });
 

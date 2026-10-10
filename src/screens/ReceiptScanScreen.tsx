@@ -12,7 +12,7 @@ import { CurrencyChip } from '../components/CurrencyChip';
 import { Icon } from '../components/Icon';
 import { InfoButton } from '../components/InfoButton';
 import { ReceiptItemModal } from '../components/ReceiptItemModal';
-import { B, BtnLabel, BubbleText, Card, PipSays, PrimaryButton, TopBar } from '../components/ui';
+import { B, BtnLabel, BubbleText, Card, PipSays, PrimaryButton, SecondaryButton, TopBar } from '../components/ui';
 import { canActivateCurrency } from '../billing/currencyEntitlements';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
@@ -129,7 +129,6 @@ export function ReceiptScanScreen({
   const reducedMotion = useReducedMotion();
   const {
     isPro,
-    canScan,
     scansRemaining,
     scansLimit,
     dailyScansRemaining,
@@ -239,16 +238,23 @@ export function ReceiptScanScreen({
     setChargedText((scanned.total ?? fallbackTotal).toFixed(2));
   };
 
-  const read = async (image: PickedImage, ocr?: OcrOutcome | Promise<OcrOutcome>, tallOcr?: Promise<TallRead | null>) => {
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      return;
-    }
+  const read = async (
+    image: PickedImage,
+    ocr?: OcrOutcome | Promise<OcrOutcome>,
+    tallOcr?: Promise<TallRead | null>,
+    forceModel = false,
+  ) => {
     setPickedImage(image);
     setPhase('reading');
     setError('');
     try {
-      const outcome = await scanReceiptImage(image, isPro ? 'pro' : 'free', ocr, tallOcr);
+      const outcome = await scanReceiptImage(
+        image,
+        isPro ? 'pro' : 'free',
+        forceModel ? undefined : ocr,
+        forceModel ? undefined : tallOcr,
+        forceModel,
+      );
       const scanned = outcome.receipt;
       if (outcome.usedPipAllowance) {
         notify(t('scanByokLimitTitle'), t('scanByokLimitBody'));
@@ -261,7 +267,20 @@ export function ReceiptScanScreen({
       if (e?.quotaBlocked) {
         openPaywall('scan_quota', 'add');
         setError(e.message || 'Scan limit reached');
-        setPhase('capture');
+        // A rescan that hits the limit keeps the lines already on screen.
+        setPhase(forceModel ? 'assign' : 'capture');
+        return;
+      }
+      // A rescan that fails leaves the previous read in place. The first read still falls
+      // through to a blank receipt so the photo can be saved by hand.
+      if (forceModel) {
+        if (e?.webByokRequired) {
+          notifyWarning(t('webByokTitle'), t('webByokBody'));
+          setError(t('webByokBody'));
+        } else {
+          setError(llmErrorMessage(e));
+        }
+        setPhase('assign');
         return;
       }
       // A read failure (network, auth, or a reply nothing usable could be parsed from) still
@@ -280,6 +299,11 @@ export function ReceiptScanScreen({
       onScanned?.(EMPTY_SCAN);
       setPhase('assign');
     }
+  };
+
+  const rescanWithModel = () => {
+    if (!pickedImage || phase === 'reading') return;
+    void read(pickedImage, undefined, undefined, true);
   };
 
   // Mount-once: the add hub already has the image, so reading starts without a second capture.
@@ -308,10 +332,6 @@ export function ReceiptScanScreen({
   };
 
   const takePhoto = async () => {
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      return;
-    }
     if (busy) return;
     setBusy(true);
     try {
@@ -337,10 +357,6 @@ export function ReceiptScanScreen({
   };
 
   const pickFromLibrary = async () => {
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      return;
-    }
     if (busy) return;
     setBusy(true);
     try {
@@ -586,7 +602,7 @@ export function ReceiptScanScreen({
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 130 }}
+          contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 200 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -954,6 +970,17 @@ export function ReceiptScanScreen({
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16, backgroundColor: colorTheme.bg, borderTopColor: colorTheme.line2 }]}>
+        {pickedImage && (
+          <SecondaryButton
+            testID="rescan-with-model"
+            onPress={rescanWithModel}
+            height={46}
+            accessibilityLabel={isZh ? '重试这张照片' : 'Retry this photo'}
+          >
+            <Icon name="retry" size={16} color={theme.accent} />
+            <BtnLabel color={theme.accent}>{isZh ? '重试' : 'Retry'}</BtnLabel>
+          </SecondaryButton>
+        )}
         <PrimaryButton onPress={save} disabled={!canSave}>
           <Icon name="check" size={19} color="#fff" stroke={2.4} />
           <BtnLabel>{splitting ? (isZh ? '使用此分账' : 'Use this split') : (isZh ? '使用此小票' : 'Use this receipt')}</BtnLabel>
@@ -1317,6 +1344,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     borderTopWidth: 1,

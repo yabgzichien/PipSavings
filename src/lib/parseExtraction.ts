@@ -90,12 +90,13 @@ function parseRow(row: unknown): ExtractedTxn | null {
     String(r.direction ?? r.type ?? 'out').toLowerCase() === 'in' ? 'income' : 'expense';
 
   const date = coerceDate(r.date);
+  const time = coerceTime(r.time) ?? coerceTime(typeof r.date === 'string' ? r.date : null);
   const method = typeof r.method === 'string' && r.method.trim() ? r.method.trim() : null;
   const categoryHint =
     typeof r.category === 'string' && r.category.trim() ? r.category.trim() : null;
   const currency = normalizeCurrency(r.currency);
 
-  return { merchant, amount, type, date, method, categoryHint, currency };
+  return { merchant, amount, type, date, time, method, categoryHint, currency };
 }
 
 function coerceAmount(value: unknown): number | null {
@@ -118,4 +119,14 @@ function coerceDate(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const m = value.match(/^\d{4}-\d{2}-\d{2}/);
   return m ? m[0] : null;
+}
+
+function coerceTime(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const m = value.match(/(?:T|\s)?(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const hour = Number(m[1]);
+  const minute = Number(m[2]);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${m[2]}`;
 }

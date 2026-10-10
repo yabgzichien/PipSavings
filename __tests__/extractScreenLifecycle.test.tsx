@@ -27,7 +27,7 @@ jest.mock('../src/llm', () => ({ llmErrorMessage: (e: Error) => e.message }));
 jest.mock('../src/components/ui', () => {
   const React = require('react');
   const stub = (props: any) => React.createElement('ui', props, props.children);
-  return Object.fromEntries(['Amount', 'B', 'BtnLabel', 'BubbleText', 'Card', 'Eyebrow', 'PipSays', 'PrimaryButton', 'TopBar'].map(k => [k, stub]));
+  return Object.fromEntries(['Amount', 'B', 'BtnLabel', 'BubbleText', 'Card', 'Eyebrow', 'PipSays', 'PrimaryButton', 'SecondaryButton', 'TopBar'].map(k => [k, stub]));
 });
 jest.mock('../src/components/AccountChips', () => ({ AccountChipIcon: () => null, AccountPickerModal: () => null, ChoiceChip: () => null, MoreChip: () => null, MAX_OPTIONAL_CHIPS: 3 }));
 jest.mock('../src/components/AddAccountModal', () => ({ AddAccountModal: () => null }));
@@ -96,5 +96,28 @@ it('shows the yellow web BYOK notice when server AI is unavailable', async () =>
 
   expect(mockNotifyWarning).toHaveBeenCalledWith('webByokTitle', 'webByokBody');
   expect(JSON.stringify(tree.toJSON())).toContain('webByokBody');
+  await act(async () => tree.unmount());
+});
+
+it('rescans a statement with the model and drops the on-device prefetch', async () => {
+  (submitScan as jest.Mock).mockResolvedValueOnce(result).mockResolvedValue({
+    ok: true,
+    items: [{ merchant: 'McDonalds', amount: 17.6, type: 'expense', currency: 'MYR' }],
+    allowance: {},
+  });
+  let tree: any;
+  const prefetched = { status: 'ok' as const, text: 'garbled rows' };
+  await act(async () => { tree = create(<ExtractScreen {...props()} prefetchedOcr={prefetched} />); });
+  expect(submitScan).toHaveBeenCalledTimes(1);
+  expect(submitScan.mock.calls[0][0].forceModel).toBeFalsy();
+  expect(submitScan.mock.calls[0][0].prefetchedOcr).toBe(prefetched);
+
+  const rescan = tree.root.findByProps({ testID: 'rescan-with-model' });
+  await act(async () => { rescan.props.onPress(); });
+  expect(submitScan).toHaveBeenCalledTimes(2);
+  expect(submitScan.mock.calls[1][0].forceModel).toBe(true);
+  expect(submitScan.mock.calls[1][0].prefetchedOcr).toBeUndefined();
+  expect(submitScan.mock.calls[1][0].prefetchedTallOcr).toBeUndefined();
+  expect(JSON.stringify(tree.toJSON())).toContain('McDonalds');
   await act(async () => tree.unmount());
 });

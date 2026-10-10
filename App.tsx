@@ -400,6 +400,8 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
   // A trip is reachable from the Trips list and from the "Trips this month" section on Breakdown
   // and Recap, so back has to return where it came from  same pattern as calendarOrigin above.
   const [tripDetailOrigin, setTripDetailOrigin] = useState<Screen>('trips');
+  // The Trips list is reachable from Activity and from Home's row. Back follows whichever opened it.
+  const [tripsOrigin, setTripsOrigin] = useState<Screen>('transactions');
   const [commitmentsOrigin, setCommitmentsOrigin] = useState<Screen>('settings');
   const [currencyOrigin, setCurrencyOrigin] = useState<Screen>('settings');
   const [addTutorialMode, setAddTutorialMode] = useState<'scan' | 'manual' | undefined>(undefined);
@@ -854,6 +856,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
       paywallOrigin,
       addOrigin,
       tripDetailOrigin,
+      tripsOrigin,
     });
     if (!target) return false;
     if (screen === 'transactions') setTxnFilter(null);
@@ -1048,6 +1051,10 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             }}
             onOpenNetWorth={() => setScreen('networth')}
             onOpenTrip={(id) => openTrip('home', id)}
+            onOpenTrips={() => {
+              setTripsOrigin('home');
+              setScreen('trips');
+            }}
             onOpenOwed={() => {
               setOwedOrigin('home');
               setScreen('owed');
@@ -1183,7 +1190,10 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             setOwedOrigin('transactions');
             setScreen('owed');
           }}
-          onOpenTrips={() => setScreen('trips')}
+          onOpenTrips={() => {
+            setTripsOrigin('transactions');
+            setScreen('trips');
+          }}
           onOpenTrip={(id) => openTrip('transactions', id)}
           onBack={goBack}
         />

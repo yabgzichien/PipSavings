@@ -99,6 +99,41 @@ describe('new trip landmark', () => {
     expect(tree.root.findAllByType(Text).some((node: any) => node.props.children === 'Malaysia')).toBe(false);
   });
 
+  it('offers a cover only on a trip that can keep one, and remove once a cover is set', () => {
+    const trip: Trip = {
+      id: 'trip-sg',
+      name: 'Singapore',
+      createdAt: '2026-09-09T00:00:00.000Z',
+      archived: false,
+      startDate: '2026-09-23',
+      endDate: '2026-09-25',
+      icon: null,
+    };
+    const plain = render(<TripIconPickerSheet visible trip={trip} onClose={jest.fn()} onPick={jest.fn()} />);
+    expect(plain.root.findAllByProps({ accessibilityLabel: 'Set cover' }).length).toBe(0);
+
+    const onCover = jest.fn();
+    const empty = render(
+      <TripIconPickerSheet visible trip={trip} onClose={jest.fn()} onPick={jest.fn()} onCover={onCover} />
+    );
+    expect(empty.root.findAllByProps({ accessibilityLabel: 'Set cover' }).length).toBeGreaterThan(0);
+    expect(empty.root.findAllByProps({ accessibilityLabel: 'Remove cover' }).length).toBe(0);
+
+    const covered = render(
+      <TripIconPickerSheet
+        visible
+        trip={{ ...trip, cover: 'data:image/jpeg;base64,abc' }}
+        onClose={jest.fn()}
+        onPick={jest.fn()}
+        onCover={onCover}
+      />
+    );
+    const remove = covered.root.findByProps({ accessibilityLabel: 'Remove cover' });
+    expect(covered.root.findAllByProps({ accessibilityLabel: 'Change cover' }).length).toBeGreaterThan(0);
+    TestRenderer.act(() => remove.props.onPress());
+    expect(onCover).toHaveBeenCalledWith(null);
+  });
+
   it('draws the trailing landmark as part of the field instead of as a nested tile', () => {
     const tree = render(<TripsScreen onBack={jest.fn()} onOpenTrip={jest.fn()} />);
     TestRenderer.act(() => buttonWithText(tree.root, 'New trip')!.props.onPress());

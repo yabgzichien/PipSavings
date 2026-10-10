@@ -4,6 +4,7 @@ import { CategorizeScreen } from '../src/screens/CategorizeScreen';
 import { PrimaryButton, SecondaryButton } from '../src/components/ui';
 import { TextInput } from 'react-native';
 import type { ExtractedTxn, Category, CategorySuggestion } from '../src/lib/types';
+import { fullDateWithWeekday } from '../src/lib/dates';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -38,6 +39,10 @@ jest.mock('../src/lib/haptics', () => ({ tap: jest.fn() }));
 const mockConfirmAction = jest.fn();
 jest.mock('../src/lib/platformAlert', () => ({
   confirmAction: (...args: any[]) => mockConfirmAction(...args),
+}));
+
+jest.mock('../src/db/currencyRepo', () => ({
+  getActiveCurrencies: jest.fn(async () => ['MYR']),
 }));
 
 jest.mock('../src/i18n', () => ({
@@ -82,7 +87,14 @@ function copy(tree: any): string {
 }
 
 function instanceText(node: any): string {
+  if (!node?.children) return '';
   return node.children.map((child: any) => (typeof child === 'string' ? child : instanceText(child))).join('');
+}
+
+function pressableIncluding(root: any, text: string) {
+  return root.root.findAll(
+    (node: any) => typeof node.props?.onPress === 'function' && instanceText(node).includes(text),
+  )[0];
 }
 
 const mockCategories: Category[] = [
@@ -92,8 +104,8 @@ const mockCategories: Category[] = [
 
 describe('CategorizeScreen Next Main Button & Save All Secondary Button', () => {
   const extracted: ExtractedTxn[] = [
-    { merchant: 'KFC', amount: 25, type: 'expense', date: '2026-09-12', method: null, currency: 'MYR' },
-    { merchant: 'MRT', amount: 5, type: 'expense', date: '2026-09-12', method: null, currency: 'MYR' },
+    { merchant: 'KFC', amount: 25, type: 'expense', date: '2026-09-12', time: '11:00', method: null, currency: 'MYR' },
+    { merchant: 'MRT', amount: 5, type: 'expense', date: '2026-09-12', time: '12:00', method: null, currency: 'MYR' },
   ];
   const suggestions: (CategorySuggestion | null)[] = [
     { categoryId: 'food', source: 'guess' },
@@ -291,6 +303,103 @@ describe('CategorizeScreen Next Main Button & Save All Secondary Button', () => 
 
     expect(root!.root.findAllByType(TextInput)).toHaveLength(0);
     expect(copy(root!)).toContain('Add a remark');
+  });
+
+  it('keeps an amount edit on the transaction that was edited when moving next and back', async () => {
+    const onComplete = jest.fn();
+    let root: any;
+
+    await TestRenderer.act(async () => {
+      root = TestRenderer.create(
+        <CategorizeScreen
+          extracted={extracted}
+          suggestions={suggestions}
+          categories={mockCategories}
+          onBack={jest.fn()}
+          onComplete={onComplete}
+        />
+      );
+    });
+
+    await TestRenderer.act(async () => {
+      pressableIncluding(root!, '25.00').props.onPress();
+    });
+    const amountInput = root!.root.findByType(TextInput);
+    const lateBlur = amountInput.props.onBlur;
+    await TestRenderer.act(async () => {
+      amountInput.props.onChangeText('99.50');
+      root!.root.findByType(PrimaryButton).props.onPress();
+      lateBlur();
+    });
+
+    expect(copy(root!)).toContain('MRT');
+    expect(copy(root!)).toContain('5.00');
+    expect(copy(root!)).not.toContain('99.50');
+    expect(root!.root.findAllByType(TextInput)).toHaveLength(0);
+
+    await TestRenderer.act(async () => {
+      root!.root.findByProps({ accessibilityLabel: 'Go back' }).props.onPress();
+    });
+
+    expect(copy(root!)).toContain('KFC');
+    expect(copy(root!)).toContain('99.50');
+    expect(copy(root!)).not.toContain('5.00');
+
+    await TestRenderer.act(async () => {
+      root!.root.findByType(PrimaryButton).props.onPress();
+    });
+    await TestRenderer.act(async () => {
+      pressableIncluding(root!, '5.00').props.onPress();
+    });
+    const secondAmount = root!.root.findByType(TextInput);
+    await TestRenderer.act(async () => {
+      secondAmount.props.onChangeText('7.25');
+      root!.root.findByType(PrimaryButton).props.onPress();
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    const saved = onComplete.mock.calls[0][1] as ExtractedTxn[];
+    expect(saved.map((row) => row.amount)).toEqual([99.5, 7.25]);
+  });
+
+  it('keeps a date edit on the transaction that was edited when moving next and back', async () => {
+    let root: any;
+
+    await TestRenderer.act(async () => {
+      root = TestRenderer.create(
+        <CategorizeScreen
+          extracted={extracted}
+          suggestions={suggestions}
+          categories={mockCategories}
+          onBack={jest.fn()}
+          onComplete={jest.fn()}
+        />
+      );
+    });
+
+    const originalDate = fullDateWithWeekday('2026-09-12');
+    const editedDate = fullDateWithWeekday('2026-09-01');
+    await TestRenderer.act(async () => {
+      pressableIncluding(root!, originalDate).props.onPress();
+    });
+    const dateInput = root!.root.findByType(TextInput);
+    await TestRenderer.act(async () => {
+      dateInput.props.onChangeText('2026-09-01');
+      root!.root.findByType(PrimaryButton).props.onPress();
+    });
+
+    expect(copy(root!)).toContain('MRT');
+    expect(copy(root!)).toContain(originalDate);
+    expect(copy(root!)).not.toContain(editedDate);
+    expect(copy(root!)).not.toContain('2026-09-01');
+
+    await TestRenderer.act(async () => {
+      root!.root.findByProps({ accessibilityLabel: 'Go back' }).props.onPress();
+    });
+
+    expect(copy(root!)).toContain('KFC');
+    expect(copy(root!)).toContain(editedDate);
+    expect(copy(root!)).not.toContain('12:00');
   });
 
   it('keeps review actions outside the scrollable category content', async () => {

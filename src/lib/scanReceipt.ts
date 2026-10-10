@@ -16,15 +16,17 @@ export async function scanReceiptImage(
   image: { uri: string; base64: string; mime: string },
   entitlement: 'free' | 'pro' = 'free',
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>,
-  prefetchedTallOcr?: Promise<TallRead | null>
+  prefetchedTallOcr?: Promise<TallRead | null>,
+  forceModel = false
 ): Promise<ReceiptScanOutcome> {
   const res = await submitReceiptScan(
     {
       uri: image.uri,
       imageBase64: image.base64,
       mimeType: image.mime,
-      prefetchedOcr,
-      prefetchedTallOcr,
+      prefetchedOcr: forceModel ? undefined : prefetchedOcr,
+      prefetchedTallOcr: forceModel ? undefined : prefetchedTallOcr,
+      forceModel,
     },
     entitlement
   );

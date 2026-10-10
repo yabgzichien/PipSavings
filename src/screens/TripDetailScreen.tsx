@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EditTransactionModal } from '../components/EditTransactionModal';
 import { Icon } from '../components/Icon';
@@ -8,15 +8,19 @@ import { Pip } from '../components/Pip';
 import { TripBadge } from '../components/TripBadge';
 import { TripIconPickerSheet } from '../components/TripIconPickerSheet';
 import { TxnRow } from './AllTransactionsScreen';
+import { CurrencyPickerSheet } from '../components/CurrencyPickerSheet';
 import { Amount, Body, Card, Caption, CatBadge, Eyebrow, Label, PrimaryButton, Title, TopBar } from '../components/ui';
+import { getActiveCurrencies } from '../db/currencyRepo';
+import { BASE_CURRENCY } from '../lib/currency';
+import { txnToDisplay } from '../lib/fx';
 import { fmtMoney } from '../lib/format';
 import { sheetOpenFromModalState, useReportSheetOpen } from '../lib/askPip/sheetOpen';
 import { confirmAction } from '../lib/platformAlert';
 import { outstanding } from '../lib/split';
-import { computeTripTotals, expensesForTrip, reassignedFromOtherTrips } from '../lib/trips';
+import { computeTripTotals, expensesForTrip, isCustomImageUri, reassignedFromOtherTrips, tripCurrencyCode } from '../lib/trips';
 import type { Category, Transaction } from '../lib/types';
 import { useAccent } from '../state/accent';
-import { useThemeColors } from '../state/colorScheme';
+import { useResolvedScheme, useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { useDisplayCurrency } from '../state/useDisplayCurrency';
 import { useLanguage } from '../i18n';
@@ -231,18 +235,33 @@ export function TripDetailScreen({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { t, tCat, isZh, formatShortDate, formatFullDate } = useLanguage();
-  const { trips, transactions, catById, splits, shares, renameTrip, setTripArchived, setTripIcon, deleteTrip } = useAppData();
+  const { trips, transactions, catById, splits, shares, renameTrip, setTripArchived, setTripIcon, setTripCover, setTripCurrency, deleteTrip } = useAppData();
   const dc = useDisplayCurrency();
+  const scheme = useResolvedScheme();
 
   const [editing, setEditing] = useState<Transaction | null>(null);
   useReportSheetOpen(sheetOpenFromModalState(null, editing), onSheetOpenChange);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [activeCurrencies, setActiveCurrencies] = useState<string[]>([BASE_CURRENCY]);
   const [draftName, setDraftName] = useState('');
   const [savingName, setSavingName] = useState(false);
 
   const trip = trips.find((tr) => tr.id === tripId);
+  const currencyCode = tripCurrencyCode(trip ?? {}, dc.code);
+  const coverUri = isCustomImageUri(trip?.cover) ? trip!.cover! : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    getActiveCurrencies().then((list) => {
+      if (!cancelled) setActiveCurrencies(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /** Set by tapping a category in the breakdown: the list below narrows to that category. */
   const [categoryFilter, setCategoryFilter] = useState<string | null>(initialCategoryId ?? null);
@@ -252,7 +271,10 @@ export function TripDetailScreen({
   }, [initialCategoryId]);
 
   const tripTxns = useMemo(() => expensesForTrip(transactions, tripId), [transactions, tripId]);
-  const totals = useMemo(() => computeTripTotals(transactions, tripId, dc.convertTxn), [transactions, tripId, dc]);
+  const totals = useMemo(
+    () => computeTripTotals(transactions, tripId, (txn) => txnToDisplay(txn, currencyCode, dc.rates)),
+    [transactions, tripId, currencyCode, dc.rates]
+  );
   const sortedTxns = useMemo(
     () => [...tripTxns]
       .filter((txn) => !categoryFilter || (txn.categoryId ?? 'other') === categoryFilter)
@@ -377,7 +399,22 @@ export function TripDetailScreen({
           </Card>
         )}
 
-        <Card style={styles.hero}>
+        <Card style={coverUri ? [styles.hero, styles.heroWithCover] : styles.hero}>
+          {coverUri && (
+            <>
+              <Image
+                source={{ uri: coverUri }}
+                style={[styles.coverImage, { opacity: 0.5 }]}
+                resizeMode="cover"
+                accessibilityElementsHidden
+              />
+              <View
+                pointerEvents="none"
+                style={[styles.coverScrim, { backgroundColor: scheme === 'dark' ? 'rgba(10,14,12,0.55)' : 'rgba(255,255,255,0.62)' }]}
+              />
+            </>
+          )}
+          <View style={coverUri ? styles.heroCoverContent : undefined}>
           {/* The icon is its own edit affordance: it sits where the user is already looking and
               costs no row of its own, so a wrong auto-guess is one tap from fixed. */}
           <Pressable
@@ -393,11 +430,19 @@ export function TripDetailScreen({
             <Caption color={colorTheme.ink2}>{tripDateText}</Caption>
           </View>
           <Eyebrow>{t('tripRecordedExpenses')}</Eyebrow>
-          <Amount value={totals.recordedExpenses} currency={dc.code} size={32} weight={700} />
+          <Pressable
+            onPress={() => setCurrencyOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('tripChangeCurrency')}
+            hitSlop={8}
+          >
+            <Amount value={totals.recordedExpenses} currency={currencyCode} size={32} weight={700} />
+          </Pressable>
           <Caption color={colorTheme.ink2} style={{ marginTop: spacing.xs }}>
             {t('tripCountExpenses', { n: totals.txnCount })}
             {trip.archived ? ` · ${t('archivedTrips')}` : ''}
           </Caption>
+          </View>
         </Card>
 
         <View style={styles.actionsRow}>
@@ -449,7 +494,7 @@ export function TripDetailScreen({
                     <CatBadge category={cat} size={36} />
                     <Text style={[styles.breakdownLabel, { color: colorTheme.ink }]} numberOfLines={1}>{tCat(cat)}</Text>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Amount value={b.amount} currency={dc.code} size={14} weight={700} />
+                      <Amount value={b.amount} currency={currencyCode} size={14} weight={700} />
                       <Caption color={colorTheme.ink2}>{pct}%</Caption>
                     </View>
                     <Icon name={on ? 'x' : 'chevronRight'} size={15} color={on ? theme.accent : colorTheme.ink3} />
@@ -506,6 +551,23 @@ export function TripDetailScreen({
           setIconPickerOpen(false);
           void setTripIcon(trip.id, icon);
         }}
+        onCover={(cover) => {
+          setIconPickerOpen(false);
+          void setTripCover(trip.id, cover);
+        }}
+      />
+      <CurrencyPickerSheet
+        visible={currencyOpen}
+        selectedCurrency={currencyCode}
+        activeCurrencies={activeCurrencies}
+        onClose={() => setCurrencyOpen(false)}
+        onSelect={(code) => {
+          setCurrencyOpen(false);
+          void setTripCurrency(trip.id, code);
+        }}
+        onActivated={(code) => {
+          setActiveCurrencies((prev) => (prev.includes(code) ? prev : [...prev, code]));
+        }}
       />
     </View>
   );
@@ -521,6 +583,10 @@ const styles = StyleSheet.create({
 
   heroIcon: { alignSelf: 'flex-start', marginBottom: spacing.sm },
   hero: { padding: spacing.base, marginBottom: spacing.md, alignItems: 'flex-start' },
+  heroWithCover: { padding: 0, overflow: 'hidden' },
+  heroCoverContent: { padding: spacing.base, alignSelf: 'stretch' },
+  coverImage: { ...StyleSheet.absoluteFillObject },
+  coverScrim: { ...StyleSheet.absoluteFillObject },
   tripDates: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
 
   actionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },

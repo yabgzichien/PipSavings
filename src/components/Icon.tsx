@@ -12,7 +12,7 @@ export type IconName =
   | 'fuel' | 'cart' | 'utensils' | 'car' | 'coffee' | 'bag' | 'heart' | 'receipt' | 'play' | 'dots'
   | 'camera' | 'image' | 'plus' | 'check' | 'sparkles' | 'x' | 'chevronRight' | 'chevronLeft'
   | 'chevronDown' | 'chevronUp' | 'scan' | 'trending' | 'clock' | 'arrowRight' | 'search' | 'gallery' | 'wallet'
-  | 'trash' | 'sliders' | 'gear' | 'alert' | 'pencil' | 'gift' | 'return' | 'percent'
+  | 'trash' | 'sliders' | 'gear' | 'alert' | 'pencil' | 'gift' | 'return' | 'retry' | 'percent'
   | 'home' | 'scale' | 'signal' | 'book' | 'shield' | 'store' | 'download' | 'file' | 'table'
   | 'copy' | 'upload' | 'code' | 'pin' | 'chart' | 'filter' | 'share' | 'folder'
   | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar'
@@ -241,6 +241,12 @@ const ICONS: Record<IconName, RenderFn> = {
     <G fill="none" stroke={s} strokeWidth={w}>
       <Path d="M9 7L5 11l4 4" />
       <Path d="M5 11h9a5 5 0 015 5v2" />
+    </G>
+  ),
+  retry: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M19.5 12a7.5 7.5 0 11-2.2-5.3" />
+      <Path d="M19.6 4.2V9h-4.8" />
     </G>
   ),
   percent: (s, w) => (

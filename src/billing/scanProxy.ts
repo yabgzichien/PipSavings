@@ -9,7 +9,9 @@ import { LLMError, type DocPart, type LLMErrorCode } from '../llm/types';
 import type { ExtractedTxn } from '../lib/types';
 import type { ScannedReceipt } from '../lib/parseReceipt';
 import type { ScannedSnapshot } from '../lib/parseSnapshot';
-import { dedupeExtracted, extractionLooksShort, splitOcrChunks, splitOcrLines } from '../lib/longScan';
+import { dedupeExtracted, dropEchoRows, extractionLooksShort, splitOcrChunks, splitOcrLines } from '../lib/longScan';
+import { parseReceiptOcr } from '../lib/receiptFromOcr';
+import { collapseFeeTwins, parseStatementRows } from '../lib/statementRows';
 import {
   prepareDualPathScan,
   prepareScanImage,
@@ -31,6 +33,8 @@ export interface ScanRequest {
   /** OCR already started on ScanKind — skip a second ML Kit pass. */
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
   prefetchedTallOcr?: Promise<TallRead | null>;
+  /** User asked to read the photo again. Skip on-device text and call the model. */
+  forceModel?: boolean;
   categories?: Array<{ id: string; label: string; kind?: string }>;
 }
 
@@ -41,6 +45,8 @@ export interface ReceiptScanRequest {
   ocrText?: string;
   prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
   prefetchedTallOcr?: Promise<TallRead | null>;
+  /** User asked to read the photo again. Skip on-device text and call the model. */
+  forceModel?: boolean;
 }
 
 export interface SnapshotScanRequest {
@@ -305,6 +311,94 @@ interface CommonScanResult {
   error?: string;
 }
 
+function finishExtracted(items: ExtractedTxn[]): ExtractedTxn[] {
+  return dropEchoRows(dedupeExtracted(collapseFeeTwins(items)));
+}
+
+/**
+ * A free receipt or statement that the phone already understood still spends one scan.
+ * The transcript stays on the device; the worker only records the allowance.
+ * Returns null when the counter cannot be reached, so a dropped connection does not
+ * throw away a picture we already read.
+ */
+async function consumeFreeScan(
+  scanType: 'transactions' | 'receipt',
+  ocrText: string
+): Promise<{ allowance: ScanAllowance; quotaBlocked: boolean } | null> {
+  try {
+    const id = await getInstallationId();
+    const appUserId = await fetchAppUserId();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-installation-id': id,
+    };
+    if (appUserId) headers['x-rc-app-user-id'] = appUserId;
+    const res = await fetchWithTimeout(`${WORKER_URL}/scan`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        countOnly: true,
+        scanType,
+        contentHash: await sha256Hex(ocrText),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) {
+      return {
+        allowance: normalizeAllowance(data?.allowance || { tier: 'free' }),
+        quotaBlocked: true,
+      };
+    }
+    if (!res.ok || !data?.ok) return null;
+    return { allowance: normalizeAllowance(data.allowance), quotaBlocked: false };
+  } catch {
+    return null;
+  }
+}
+
+/** ML Kit text we could structure locally. No model call. Free plans spend a daily scan unless their own key is selected. */
+async function readOnDevice(
+  scanType: ScanType,
+  ocrText: string | undefined,
+  entitlement: 'free' | 'pro'
+): Promise<CommonScanResult | null> {
+  const text = ocrText?.trim();
+  if (!text) return null;
+
+  let local: CommonScanResult | null = null;
+  if (scanType === 'transactions') {
+    const items = statementItems(text);
+    if (items) local = { ok: true, items, allowance: byokAllowance(entitlement), quotaBlocked: false };
+  } else if (scanType === 'receipt') {
+    const receipt = parseReceiptOcr(text);
+    if (receipt) local = { ok: true, receipt, allowance: byokAllowance(entitlement), quotaBlocked: false };
+  }
+  if (!local) return null;
+  if (entitlement === 'pro') return local;
+  // A selected personal key is not the free allowance, even when ML Kit finishes the picture.
+  const active = await defaultAskPipKeyStore().getActive();
+  if (active?.apiKey) return local;
+
+  const charged = await consumeFreeScan(scanType === 'receipt' ? 'receipt' : 'transactions', text);
+  if (!charged) return local;
+  if (charged.quotaBlocked) {
+    return {
+      ok: false,
+      allowance: charged.allowance,
+      quotaBlocked: true,
+      error: charged.allowance.blockedBy === 'monthly' ? 'monthly_limit' : 'daily_limit',
+    };
+  }
+  return { ...local, allowance: charged.allowance };
+}
+
+/** A dated list we could read locally. Skips the model, which was splitting one row into two and dating the copy with the next row's day. */
+function statementItems(ocrText: string | undefined): ExtractedTxn[] | null {
+  if (!ocrText?.trim()) return null;
+  const parsed = parseStatementRows(ocrText);
+  return parsed && parsed.length > 0 ? finishExtracted(parsed) : null;
+}
+
 async function extractByokTransactions(
   llm: Awaited<ReturnType<typeof getLLM>>,
   bodyPayload: { ocrText?: string; imageBase64?: string; mimeType?: string },
@@ -341,7 +435,7 @@ async function extractByokTransactions(
   }
 
   const images: { base64: string; mimeType: string }[] = [];
-  if (!text && bodyPayload.imageBase64) {
+  if (!text && bodyPayload.imageBase64 && !(bandImages && bandImages.length > 0)) {
     images.push({ base64: bodyPayload.imageBase64, mimeType: bodyPayload.mimeType || 'image/jpeg' });
   }
   for (const band of bandImages ?? []) {
@@ -359,7 +453,7 @@ async function extractByokTransactions(
         });
     collected.push(...rows);
   }
-  return dedupeExtracted(collected);
+  return finishExtracted(collected);
 }
 
 async function runLocalByokScan(
@@ -427,6 +521,7 @@ async function submitScanInternal(
     ocrText?: string;
     prefetchedOcr?: OcrOutcome | Promise<OcrOutcome>;
     prefetchedTallOcr?: Promise<TallRead | null>;
+    forceModel?: boolean;
     categories?: Array<{ id: string; label: string; kind?: string }>;
   },
   entitlement: 'free' | 'pro' = 'free'
@@ -438,8 +533,29 @@ async function submitScanInternal(
   let inputKind = 'vision';
   let bandImages: PreparedImage[] | undefined;
 
-  // If a local URI is present and OCR text is not pre-populated, ALWAYS run dual-path preprocessing
-  if (request.uri && !request.ocrText) {
+  // A rescan sends the photo. On-device text from the first pass is what the user rejected.
+  if (request.forceModel && request.uri) {
+    const dual = await prepareDualPathScan(
+      request.uri,
+      scanType,
+      request.imageBase64,
+      request.mimeType,
+      { forceVision: true }
+    );
+    bodyPayload = { ...dual.body, scanType };
+    delete bodyPayload.ocrText;
+    preprocessTimings = dual.timings;
+    inputKind = 'vision';
+    bandImages = dual.bandImages;
+  } else if (request.forceModel) {
+    bodyPayload = {
+      imageBase64: request.imageBase64,
+      mimeType: request.mimeType,
+      scanType,
+    };
+    inputKind = 'vision';
+  } else if (request.uri && !request.ocrText) {
+    // If a local URI is present and OCR text is not pre-populated, ALWAYS run dual-path preprocessing
     const dual = await prepareDualPathScan(
       request.uri,
       scanType,
@@ -461,13 +577,41 @@ async function submitScanInternal(
     inputKind = request.ocrText && request.imageBase64 ? 'hybrid' : request.ocrText ? 'text' : 'vision';
   }
 
+  // ML Kit already read the picture. A statement or till slip we can finish here
+  // never goes to the model. A free plan spends one daily scan, unless their own API key is selected.
+  // A rescan skips this: the user asked for the model, and the local read is the one they rejected.
+  if (!request.forceModel) {
+    const onDevice = await readOnDevice(scanType, bodyPayload.ocrText, entitlement);
+    if (onDevice) {
+      console.log(`[ScanProxy] on-device read, no model: scanType=${scanType}`);
+      return onDevice;
+    }
+  }
+
+  // A text-only body is sent only when on-device OCR covered the picture.
+  // The worker still runs so a free scan is counted, then the local read
+  // replaces the model rows. A short ML Kit read keeps its image and the model result.
+  const shownItems = (modelItems: ExtractedTxn[]): ExtractedTxn[] => {
+    const textOnly = scanType === 'transactions' && !bodyPayload.imageBase64 && !(bandImages && bandImages.length);
+    if (textOnly) {
+      const parsed = statementItems(bodyPayload.ocrText);
+      if (parsed) return parsed;
+    }
+    return finishExtracted(modelItems);
+  };
+
   const active = await defaultAskPipKeyStore().getActive();
   let byokRateLimited = false;
   if (active?.apiKey) {
     const local = await runLocalByokScan(scanType, bodyPayload, request, entitlement, bandImages, active);
     // A selected key that Groq rejects is a provider failure. Saying the key is
     // missing sends the user back to Settings even though that key is already in use.
-    if (!local.byokRateLimited) return local;
+    if (!local.byokRateLimited) {
+      if (local.ok && local.items && scanType === 'transactions') {
+        return { ...local, items: shownItems(local.items) };
+      }
+      return local;
+    }
     if (Platform.OS === 'web') return local;
     byokRateLimited = true;
   }
@@ -544,7 +688,7 @@ async function submitScanInternal(
             if (merged.length > 0) {
               return {
                 ok: true,
-                items: dedupeExtracted(merged),
+                items: shownItems(merged),
                 allowance: normalizeAllowance(chunkData?.allowance || allowance),
                 quotaBlocked: false,
               };
@@ -564,7 +708,7 @@ async function submitScanInternal(
           }
         }
         if (merged.length > 0) {
-          return { ok: true, items: dedupeExtracted(merged), allowance, quotaBlocked: false };
+          return { ok: true, items: shownItems(merged), allowance, quotaBlocked: false };
         }
         return { ok: false, allowance, quotaBlocked: false, error: lastError || 'Scan request failed' };
       };
@@ -587,8 +731,8 @@ async function submitScanInternal(
           const pieced = await scanBodies(bodies);
           if (
             pieced.ok &&
-            bodyPayload.ocrText &&
-            extractionLooksShort(bodyPayload.ocrText, pieced.items?.length ?? 0)
+        bodyPayload.ocrText &&
+        extractionLooksShort(bodyPayload.ocrText, pieced.items?.length ?? 0)
           ) {
             const chunks = splitOcrLines(bodyPayload.ocrText, 12, 2);
             if (chunks.length > 1) {
@@ -665,7 +809,7 @@ async function submitScanInternal(
         };
       }
 
-      const items: ExtractedTxn[] = data.items || [];
+      const items: ExtractedTxn[] = shownItems(data.items || []);
       if (
         scanType === 'transactions' &&
         bodyPayload.ocrText &&

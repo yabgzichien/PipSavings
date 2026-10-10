@@ -2,6 +2,7 @@
 // Android's long-press handles (app.json targetCellWidth/Height + the WIDGET_RESIZED action in
 // widgetTask.tsx); these ladders scale what is drawn inside that footprint.
 import type { WidgetMascotConfig, Notch } from './config';
+import { DOTS_ROW_HEIGHT, STREAK_STACK_GAP, expandedStreakMetrics } from './chrome';
 
 /**
  * The mascot ladder, centred on notch 3.
@@ -48,8 +49,7 @@ export const DECLARED_MIN_HEIGHT_DP = 70;
 export const H_PADDING = 16;
 export const V_PADDING = 12;
 export const DIVIDER = 1;
-/** Expanded streak column: a 7-dot row at 8dp with 2dp gaps, which also comfortably fits the
- *  count rendered above it. */
+/** Expanded streak column: the 7-dot row, which also comfortably fits the count rendered above it. */
 export const STREAK_COLUMN = 68;
 /** The Android widget gives Pip a stable lane; the SVG preview uses the same lane before the
  * streak column so the two renderers share their horizontal geometry. */
@@ -91,6 +91,86 @@ export function contentWidth(c: WidgetMascotConfig): number {
 
 export function contentHeight(c: WidgetMascotConfig): number {
   return MASCOT_SIZES[c.mascotNotch].h + V_PADDING;
+}
+
+/** Both-slots-empty draws Pip larger. Shared with QuickRecordWidget so the fit math matches. */
+export const BOTH_NONE_MASCOT_SCALE = 1.35;
+
+/**
+ * How far content stays inside the bitmap.
+ *
+ * A 2×1 cell is often narrower than the 160dp manifest minimum (Pixel's own table is ~130dp),
+ * and some launchers still crop the bitmap after reporting a size — the old 8dp widget padding,
+ * or a corner mask. Drawing the design at a fixed 158dp then slices the streak count and the
+ * last dot. The guard is the part of the reported box we refuse to put content in.
+ */
+export const WIDGET_EDGE_GUARD_DP = 8;
+
+/**
+ * Used when the launcher has not reported a size yet (Samsung sometimes sends 0 on add).
+ * 110dp is the classic 2-cell minimum (70×n − 30), so the first frame still fits a narrow phone.
+ */
+export const FALLBACK_WIDGET_WIDTH_DP = 110;
+export const FALLBACK_WIDGET_HEIGHT_DP = 70;
+
+/** Unscaled size QuickRecordWidget actually draws, including its own shell padding. */
+export function designSize(c: WidgetMascotConfig): { width: number; height: number } {
+  const mascot = MASCOT_SIZES[c.mascotNotch];
+  const bothNone = c.slot1 === 'none' && c.slot2 === 'none';
+  const expanded =
+    (c.slot1 === 'streak' && c.slot2 === 'none') || (c.slot2 === 'streak' && c.slot1 === 'none');
+
+  const mascotW = bothNone ? Math.round(mascot.w * BOTH_NONE_MASCOT_SCALE) : mascot.w;
+  const mascotH = bothNone ? Math.round(mascot.h * BOTH_NONE_MASCOT_SCALE) : mascot.h;
+  const lane = Math.max(mascotW, bothNone ? 0 : WIDGET_MASCOT_LANE_WIDTH);
+
+  let innerW: number;
+  let stackH = 0;
+  if (bothNone) {
+    innerW = mascotW;
+  } else if (expanded) {
+    innerW = lane + STREAK_COLUMN;
+    const m = expandedStreakMetrics(c.buttonNotch);
+    stackH = Math.max(m.icon, m.font) + STREAK_STACK_GAP + DOTS_ROW_HEIGHT;
+  } else {
+    const w1 = slotWidth(c, 'slot1');
+    const w2 = slotWidth(c, 'slot2');
+    innerW = lane + (w1 > 0 ? DIVIDER + w1 : 0) + (w2 > 0 ? DIVIDER + w2 : 0);
+    stackH = Math.max(w1, w2);
+  }
+
+  return {
+    width: H_PADDING + innerW,
+    height: V_PADDING + Math.max(mascotH, stackH),
+  };
+}
+
+/**
+ * Shrink the design so it fits the cell the launcher actually gave us.
+ * Never scales up: a roomy widget keeps the design size and leaves the extra space empty.
+ * Omitted sizes mean the design canvas (tests, and any caller that is not a live widget).
+ */
+export function widgetContentScale(c: WidgetMascotConfig, widthDp?: number, heightDp?: number): number {
+  if (widthDp == null && heightDp == null) return 1;
+  const width = widthDp && widthDp > 0 ? widthDp : FALLBACK_WIDGET_WIDTH_DP;
+  const height = heightDp && heightDp > 0 ? heightDp : FALLBACK_WIDGET_HEIGHT_DP;
+  const design = designSize(c);
+  const innerW = Math.max(1, width - WIDGET_EDGE_GUARD_DP * 2);
+  const innerH = Math.max(1, height - WIDGET_EDGE_GUARD_DP * 2);
+  const scale = Math.min(innerW / design.width, innerH / design.height);
+  if (!Number.isFinite(scale) || scale <= 0) return 1;
+  return Math.min(1, scale);
+}
+
+/** Inset applied only when a live widget size was provided. The design canvas has none. */
+export function widgetEdgeGuard(widthDp?: number, heightDp?: number): number {
+  if (widthDp == null && heightDp == null) return 0;
+  return WIDGET_EDGE_GUARD_DP;
+}
+
+/** Floor so independently rounded pieces cannot add up past the box the scale was computed for. */
+export function scaleDp(n: number, scale: number): number {
+  return Math.floor(n * scale);
 }
 
 /** Whether this configuration fits inside the size app.json declares. False is not an error — it

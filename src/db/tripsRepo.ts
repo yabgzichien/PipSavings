@@ -14,6 +14,8 @@ interface TripRow {
   start_date: string | null;
   end_date: string | null;
   icon: string | null;
+  cover: string | null;
+  currency: string | null;
 }
 
 function toTrip(r: TripRow): Trip {
@@ -25,6 +27,8 @@ function toTrip(r: TripRow): Trip {
     startDate: r.start_date ?? null,
     endDate: r.end_date ?? null,
     icon: r.icon ?? null,
+    cover: r.cover ?? null,
+    currency: r.currency ?? null,
   };
 }
 
@@ -54,7 +58,7 @@ export async function addTrip(
     startDate,
     endDate
   );
-  return { id, name, createdAt, archived: false, startDate, endDate, icon };
+  return { id, name, createdAt, archived: false, startDate, endDate, icon, cover: null, currency: null };
 }
 
 export async function renameTrip(id: string, name: string): Promise<void> {
@@ -69,6 +73,18 @@ export async function renameTrip(id: string, name: string): Promise<void> {
 export async function setTripIcon(id: string, icon: string | null): Promise<void> {
   const db = await getDb();
   await db.runAsync('UPDATE trips SET icon = ? WHERE id = ?', icon, id);
+}
+
+/** The recorded-expenses card's cover photo, or null to return that card to a plain fill. */
+export async function setTripCover(id: string, cover: string | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('UPDATE trips SET cover = ? WHERE id = ?', cover, id);
+}
+
+/** The currency that trip's recorded-expenses total converts into. Null follows the app currency. */
+export async function setTripCurrency(id: string, currency: string | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('UPDATE trips SET currency = ? WHERE id = ?', currency, id);
 }
 
 /** Archiving hides a trip from active pickers while keeping its membership intact, so a late

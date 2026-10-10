@@ -74,6 +74,8 @@ import {
   renameTrip as dbRenameTrip,
   setTripArchived as dbSetTripArchived,
   setTripIcon as dbSetTripIcon,
+  setTripCover as dbSetTripCover,
+  setTripCurrency as dbSetTripCurrency,
   deleteTrip as dbDeleteTrip,
   setTransactionTrip as dbSetTransactionTrip,
   setTransactionsTrip as dbSetTransactionsTrip,
@@ -362,6 +364,10 @@ export interface AppData {
   setTripArchived: (id: string, archived: boolean) => Promise<void>;
   /** A destination key, a custom image URI, or null to go back to deriving it from the name. */
   setTripIcon: (id: string, icon: string | null) => Promise<void>;
+  /** A cover photo for the recorded-expenses card, or null to clear it. */
+  setTripCover: (id: string, cover: string | null) => Promise<void>;
+  /** Currency that trip's recorded-expenses total converts into, or null to follow the app. */
+  setTripCurrency: (id: string, currency: string | null) => Promise<void>;
   deleteTrip: (id: string) => Promise<void>;
   setTransactionTrip: (txnId: string, tripId: string | null) => Promise<void>;
   setTransactionsTrip: (txnIds: string[], tripId: string | null) => Promise<void>;
@@ -1091,6 +1097,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setTripIcon = useCallback(async (id: string, icon: string | null) => {
     await dbSetTripIcon(id, icon);
+    setTrips(await listTrips());
+  }, []);
+
+  const setTripCover = useCallback(async (id: string, cover: string | null) => {
+    await dbSetTripCover(id, cover);
+    setTrips(await listTrips());
+  }, []);
+
+  const setTripCurrency = useCallback(async (id: string, currency: string | null) => {
+    await dbSetTripCurrency(id, currency);
     setTrips(await listTrips());
   }, []);
 
@@ -2427,6 +2443,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     renameTrip,
     setTripArchived,
     setTripIcon,
+    setTripCover,
+    setTripCurrency,
     deleteTrip,
     setTransactionTrip,
     setTransactionsTrip,

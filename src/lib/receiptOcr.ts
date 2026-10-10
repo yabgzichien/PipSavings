@@ -12,6 +12,7 @@
 import { Platform } from 'react-native';
 
 import { reportError } from './diagnostics';
+import { moneyLineCount, ocrLooksGarbled } from './longScan';
 
 export type OcrOutcome =
   | { status: 'ok'; text: string }
@@ -46,13 +47,19 @@ interface OcrBlock {
  * grouping dropped lines that had no frame — those rows would otherwise never be sorted.
  */
 export function preferOcrText(spatial: string, raw: string): string {
-  const count = (value: string) => value.split('\n').filter((line) => line.trim().length > 0).length;
   const grouped = spatial.trim();
   const plain = raw.trim();
   if (!grouped) return plain;
   if (!plain) return grouped;
-  if (count(grouped) + 1 >= count(plain)) return grouped;
-  return plain;
+  const money = (value: string) => value.match(/\d+[.,]\d{2}/g)?.length ?? 0;
+  const groupedMoney = money(grouped);
+  const plainMoney = money(plain);
+  // Joining a merchant with the amount on its row shortens the line count. That is
+  // the read we want. The raw string is the column dump, and it wins only when
+  // grouping actually lost lines that had no box, which shows up as lost figures.
+  if (groupedMoney >= plainMoney && grouped.length + 8 >= plain.length * 0.7) return grouped;
+  if (plainMoney > groupedMoney) return plain;
+  return grouped.length >= plain.length ? grouped : plain;
 }
 
 export function groupLinesSpatially(blocks: OcrBlock[]): string {
@@ -96,23 +103,31 @@ export async function recognizeReceiptText(uri: string, script: OcrScript = 'Chi
     return { status: 'unavailable' };
   }
 
-  let result: { blocks: OcrBlock[] };
-  try {
-    // Chinese-script recognizer also reads Latin digits/punctuation fine, matching the mixed
-    // EN/ZH receipts the pipeline was benchmarked against.
-    const nativeScript =
-      script === 'Latin' ? mod.TextRecognitionScript.LATIN : mod.TextRecognitionScript.CHINESE;
-    result = await mod.default.recognize(uri, nativeScript);
-  } catch (err) {
-    // Distinct from the import failing above: the module loaded, so the recognizer throwing is a
-    // real fault rather than the expected Expo Go / web path. Reported without its message —
-    // ML Kit puts the image URI in there.
-    reportError(err, 'receipt-ocr');
-    return { status: 'unavailable' };
-  }
+  const read = async (which: OcrScript): Promise<OcrOutcome> => {
+    let result: { blocks: OcrBlock[]; text?: string };
+    try {
+      const nativeScript =
+        which === 'Latin' ? mod.TextRecognitionScript.LATIN : mod.TextRecognitionScript.CHINESE;
+      result = await mod.default.recognize(uri, nativeScript);
+    } catch (err) {
+      reportError(err, 'receipt-ocr');
+      return { status: 'unavailable' };
+    }
+    const spatial = groupLinesSpatially(result.blocks);
+    const raw = typeof result.text === 'string' ? result.text : '';
+    const text = preferOcrText(spatial, raw);
+    return text.trim() ? { status: 'ok', text } : { status: 'empty' };
+  };
 
-  const spatial = groupLinesSpatially(result.blocks);
-  const raw = typeof (result as { text?: string }).text === 'string' ? (result as { text: string }).text : '';
-  const text = preferOcrText(spatial, raw);
-  return text.trim() ? { status: 'ok', text } : { status: 'empty' };
+  const first = await read(script);
+  if (script !== 'Chinese' || first.status !== 'ok') return first;
+  const thin = moneyLineCount(first.text) < 3 || ocrLooksGarbled(first.text);
+  if (!thin) return first;
+  const latin = await read('Latin');
+  if (latin.status !== 'ok') return first;
+  const firstMoney = moneyLineCount(first.text);
+  const latinMoney = moneyLineCount(latin.text);
+  if (latinMoney > firstMoney) return latin;
+  if (ocrLooksGarbled(first.text) && !ocrLooksGarbled(latin.text) && latinMoney >= firstMoney) return latin;
+  return first.text.length >= latin.text.length ? first : latin;
 }

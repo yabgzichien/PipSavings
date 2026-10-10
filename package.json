@@ -1,6 +1,6 @@
 {
   "name": "pip-expenses-tracker",
-  "version": "1.0.24",
+  "version": "1.0.30",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

@@ -17,10 +17,14 @@ jest.mock('../src/state/colorScheme', () => ({
     bg: '#eef1ee', surface: '#fff', surface2: '#f6f8f6', ink: '#16201b', ink2: '#5d6b63', ink3: '#6a776f',
     line: '#d8ddd9', line2: '#edf0ed', red: '#c0392b',
   }),
+  useResolvedScheme: () => 'light',
+}));
+jest.mock('../src/db/currencyRepo', () => ({
+  getActiveCurrencies: () => Promise.resolve(['MYR']),
 }));
 jest.mock('../src/state/useReducedMotion', () => ({ useReducedMotion: () => true }));
 jest.mock('../src/state/useDisplayCurrency', () => ({
-  useDisplayCurrency: () => ({ code: 'MYR', convert: (value: number) => value, convertTxn: (txn: { amount: number }) => txn.amount }),
+  useDisplayCurrency: () => ({ code: 'MYR', rates: {}, convert: (value: number) => value, convertTxn: (txn: { amount: number }) => txn.amount }),
 }));
 jest.mock('../src/lib/askPip/sheetOpen', () => ({
   sheetOpenFromModalState: () => false,
@@ -55,17 +59,18 @@ jest.mock('../src/i18n', () => ({
   }),
 }));
 
-function render(element: React.ReactElement) {
+async function render(element: React.ReactElement) {
   let tree: ReturnType<typeof Renderer.create>;
-  Renderer.act(() => {
+  await Renderer.act(async () => {
     tree = Renderer.create(element);
+    await Promise.resolve();
   });
   return tree!;
 }
 
 describe('Ask Pip embedded canvas layout', () => {
-  it('gives a hosted screen the full thread width instead of a message-bubble gutter', () => {
-    const tree = render(
+  it('gives a hosted screen the full thread width instead of a message-bubble gutter', async () => {
+    const tree = await render(
       <AskPipChatBubble role="assistant" text="Trips">
         <View testID="hosted-screen" />
       </AskPipChatBubble>,
@@ -80,8 +85,8 @@ describe('Ask Pip embedded canvas layout', () => {
     expect(tree.root.findAllByType(Pip)).toHaveLength(0);
   });
 
-  it('lets both trip action labels shrink inside their half of a narrow Android row', () => {
-    const tree = render(
+  it('lets both trip action labels shrink inside their half of a narrow Android row', async () => {
+    const tree = await render(
       <TripDetailScreen
         tripId="turkey"
         onBack={jest.fn()}

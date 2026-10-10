@@ -13,6 +13,7 @@ export interface ExtractedTxnRow {
   amount: number;
   type: 'expense' | 'income';
   date: string | null;
+  time?: string | null;
   currency: string;
   method?: string | null;
 }
@@ -65,11 +66,17 @@ Each transaction must have:
 - "amount": total amount paid as a positive number (float)
 - "type": "expense" or "income" (usually "expense")
 - "date": transaction date in YYYY-MM-DD format, or null if not found
+- "time": "HH:mm" when that row prints a clock time, otherwise null
 - "currency": 3-letter currency code (e.g. MYR, SGD, USD)
 - "method": payment method if visible (e.g. "tng", "grabpay", "visa", "cash"), or null
 
 Return ONLY valid JSON matching: { "transactions": [...] }.
-Include every row from top to bottom. Do not stop after the first few, sample, or summarize.`;
+Include every row from top to bottom. Do not stop after the first few, sample, or summarize.
+One printed payment is one object, even when that row shows two amounts.
+- A second amount under the same merchant (a fee, or the other currency, as Wise prints it) is the same payment. When both amounts use the same currency, use the larger one. When they differ, use the currency the rest of the list is in.
+- A date heading such as "25 September" applies to every row under it until the next heading.
+- A timestamp on a row, such as "25 Sep, 20:12", belongs to that row only. Do not date a row with the next row's day.
+- Two payments to the same merchant stay two transactions when the time or the amount differs.`;
 
 export function buildPrompt(_categories?: ProviderCategory[]): string {
   return TRANSACTION_USER_PROMPT;
@@ -162,6 +169,7 @@ export const TRANSACTIONS_SCHEMA = {
           amount: { type: 'NUMBER' },
           type: { type: 'STRING', enum: ['expense', 'income'] },
           date: { type: 'STRING', nullable: true },
+          time: { type: 'STRING', nullable: true },
           currency: { type: 'STRING' },
           method: { type: 'STRING', nullable: true },
         },
@@ -591,13 +599,44 @@ export async function callGeminiText(
   return parseScanOutput(scanType, content);
 }
 
+/** Free Models Router. Picks a free model that accepts the request, including images. */
+export const OPENROUTER_SCAN_MODEL = 'openrouter/free';
+
+/**
+ * Comma-separated entries, tried in order. Each entry is `key` or `key|model`;
+ * a bare key uses the model passed by the caller.
+ */
+export function parseOpenRouterKeys(
+  apiKeysRaw: string,
+  defaultModel: string
+): { apiKey: string; model: string; pinned: boolean }[] {
+  return apiKeysRaw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [apiKey, model] = entry.split('|').map((part) => part.trim());
+      return { apiKey, model: model || defaultModel, pinned: Boolean(model) };
+    })
+    .filter(({ apiKey }) => Boolean(apiKey));
+}
+
+/**
+ * Pinned models skip reasoning: thinking models spend several seconds on it,
+ * which can blow the per-provider timeout. Not sent to the free router, which
+ * may pick models that don't support the parameter.
+ */
+function openRouterReasoningParams(pinned: boolean) {
+  return pinned ? { reasoning: { enabled: false } } : {};
+}
+
 export async function callOpenRouterVision(
   apiKeysRaw: string,
   base64: string,
   mime: string,
   scanType: ScanType = 'transactions',
   ocrTextOrCategories?: string | ProviderCategory[],
-  model: string = 'google/gemini-2.5-flash',
+  model: string = OPENROUTER_SCAN_MODEL,
   signal?: AbortSignal
 ): Promise<ScanResultData> {
   const ocrText = typeof ocrTextOrCategories === 'string' ? ocrTextOrCategories : undefined;
@@ -623,10 +662,10 @@ export async function callOpenRouterVision(
     ],
   });
 
-  const keys = apiKeysRaw.split(',').map((k) => k.trim()).filter(Boolean);
+  const keys = parseOpenRouterKeys(apiKeysRaw, model || OPENROUTER_SCAN_MODEL);
   let lastError: any = null;
 
-  for (const apiKey of keys) {
+  for (const { apiKey, model: keyModel, pinned } of keys) {
     try {
       const url = 'https://openrouter.ai/api/v1/chat/completions';
       const response = await fetch(url, {
@@ -639,11 +678,12 @@ export async function callOpenRouterVision(
         },
         signal,
         body: JSON.stringify({
-          model: model || 'google/gemini-2.5-flash',
+          model: keyModel,
           max_tokens: scanType === 'transactions' ? 8192 : 2048,
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.1,
+          ...openRouterReasoningParams(pinned),
         }),
       });
 
@@ -671,7 +711,7 @@ export async function callOpenRouterText(
   apiKeysRaw: string,
   ocrText: string,
   scanType: ScanType = 'transactions',
-  model: string = 'google/gemini-2.5-flash',
+  model: string = OPENROUTER_SCAN_MODEL,
   signal?: AbortSignal
 ): Promise<ScanResultData> {
   const { systemPrompt, userPrompt } = getPromptConfig(scanType);
@@ -686,10 +726,10 @@ export async function callOpenRouterText(
     content: effectiveUserPrompt,
   });
 
-  const keys = apiKeysRaw.split(',').map((k) => k.trim()).filter(Boolean);
+  const keys = parseOpenRouterKeys(apiKeysRaw, model || OPENROUTER_SCAN_MODEL);
   let lastError: any = null;
 
-  for (const apiKey of keys) {
+  for (const { apiKey, model: keyModel, pinned } of keys) {
     try {
       const url = 'https://openrouter.ai/api/v1/chat/completions';
       const response = await fetch(url, {
@@ -702,11 +742,12 @@ export async function callOpenRouterText(
         },
         signal,
         body: JSON.stringify({
-          model: model || 'google/gemini-2.5-flash',
+          model: keyModel,
           max_tokens: scanType === 'transactions' ? 8192 : 2048,
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.1,
+          ...openRouterReasoningParams(pinned),
         }),
       });
 
@@ -740,7 +781,17 @@ export function parseTransactionRows(data: any): ExtractedTxnRow[] {
       const amount = Math.abs(Number(item.amount || 0));
       if (!amount || isNaN(amount)) return null;
       const type = item.type === 'income' ? 'income' : 'expense';
-      const date = item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : null;
+      const dateMatch = typeof item.date === 'string' ? item.date.match(/^(\d{4}-\d{2}-\d{2})/) : null;
+      const date = dateMatch ? dateMatch[1] : null;
+      const timeMatch =
+        (typeof item.time === 'string' ? item.time.match(/^(\d{1,2}):(\d{2})/) : null) ||
+        (typeof item.date === 'string' ? item.date.match(/T(\d{1,2}):(\d{2})/) : null);
+      let time: string | null = null;
+      if (timeMatch) {
+        const hour = Number(timeMatch[1]);
+        const minute = Number(timeMatch[2]);
+        if (hour <= 23 && minute <= 59) time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
       const currency = String(item.currency || 'MYR').toUpperCase();
       const method = item.method ? String(item.method).toLowerCase() : null;
 
@@ -749,6 +800,7 @@ export function parseTransactionRows(data: any): ExtractedTxnRow[] {
         amount,
         type,
         date,
+        time,
         currency,
         method,
       };

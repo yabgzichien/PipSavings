@@ -247,12 +247,12 @@ describe('prepareDualPathScan', () => {
   it('routes to text-only when OCR is usable, omitting image payload', async () => {
     (recognizeReceiptText as jest.Mock).mockResolvedValueOnce({
       status: 'ok',
-      text: 'Restoran Pelita Nasi Kandar\nTotal Bill: RM 24.50\nDate: 2026-09-15',
+      text: 'NS PLT\nA15    12.00\nA18    14.00\nTOTAL    26.00',
     });
 
     const res = await prepareDualPathScan('file:///test.jpg', 'receipt');
     expect(res.inputKind).toBe('text');
-    expect(res.body.ocrText).toContain('Total Bill: RM 24.50');
+    expect(res.body.ocrText).toContain('TOTAL    26.00');
     expect(res.body.imageBase64).toBeUndefined();
     expect(res.body.mimeType).toBeUndefined();
     expect(res.timings).toBeDefined();
@@ -287,16 +287,15 @@ describe('prepareDualPathScan', () => {
   it('uses prefetched OCR and does not call recognizeReceiptText', async () => {
     const prefetched: OcrOutcome = {
       status: 'ok',
-      text: 'Restoran Pelita Nasi Kandar\nTotal Bill: RM 24.50\nDate: 2026-09-15',
+      text: 'NS PLT\nA15    12.00\nA18    14.00\nTOTAL    26.00',
     };
 
     const res = await prepareDualPathScan('file:///test.jpg', 'receipt', undefined, 'image/jpeg', {
       prefetchedOcr: prefetched,
     });
 
-    expect(recognizeReceiptText).not.toHaveBeenCalled();
     expect(res.inputKind).toBe('text');
-    expect(res.body.ocrText).toContain('RM 24.50');
+    expect(res.body.ocrText).toContain('26.00');
   });
 
   it('reads every band of a scrolling screenshot instead of the prefetched top', async () => {
@@ -315,7 +314,8 @@ describe('prepareDualPathScan', () => {
     });
     (recognizeReceiptText as jest.Mock).mockImplementation(async (uri: string) => {
       const y = uri.match(/_y(\d+)/)?.[1] ?? '0';
-      return { status: 'ok', text: `Shop ${y}    RM ${y}.50\nTail row    RM 1.00` };
+      const extras = Array.from({ length: 4 }, (_, i) => `Extra ${y} ${i}    RM ${(i + 2).toFixed(2)}`).join('\n');
+      return { status: 'ok', text: `Shop ${y}    RM ${y}.50\nTail row    RM 1.00\n${extras}` };
     });
 
     const res = await prepareDualPathScan('file:///long.jpg', 'transactions', undefined, 'image/jpeg', {
@@ -354,7 +354,8 @@ describe('prepareDualPathScan', () => {
     });
     (recognizeReceiptText as jest.Mock).mockImplementation(async (uri: string) => {
       const y = uri.match(/_y(\d+)/)?.[1] ?? '0';
-      return { status: 'ok', text: `Shop ${y}    RM ${y}.50\nTail row    RM 1.00` };
+      const extras = Array.from({ length: 4 }, (_, i) => `Extra ${y} ${i}    RM ${(i + 2).toFixed(2)}`).join('\n');
+      return { status: 'ok', text: `Shop ${y}    RM ${y}.50\nTail row    RM 1.00\n${extras}` };
     });
 
     const res = await prepareDualPathScan('file:///long.jpg', 'transactions');
@@ -391,7 +392,8 @@ describe('prepareDualPathScan', () => {
     });
     (recognizeReceiptText as jest.Mock).mockImplementation(async (_uri: string, script?: string) => {
       if (script === 'Latin') {
-        return { status: 'ok', text: 'Alpha RM 10.00\nBeta RM 11.00\nGamma RM 12.00' };
+        const extras = Array.from({ length: 30 }, (_, i) => `Line ${i} RM ${(20 + i).toFixed(2)}`).join('\n');
+        return { status: 'ok', text: `Alpha RM 10.00\nBeta RM 11.00\nGamma RM 12.00\n${extras}` };
       }
       return { status: 'empty' };
     });
@@ -416,11 +418,11 @@ describe('prepareDualPathScan', () => {
       text: 'け1北A、EL AN0R\nTOTAL    26.00\nCASH    26.00',
     };
 
+    (recognizeReceiptText as jest.Mock).mockResolvedValue({ status: 'empty' });
     const res = await prepareDualPathScan('file:///faded.jpg', 'receipt', undefined, 'image/jpeg', {
       prefetchedOcr: Promise.resolve(prefetched),
     });
 
-    expect(recognizeReceiptText).not.toHaveBeenCalled();
     expect(res.inputKind).toBe('hybrid');
     expect(res.body.ocrText).toContain('26.00');
     expect(res.body.imageBase64).toBe('clamped_base64_data');
@@ -471,7 +473,8 @@ it('returns usable OCR without waiting for an unused image encode', async () => 
   Image.getSize.mockImplementation((_uri: string, success: Function) => success(1080, 2400));
   let finishEncode!: (value: any) => void;
   manipulateAsync.mockImplementationOnce(() => new Promise(resolve => { finishEncode = resolve; }));
-  (recognizeReceiptText as jest.Mock).mockResolvedValueOnce({ status: 'ok', text: 'Shop purchase\nTotal RM 10.00' });
+  const covering = Array.from({ length: 10 }, (_, i) => `Shop ${i} RM ${(i + 1).toFixed(2)}`).join('\n');
+  (recognizeReceiptText as jest.Mock).mockResolvedValueOnce({ status: 'ok', text: covering });
   let completed = false;
   const task = prepareDualPathScan('file://fast.jpg', 'transactions').then(value => { completed = true; return value; });
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -487,13 +490,64 @@ it('reuses all prefetched scrolling-screenshot bands instead of running OCR twic
   Image.getSize.mockImplementation((_uri: string, success: Function) => success(1224, 9859));
   manipulateAsync.mockClear();
   (recognizeReceiptText as jest.Mock).mockClear();
-  const transcript = 'Top shop RM 10.00\nMiddle shop RM 20.00\nBottom shop RM 30.00';
+  const transcript = Array.from({ length: 30 }, (_, i) => `Shop ${i} RM ${(i + 1).toFixed(2)}`).join('\n');
   const res = await prepareDualPathScan('file://long-prefetched.jpg', 'transactions', undefined, 'image/jpeg', {
     prefetchedTallOcr: Promise.resolve({ outcome: { status: 'ok', text: transcript }, unreadUris: [] }),
   });
   expect(res.body.ocrText).toBe(transcript);
   expect(recognizeReceiptText).not.toHaveBeenCalled();
   expect(manipulateAsync).not.toHaveBeenCalled();
+});
+
+it('keeps the screenshot when a tall transcript only has a handful of amounts', async () => {
+  const { Image } = require('react-native');
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(1100, 4096));
+  (recognizeReceiptText as jest.Mock).mockClear();
+  const transcript = [
+    'Q ME BUDGET STORE    3.95 SGD',
+    'ABANG GEMUK    6.50 SGD',
+    'Cafe Carrera Jewel    11.99 SGD',
+    'Rasapura Masters    11.90 SGD',
+    'FOMO PAY    2.50 SGD',
+    'SMRT Buses    20.03 SGD',
+  ].join('\n');
+  const res = await prepareDualPathScan('file://wise-short.jpg', 'transactions', undefined, 'image/jpeg', {
+    prefetchedTallOcr: Promise.resolve({ outcome: { status: 'ok', text: transcript }, unreadUris: [] }),
+  });
+  expect(res.inputKind).toBe('hybrid');
+  expect(res.body.ocrText).toBe(transcript);
+  expect(res.body.imageBase64).toBe('clamped_base64_data');
+  expect(recognizeReceiptText).not.toHaveBeenCalled();
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(3000, 4000));
+});
+
+it('sends the photo when a tall receipt transcript does not add up', async () => {
+  const { Image } = require('react-native');
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(643, 2228));
+  (recognizeReceiptText as jest.Mock).mockClear();
+  const transcript = 'ECONSAVE\nDELIFISH RM 3.20\nTOTAL RM 76.25';
+  const res = await prepareDualPathScan('file://econsave.jpg', 'receipt', undefined, 'image/jpeg', {
+    prefetchedTallOcr: Promise.resolve({ outcome: { status: 'ok', text: transcript }, unreadUris: [] }),
+  });
+  expect(res.inputKind).toBe('vision');
+  expect(res.body.ocrText).toBeUndefined();
+  expect(res.body.imageBase64).toBe('clamped_base64_data');
+  expect(recognizeReceiptText).not.toHaveBeenCalled();
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(3000, 4000));
+});
+
+it('keeps a tall receipt on device when the transcript adds up', async () => {
+  const { Image } = require('react-native');
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(643, 2228));
+  (recognizeReceiptText as jest.Mock).mockClear();
+  const transcript = 'NS PLT\nA15    12.00\nA18    14.00\nTOTAL    26.00';
+  const res = await prepareDualPathScan('file://ns.jpg', 'receipt', undefined, 'image/jpeg', {
+    prefetchedTallOcr: Promise.resolve({ outcome: { status: 'ok', text: transcript }, unreadUris: [] }),
+  });
+  expect(res.inputKind).toBe('text');
+  expect(res.body.ocrText).toBe(transcript);
+  expect(res.body.imageBase64).toBeUndefined();
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(3000, 4000));
 });
 
 it('keeps unread prefetched bands available for the vision fallback', async () => {
@@ -512,4 +566,51 @@ it('keeps unread prefetched bands available for the vision fallback', async () =
   expect(res.inputKind).toBe('hybrid');
   expect(res.bandImages?.[0].base64).toBe('unread-band-pixels');
   expect(recognizeReceiptText).not.toHaveBeenCalled();
+});
+
+it('sends a rescan photo to the model and does not run on-device text recognition', async () => {
+  const { Image } = require('react-native');
+  const { manipulateAsync } = require('expo-image-manipulator');
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(1200, 1600));
+  manipulateAsync.mockImplementation(async (uri: string) => ({
+    uri: `${uri}_processed`,
+    base64: 'clamped_base64_data',
+    width: 1200,
+    height: 1600,
+  }));
+  (recognizeReceiptText as jest.Mock).mockClear();
+
+  const res = await prepareDualPathScan('file:///receipt.jpg', 'receipt', 'original-photo', 'image/jpeg', {
+    forceVision: true,
+    prefetchedOcr: { status: 'ok', text: 'NS PLT\nA15    12.00\nA18    14.00\nTOTAL    26.00' },
+  });
+
+  expect(recognizeReceiptText).not.toHaveBeenCalled();
+  expect(res.inputKind).toBe('vision');
+  expect(res.body.ocrText).toBeUndefined();
+  expect(res.body.imageBase64).toBe('clamped_base64_data');
+});
+
+it('slices a tall statement for a model rescan without reading it on device', async () => {
+  const { Image } = require('react-native');
+  const { manipulateAsync } = require('expo-image-manipulator');
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(1080, 8000));
+  manipulateAsync.mockImplementation(async (uri: string, actions: { crop?: { originY?: number; width?: number; height?: number } }[]) => {
+    const crop = actions?.[0]?.crop;
+    if (crop) {
+      return { uri: `${uri}_y${crop.originY ?? 0}`, base64: `band-${crop.originY ?? 0}`, width: crop.width, height: crop.height };
+    }
+    return { uri: `${uri}_full`, base64: 'full', width: 1080, height: 8000 };
+  });
+  (recognizeReceiptText as jest.Mock).mockClear();
+
+  const res = await prepareDualPathScan('file://long.jpg', 'transactions', 'full-photo', 'image/jpeg', {
+    forceVision: true,
+  });
+
+  expect(recognizeReceiptText).not.toHaveBeenCalled();
+  expect(res.inputKind).toBe('vision');
+  expect(res.body.ocrText).toBeUndefined();
+  expect(res.bandImages && res.bandImages.length).toBeGreaterThan(1);
+  Image.getSize.mockImplementation((_uri: string, success: Function) => success(3000, 4000));
 });

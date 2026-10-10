@@ -13,7 +13,6 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
-import { usePaywall } from '../billing/paywallContext';
 import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import { radius, spacing } from '../theme';
 import type { PickedImage } from './AttachScreen';
@@ -38,27 +37,17 @@ export function ScanKindScreen({
   const { isZh, t } = useLanguage();
   const {
     isPro,
-    canScan,
     scansRemaining,
     scansLimit,
     dailyScansRemaining,
     dailyScansLimit,
   } = useEntitlement();
-  const { openPaywall } = usePaywall();
 
   const handleReceipt = () => {
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      return;
-    }
     onReceipt();
   };
 
   const handleHistory = () => {
-    if (!canScan) {
-      openPaywall('scan_quota', 'add');
-      return;
-    }
     onHistory();
   };
 

@@ -12,6 +12,8 @@ export interface ExtractedTxn {
   amount: number; // always positive; sign is implied by `type`
   type: TxnType;
   date: string | null; // ISO date (YYYY-MM-DD) or null
+  /** Clock time printed on that row, `HH:mm`, when the screenshot showed one. */
+  time?: string | null;
   method: string | null; // optional sub-label, e.g. "DuitNow QR"
   categoryHint?: string | null; // a category label the source document carried, if any
   account?: string | null; // account name specified in import, if any

@@ -214,7 +214,9 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
       archived    INTEGER NOT NULL DEFAULT 0,
       start_date  TEXT,
       end_date    TEXT,
-      icon        TEXT
+      icon        TEXT,
+      cover       TEXT,
+      currency    TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_txn_created ON transactions (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_split_txn ON splits (txn_id);
@@ -372,6 +374,16 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
     await db.execAsync('ALTER TABLE trips ADD COLUMN icon TEXT');
   } catch {
     // column already present
+  }
+
+  // Migration: a wide photo behind the recorded-expenses card, and an optional currency
+  // that card's total converts into. Both null on existing trips: plain card, app currency.
+  for (const col of ['cover TEXT', 'currency TEXT']) {
+    try {
+      await db.execAsync(`ALTER TABLE trips ADD COLUMN ${col}`);
+    } catch {
+      // column already present
+    }
   }
 
   // Migration (2026-09-13, settlement learning): stores the original bank transfer label on

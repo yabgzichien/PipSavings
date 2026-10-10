@@ -55,7 +55,9 @@ export const DOWN_ARROW_SVG =
   `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">${downArrowFragment()}</svg>`;
 
 export const DOTS_ROW_WIDTH = 68;
-export const DOTS_ROW_HEIGHT = 8;
+/** 12 rather than 8: the circles need the same inset above and below that they have on the
+ *  sides. Packed against an 8-tall viewBox, AndroidSVG clips the bottoms into flat edges. */
+export const DOTS_ROW_HEIGHT = 12;
 
 /** The 7-day activity row, recovered from the StreakWidget that shipped at commit f1bcbbd and
  *  fed by compute7DayDots. Only drawn in the expanded layout, where hiding both arrows frees the
@@ -64,12 +66,13 @@ export function dotsRowFragment(dots: boolean[], color: string): string {
   const safe = dots.length === 7 ? dots : Array.from({ length: 7 }, (_, i) => dots[i] ?? false);
   return safe
     .map((on, i) => {
-      // Inset from the 68-wide viewBox so the last circle's stroke is not clipped into a
-      // crescent when Android draws the SvgWidget at the 2x1 cell edge.
+      // Inset from every edge of the viewBox. A circle packed against the SVG bounds is what
+      // AndroidSVG turns into a crescent or a flat bottom once the widget bitmap is rasterized.
       const cx = 6 + i * 9;
+      const cy = 6;
       return on
-        ? `<circle data-dot="on" cx="${cx}" cy="4" r="3.5" fill="${color}" />`
-        : `<circle data-dot="off" cx="${cx}" cy="4" r="2.8" fill="none" stroke="${DOT_INACTIVE}" stroke-width="1.2" />`;
+        ? `<circle data-dot="on" cx="${cx}" cy="${cy}" r="3.5" fill="${color}" />`
+        : `<circle data-dot="off" cx="${cx}" cy="${cy}" r="2.8" fill="none" stroke="${DOT_INACTIVE}" stroke-width="1.2" />`;
     })
     .join('');
 }
