@@ -24,6 +24,7 @@ import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
 import { submitSnapshotScan } from '../billing/scanProxy';
+import { localizeScanError } from '../lib/scanErrors';
 import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
@@ -192,7 +193,7 @@ export function BalanceScanScreen({
         return;
       }
       if (!res.ok || !res.snapshot) {
-        setError(res.error || (isZh ? '无法识别该截图内容。' : "I couldn't read that screenshot."));
+        setError(localizeScanError(res.error, isZh) || res.error || (isZh ? '无法识别该截图内容。' : "I couldn't read that screenshot."));
         setPhase('error');
         return;
       }

@@ -501,7 +501,7 @@ export async function callGeminiVision(
     ? `OCR text transcript from document:\n${ocrText}\n\n${userPrompt}`
     : userPrompt;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent`;
 
   const body: any = {
     contents: [
@@ -535,7 +535,8 @@ export async function callGeminiVision(
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // In a header, not the query string: URLs end up in logs and traces, headers do not.
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     signal,
     body: JSON.stringify(body),
   });
@@ -559,7 +560,7 @@ export async function callGeminiText(
   const { systemPrompt, userPrompt } = getPromptConfig(scanType);
   const effectiveUserPrompt = `OCR text transcript from document:\n${ocrText}\n\n${userPrompt}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent`;
 
   const body: any = {
     contents: [
@@ -584,7 +585,8 @@ export async function callGeminiText(
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // In a header, not the query string: URLs end up in logs and traces, headers do not.
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     signal,
     body: JSON.stringify(body),
   });

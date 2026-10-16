@@ -68,19 +68,19 @@ describe('monthly story export coordinator', () => {
     const adapter = new FakeCaptureAdapter();
     adapter.shareAvailable = false;
 
-    await expect(shareOneStory(adapter, 'identity', renderer(adapter))).resolves.toBe(false);
+    await expect(shareOneStory(adapter, 'topSpot', renderer(adapter))).resolves.toBe(false);
     expect(adapter.events).toEqual(['canShare']);
   });
 
   test('one-card share captures, shares, and cleans its temporary file', async () => {
     const adapter = new FakeCaptureAdapter();
 
-    await expect(shareOneStory(adapter, 'identity', renderer(adapter))).resolves.toBe(true);
+    await expect(shareOneStory(adapter, 'topSpot', renderer(adapter))).resolves.toBe(true);
     expect(adapter.events).toEqual([
       'canShare',
-      'capture:identity',
-      'share:tmp://identity',
-      'cleanup:tmp://identity',
+      'capture:topSpot',
+      'share:tmp://topSpot',
+      'cleanup:tmp://topSpot',
     ]);
   });
 
@@ -91,12 +91,12 @@ describe('monthly story export coordinator', () => {
       throw new Error('share failed');
     };
 
-    await expect(shareOneStory(adapter, 'identity', renderer(adapter))).rejects.toThrow('share failed');
+    await expect(shareOneStory(adapter, 'topSpot', renderer(adapter))).rejects.toThrow('share failed');
     expect(adapter.events).toEqual([
       'canShare',
-      'capture:identity',
-      'share:tmp://identity',
-      'cleanup:tmp://identity',
+      'capture:topSpot',
+      'share:tmp://topSpot',
+      'cleanup:tmp://topSpot',
     ]);
   });
 
@@ -118,7 +118,7 @@ describe('monthly story export coordinator', () => {
     adapter.permission = 'denied';
 
     await expect(
-      saveSelectedStories(adapter, ['identity', 'finale'], renderer(adapter)),
+      saveSelectedStories(adapter, ['topSpot', 'finale'], renderer(adapter)),
     ).resolves.toEqual({ status: 'permission-denied' });
     expect(adapter.events).toEqual(['permission']);
   });
@@ -127,40 +127,40 @@ describe('monthly story export coordinator', () => {
     const adapter = new FakeCaptureAdapter();
 
     await expect(
-      saveSelectedStories(adapter, ['finale', 'identity', 'habit'], renderer(adapter)),
-    ).resolves.toEqual({ savedIds: ['identity', 'habit', 'finale'], failedIds: [] });
+      saveSelectedStories(adapter, ['finale', 'topSpot', 'biggestDay'], renderer(adapter)),
+    ).resolves.toEqual({ savedIds: ['topSpot', 'biggestDay', 'finale'], failedIds: [] });
     expect(adapter.events).toEqual([
       'permission',
-      'capture:identity',
-      'save:tmp://identity',
-      'capture:habit',
-      'save:tmp://habit',
+      'capture:topSpot',
+      'save:tmp://topSpot',
+      'capture:biggestDay',
+      'save:tmp://biggestDay',
       'capture:finale',
       'save:tmp://finale',
-      'cleanup:tmp://identity',
-      'cleanup:tmp://habit',
+      'cleanup:tmp://topSpot',
+      'cleanup:tmp://biggestDay',
       'cleanup:tmp://finale',
     ]);
   });
 
-  test('batch save captures spotlight scene in correct narrative order between pattern and habit', async () => {
+  test('batch save captures spotlight scene in correct narrative order between the ghosted place and the finale', async () => {
     const adapter = new FakeCaptureAdapter();
 
     await expect(
-      saveSelectedStories(adapter, ['finale', 'spotlight', 'identity', 'pattern'], renderer(adapter)),
-    ).resolves.toEqual({ savedIds: ['identity', 'pattern', 'spotlight', 'finale'], failedIds: [] });
+      saveSelectedStories(adapter, ['finale', 'spotlight', 'topSpot', 'ghosted'], renderer(adapter)),
+    ).resolves.toEqual({ savedIds: ['topSpot', 'ghosted', 'spotlight', 'finale'], failedIds: [] });
     expect(adapter.events).toEqual([
       'permission',
-      'capture:identity',
-      'save:tmp://identity',
-      'capture:pattern',
-      'save:tmp://pattern',
+      'capture:topSpot',
+      'save:tmp://topSpot',
+      'capture:ghosted',
+      'save:tmp://ghosted',
       'capture:spotlight',
       'save:tmp://spotlight',
       'capture:finale',
       'save:tmp://finale',
-      'cleanup:tmp://identity',
-      'cleanup:tmp://pattern',
+      'cleanup:tmp://topSpot',
+      'cleanup:tmp://ghosted',
       'cleanup:tmp://spotlight',
       'cleanup:tmp://finale',
     ]);
@@ -168,11 +168,11 @@ describe('monthly story export coordinator', () => {
 
   test('a partial save returns exact IDs and continues with later cards', async () => {
     const adapter = new FakeCaptureAdapter();
-    adapter.failSaveUris.add('tmp://pattern');
+    adapter.failSaveUris.add('tmp://ghosted');
 
     await expect(
-      saveSelectedStories(adapter, ['identity', 'pattern', 'finale'], renderer(adapter)),
-    ).resolves.toEqual({ savedIds: ['identity', 'finale'], failedIds: ['pattern'] });
+      saveSelectedStories(adapter, ['topSpot', 'ghosted', 'finale'], renderer(adapter)),
+    ).resolves.toEqual({ savedIds: ['topSpot', 'finale'], failedIds: ['ghosted'] });
     expect(adapter.events).toContain('save:tmp://finale');
   });
 
@@ -182,28 +182,28 @@ describe('monthly story export coordinator', () => {
     await expect(
       saveSelectedStories(
         adapter,
-        ['identity', 'pattern', 'habit'],
-        renderer(adapter, ['pattern']),
+        ['topSpot', 'ghosted', 'biggestDay'],
+        renderer(adapter, ['ghosted']),
       ),
-    ).resolves.toEqual({ savedIds: ['identity', 'habit'], failedIds: ['pattern'] });
+    ).resolves.toEqual({ savedIds: ['topSpot', 'biggestDay'], failedIds: ['ghosted'] });
     expect(adapter.events).toEqual([
       'permission',
-      'capture:identity',
-      'save:tmp://identity',
-      'capture:pattern',
-      'capture:habit',
-      'save:tmp://habit',
-      'cleanup:tmp://identity',
-      'cleanup:tmp://habit',
+      'capture:topSpot',
+      'save:tmp://topSpot',
+      'capture:ghosted',
+      'capture:biggestDay',
+      'save:tmp://biggestDay',
+      'cleanup:tmp://topSpot',
+      'cleanup:tmp://biggestDay',
     ]);
   });
 
   test('retrying the returned failures captures only failed cards', async () => {
     const adapter = new FakeCaptureAdapter();
-    adapter.failSaveUris.add('tmp://pattern');
+    adapter.failSaveUris.add('tmp://ghosted');
     const first = await saveSelectedStories(
       adapter,
-      ['identity', 'pattern', 'finale'],
+      ['topSpot', 'ghosted', 'finale'],
       renderer(adapter),
     );
     if ('status' in first) throw new Error('permission unexpectedly denied');
@@ -212,26 +212,26 @@ describe('monthly story export coordinator', () => {
     adapter.failSaveUris.clear();
     await expect(
       saveSelectedStories(adapter, first.failedIds, renderer(adapter)),
-    ).resolves.toEqual({ savedIds: ['pattern'], failedIds: [] });
+    ).resolves.toEqual({ savedIds: ['ghosted'], failedIds: [] });
     expect(adapter.events).toEqual([
       'permission',
-      'capture:pattern',
-      'save:tmp://pattern',
-      'cleanup:tmp://pattern',
+      'capture:ghosted',
+      'save:tmp://ghosted',
+      'cleanup:tmp://ghosted',
     ]);
   });
 
   test('cleanup attempts every created URI even when one cleanup fails', async () => {
     const adapter = new FakeCaptureAdapter();
-    adapter.failSaveUris.add('tmp://habit');
-    adapter.failCleanupUris.add('tmp://identity');
+    adapter.failSaveUris.add('tmp://biggestDay');
+    adapter.failCleanupUris.add('tmp://topSpot');
 
     await expect(
-      saveSelectedStories(adapter, ['identity', 'habit', 'finale'], renderer(adapter)),
-    ).resolves.toEqual({ savedIds: ['identity', 'finale'], failedIds: ['habit'] });
+      saveSelectedStories(adapter, ['topSpot', 'biggestDay', 'finale'], renderer(adapter)),
+    ).resolves.toEqual({ savedIds: ['topSpot', 'finale'], failedIds: ['biggestDay'] });
     expect(adapter.events.slice(-3)).toEqual([
-      'cleanup:tmp://identity',
-      'cleanup:tmp://habit',
+      'cleanup:tmp://topSpot',
+      'cleanup:tmp://biggestDay',
       'cleanup:tmp://finale',
     ]);
   });

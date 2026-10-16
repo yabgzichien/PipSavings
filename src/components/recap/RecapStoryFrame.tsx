@@ -2,11 +2,15 @@ import React, { useMemo } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect, SvgXml } from 'react-native-svg';
 import { useLanguage } from '../../i18n';
-import type { RecapStoryScene } from '../../lib/recapStory';
+import { currencyPrefix, fmtMoney } from '../../lib/format';
+import { prevMonthKey } from '../../lib/recap';
+import type { RecapStoryContentSceneId, RecapStoryScene } from '../../lib/recapStory';
+import { recapStoryLineKey } from '../../lib/recapStoryCopy';
 import {
   STORY_LOGICAL_HEIGHT,
   STORY_LOGICAL_WIDTH,
   getStoryThemeForMonth,
+  storyPaletteSlot,
   type PipStoryAccessory,
   type StoryMotif,
 } from '../../lib/recapStoryTheme';
@@ -26,6 +30,10 @@ export interface RecapStoryFrameProps {
   categoryLabel: (categoryId: string) => string;
   accessibilityPositionLabel?: string;
   month?: string;
+  /** Display currency the scene's amounts are already converted to. */
+  currency?: string;
+  /** Share-time privacy: every amount renders as "RM ••••", in pixels and in the label. */
+  hideAmounts?: boolean;
 }
 
 const CATEGORY_ICONS: Record<string, IconName> = {
@@ -33,9 +41,6 @@ const CATEGORY_ICONS: Record<string, IconName> = {
   learning: 'book', family: 'gift', medical: 'heart', utilities: 'home',
   subscriptions: 'play', rental: 'home', phoneBill: 'phone', insurance: 'shield',
 };
-const COMPARISON_KEYS = {
-  higher: 'recapStoryComparisonHigher', lower: 'recapStoryComparisonLower', same: 'recapStoryComparisonSame',
-} as const;
 
 function StoryMotifSvg({ motif, stroke, fill }: { motif: StoryMotif; stroke: string; fill: string }) {
   switch (motif) {
@@ -256,12 +261,40 @@ function PipFestiveAccessory({ accessory, ink, accent }: { accessory: PipStoryAc
   );
 }
 
+const LOCKED_COPY: Record<RecapStoryContentSceneId, [title: string, hint: string] | undefined> = {
+  topSpot: ['recapStory_locked_topSpot', 'recapStory_locked_topSpotHint'],
+  foodPodium: ['recapStory_locked_foodPodium', 'recapStory_locked_foodPodiumHint'],
+  biggestDay: ['recapStory_locked_biggestDay', 'recapStory_locked_biggestDayHint'],
+  discoveries: ['recapStory_locked_discoveries', 'recapStory_locked_discoveriesHint'],
+  shoppingRegular: undefined, rideOrDie: undefined, ghosted: undefined, spotlight: undefined, versusLastMonth: undefined,
+};
+
+/** Podium columns read left to right as 2nd, 1st, 3rd; each rises in that order of reveal. */
+const PODIUM_COLUMNS = [
+  { rank: 1, height: 88, reveal: [0.25, 0.35] },
+  { rank: 0, height: 132, reveal: [0.4, 0.5] },
+  { rank: 2, height: 60, reveal: [0.1, 0.2] },
+] as const;
+
+interface PlaceCopy {
+  kicker: string;
+  headline: string;
+  stat?: string;
+  detail?: string;
+  line?: string;
+  /** A second beat that lands after the headline in full motion. */
+  beat?: string;
+  icon?: IconName;
+  /** A full sentence as the headline: set smaller so it never truncates. */
+  sentence?: boolean;
+}
+
 /** Capture and playback share this exact tree; only caller-owned motion changes its pose. */
 export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, monthLabel,
-  categoryLabel, accessibilityPositionLabel, month }: RecapStoryFrameProps) {
-  const { t } = useLanguage();
+  categoryLabel, accessibilityPositionLabel, month, currency = 'MYR', hideAmounts = false }: RecapStoryFrameProps) {
+  const { t, formatMonthLabel, formatLongDate } = useLanguage();
   const theme = getStoryThemeForMonth(month);
-  const palette = theme.palettes[scene.type];
+  const palette = theme.palettes[storyPaletteSlot(scene.type)];
   const ink = palette.foreground;
   const animate = mode === 'animated' && motion === 'full' ? progress : undefined;
   const pose = animate ? {
@@ -271,17 +304,86 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
   const ornamentPose = animate ? {
     transform: [{ rotate: animate.interpolate({ inputRange: [0, 1], outputRange: ['-12deg', '0deg'], extrapolate: 'clamp' }) }],
   } : { transform: [{ rotate: '0deg' }] };
+  const reveal = (from: number, to: number) => animate
+    ? { opacity: animate.interpolate({ inputRange: [0, from, to, 1], outputRange: [0, 0, 1, 1], extrapolate: 'clamp' }) }
+    : { opacity: 1 };
   const mascotXml = useMemo(() => composeMascot({ ...mascotConfig, badgeIcon: 'none' }, 0), [mascotConfig]);
-  const days = 'activityDays' in scene ? t('recapStoryDays', { days: scene.activityDays }) : '';
-  const weeks = scene.type === 'habit' ? t('recapStoryWeeks', { weeks: scene.activityWeeks }) : '';
-  const personaTitle = scene.type === 'identity' ? t(`recapStoryPersona_${scene.persona}_title`) : '';
-  const personaBody = scene.type === 'identity' ? t(`recapStoryPersona_${scene.persona}_body`, { days: scene.activityDays }) : '';
-  const comparison = scene.type === 'pattern' && scene.changeDirection && scene.previousRecordedSharePercent !== undefined
-    ? t(COMPARISON_KEYS[scene.changeDirection], { percent: scene.previousRecordedSharePercent }) : '';
-  const patternCategory = scene.type === 'pattern' ? categoryLabel(scene.categoryId) : '';
-  const badges = scene.type === 'finale' ? scene.badges.map((badge) => ({
-    id: badge, label: t(`recapStoryBadge_${badge}_label`), body: t(`recapStoryBadge_${badge}_body`),
-  })) : [];
+
+  const money = (value: number) => hideAmounts ? `${currencyPrefix(currency)} ••••` : fmtMoney(Math.abs(value), currency);
+  const signedMoney = (value: number) => `${value < 0 ? '−' : value > 0 ? '+' : ''}${money(value)}`;
+  const visitsText = (visits: number) => visits === 1 ? t('recapStory_visitsOne') : t('recapStory_visitsMany', { visits });
+  const dayLabel = (day: string) => formatLongDate(new Date(`${day}T12:00:00`));
+  const previousMonthLabel = month ? formatMonthLabel(prevMonthKey(month)) : '';
+  const lineFor = (id: Parameters<typeof recapStoryLineKey>[1]) => t(recapStoryLineKey(month ?? '', id));
+
+  let place: PlaceCopy | null = null;
+  switch (scene.type) {
+    case 'topSpot':
+      place = {
+        kicker: t('recapStory_topSpot_kicker'), headline: scene.name, stat: visitsText(scene.visits),
+        detail: scene.everyDays <= 1 ? t('recapStory_topSpot_everyDay') : t('recapStory_topSpot_everyDays', { every: scene.everyDays }),
+        line: lineFor('topSpot'), beat: t('recapStory_topSpot_total', { amount: money(scene.total) }),
+        icon: CATEGORY_ICONS[scene.categoryId] ?? 'store',
+      };
+      break;
+    case 'shoppingRegular':
+      place = {
+        kicker: t('recapStory_shoppingRegular_kicker'), headline: scene.name,
+        stat: t('recapStory_shoppingRegular_trips', { visits: scene.visits }), line: lineFor('shoppingRegular'), icon: 'bag',
+      };
+      break;
+    case 'discoveries':
+      place = {
+        kicker: t('recapStory_discoveries_kicker'),
+        headline: scene.count === 1 ? t('recapStory_discoveries_countOne') : t('recapStory_discoveries_countMany', { count: scene.count }),
+        stat: t('recapStory_discoveries_best', { name: scene.bestFind.name }),
+        detail: scene.bestFind.visits > 1
+          ? t('recapStory_discoveries_returned', { visits: scene.bestFind.visits })
+          : t('recapStory_discoveries_once'),
+        line: lineFor('discoveries'), icon: 'search',
+      };
+      break;
+    case 'rideOrDie':
+      place = {
+        kicker: t('recapStory_rideOrDie_kicker'), headline: scene.name,
+        stat: t('recapStory_rideOrDie_months', { months: scene.months }), line: lineFor('rideOrDie'), icon: 'heart',
+      };
+      break;
+    case 'ghosted':
+      place = {
+        kicker: t('recapStory_ghosted_kicker'), headline: scene.name, stat: `${scene.previousVisits} → 0`,
+        detail: t('recapStory_ghosted_detail', { visits: scene.previousVisits, previousMonth: previousMonthLabel }),
+        line: lineFor('ghosted'), icon: 'eyeOff',
+      };
+      break;
+    case 'biggestDay':
+      place = {
+        kicker: t('recapStory_biggestDay_kicker'), headline: dayLabel(scene.day),
+        stat: scene.stops === 1
+          ? t('recapStory_biggestDay_oneStop', { amount: money(scene.total) })
+          : t('recapStory_biggestDay_stops', { amount: money(scene.total), stops: scene.stops }),
+        line: lineFor('biggestDay'), icon: 'calendar',
+      };
+      break;
+    case 'versusLastMonth': {
+      const moved = scene.movedCategory;
+      place = {
+        kicker: t('recapStory_versusLastMonth_kicker'),
+        headline: scene.change < 0
+          ? t('recapStory_versusLastMonth_less', { amount: money(scene.change), previousMonth: previousMonthLabel })
+          : scene.change > 0
+            ? t('recapStory_versusLastMonth_more', { amount: money(scene.change), previousMonth: previousMonthLabel })
+            : t('recapStory_versusLastMonth_same', { previousMonth: previousMonthLabel }),
+        detail: moved ? t(moved.change > 0 ? 'recapStory_versusLastMonth_movedUp' : 'recapStory_versusLastMonth_movedDown',
+          { category: categoryLabel(moved.categoryId), amount: money(moved.change) }) : undefined,
+        line: t('recapStory_versusLastMonth_totals', { total: money(scene.total), previous: money(scene.previousTotal) }),
+        icon: 'trending', sentence: true,
+      };
+      break;
+    }
+    default:
+      break;
+  }
 
   let spotlightTitle = '';
   let spotlightBody = '';
@@ -291,7 +393,7 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
     const hl = scene.highlight;
     switch (hl.kind) {
       case 'tripAdventure': {
-        const places = (hl.places ?? []).filter((place) => place.trim().length > 0).slice(0, 3);
+        const places = (hl.places ?? []).filter((name) => name.trim().length > 0).slice(0, 3);
         const [first = '', second = '', third = ''] = places;
         const named = places.length <= 1
           ? t('recapStorySpotlight_trips_one', { place: first })
@@ -339,25 +441,47 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
         spotlightTitle = t('recapStorySpotlight_dates_title');
         spotlightBody = t('recapStorySpotlight_dates_body', { count: hl.count || 1 });
         break;
-      case 'cafeRhythm':
-        spotlightTitle = t('recapStorySpotlight_cafe_title');
-        spotlightBody = t('recapStorySpotlight_cafe_body', { count: hl.count || 4 });
-        break;
-      case 'outlierSpend':
-      default:
-        spotlightTitle = t('recapStorySpotlight_outlier_title');
-        spotlightBody = t('recapStorySpotlight_outlier_body', { category: categoryLabel(hl.categoryId || 'other') });
-        spotlightSubtitle = categoryLabel(hl.categoryId || 'other');
-        break;
     }
   }
 
+  const podium = scene.type === 'foodPodium' ? {
+    kicker: t('recapStory_foodPodium_kicker'),
+    line: scene.topIsTopSpot ? t('recapStory_foodPodium_crown') : lineFor('foodPodium'),
+  } : null;
+
+  let finaleRows: { label: string; value: string }[] = [];
+  let finaleClosing = '';
+  let lockedRows: { title: string; hint: string }[] = [];
+  if (scene.type === 'finale') {
+    const { collage, cliffhanger } = scene;
+    finaleRows = [
+      collage.topSpot && { label: t('recapStory_finale_topSpot'), value: `${collage.topSpot.name} · ${visitsText(collage.topSpot.visits)}` },
+      collage.foodPodium && { label: t('recapStory_finale_foodPodium'),
+        value: collage.foodPodium.map((name, index) => `${index + 1}. ${name}`).join('  ') },
+      collage.biggestDay && { label: t('recapStory_finale_biggestDay'),
+        value: `${dayLabel(collage.biggestDay.day)} · ${money(collage.biggestDay.total)}` },
+      collage.versusChange !== undefined && { label: t('recapStory_finale_versus'), value: signedMoney(collage.versusChange) },
+    ].filter((row): row is { label: string; value: string } => !!row);
+    finaleClosing = cliffhanger?.kind === 'challenger'
+      ? t('recapStory_finale_challenger', { name: cliffhanger.name, visits: cliffhanger.visits })
+      : cliffhanger?.kind === 'crown' ? t('recapStory_finale_crown', { name: cliffhanger.name })
+      : cliffhanger?.kind === 'missesYou' ? t('recapStory_finale_missesYou', { name: cliffhanger.name })
+      : t('recapStory_finale_seeYou');
+    lockedRows = scene.locked.flatMap((id) => {
+      const keys = LOCKED_COPY[id];
+      return keys ? [{ title: t(keys[0]), hint: t(keys[1]) }] : [];
+    });
+  }
+  const shortFinale = scene.type === 'finale' && scene.locked.length > 0;
+
   const summary = scene.type === 'ritual' ? t('recapStoryRitualTitle')
-    : scene.type === 'identity' ? `${personaTitle}. ${personaBody}`
-    : scene.type === 'pattern' ? [`${scene.recordedSharePercent}% ${t('recapStoryRecordedShare', { category: patternCategory })}`, comparison, scene.merchantCameo].filter(Boolean).join('. ')
+    : place ? [place.kicker, place.headline, place.stat, place.detail, place.line, place.beat].filter(Boolean).join('. ')
+    : scene.type === 'foodPodium' ? [podium!.kicker, ...scene.places.map((entry, index) =>
+      `${index + 1}. ${entry.name}, ${visitsText(entry.visits)}`), podium!.line].join('. ')
     : scene.type === 'spotlight' ? `${spotlightTitle}. ${spotlightBody}`
-    : scene.type === 'habit' ? `${days}. ${weeks}`
-    : badges.map((badge) => `${badge.label}. ${badge.body}`).join('. ');
+    : shortFinale ? [t('recapStory_short_kicker'), t('recapStory_short_body'),
+      ...lockedRows.map((row) => `${row.title}: ${row.hint}`)].join('. ')
+    : [t('recapStory_finale_kicker'), ...finaleRows.map((row) => `${row.label}: ${row.value}`), finaleClosing].join('. ');
 
   return (
     <View testID="recap-story-capture-frame" collapsable={false} accessible accessibilityRole="image"
@@ -366,14 +490,20 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
       <View testID="story-artwork" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
         style={styles.artwork} pointerEvents="none">
         <Animated.View style={[styles.ornaments, ornamentPose]}>
-          <Svg width={360} height={640} viewBox="0 0 360 640" accessible={false}>
-            {/* Accent never carries copy. Two oversized, cropped gestures frame the story. */}
-            <Path d="M284 14 L306 48 L346 36 L330 76 L366 102 L320 106 L310 150 L286 114 L246 130 L260 88 L226 62 L270 60 Z"
-              transform="translate(40 -100)" fill={palette.accent} />
-            {/* Kept in the lower-left corner so the stroke does not cross the mascot. */}
-            <Circle cx={-78} cy={640} r={96} fill="none" stroke={palette.accent} strokeWidth={28} />
-          </Svg>
-          <StoryMotifSvg motif={theme.motif} stroke={ink} fill={palette.accent} />
+          {/* Both layers cover the whole card. Stacked in flow, they were squeezed to half height
+              on web (moving the corner ring onto the copy) and pushed off the card on native. */}
+          <View style={styles.ornamentLayer}>
+            <Svg width={360} height={640} viewBox="0 0 360 640" accessible={false}>
+              {/* Accent never carries copy. Two oversized, cropped gestures frame the story. */}
+              <Path d="M284 14 L306 48 L346 36 L330 76 L366 102 L320 106 L310 150 L286 114 L246 130 L260 88 L226 62 L270 60 Z"
+                transform="translate(40 -100)" fill={palette.accent} />
+              {/* Kept in the lower-left corner so the stroke does not cross the mascot. */}
+              <Circle cx={-78} cy={640} r={96} fill="none" stroke={palette.accent} strokeWidth={28} />
+            </Svg>
+          </View>
+          <View style={styles.ornamentLayer}>
+            <StoryMotifSvg motif={theme.motif} stroke={ink} fill={palette.accent} />
+          </View>
         </Animated.View>
         <View style={styles.month}><Label color={ink}>{monthLabel}</Label></View>
         <Animated.View testID="story-scene-motion" style={[styles.scene, pose]}>
@@ -381,24 +511,34 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
             <View style={styles.ritualTitle}><Display color={ink} style={styles.headline}>{t('recapStoryRitualTitle')}</Display></View>
             <View style={styles.cow}><DancingCow size={208} motion={motion} progress={progress} exportMode={mode === 'export'} /></View>
           </>}
-          {scene.type === 'identity' && <>
-            <View style={styles.identityCopy}>
-              <Display color={ink} style={styles.headline} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.8}>{personaTitle}</Display>
-              <Body color={ink} style={styles.body}>{personaBody}</Body>
-            </View>
-            <View style={styles.mascot}>
-              <SvgXml xml={mascotXml} width={248} height={208} accessible={false} />
-              <PipFestiveAccessory accessory={theme.pipAccessory} ink={ink} accent={palette.accent} />
-            </View>
+          {place && <>
+            {!!place.icon && <View style={styles.placeIcon}><Icon name={place.icon} size={112} color={ink} stroke={1.5} /></View>}
+            <Label weight={700} color={ink} style={styles.kicker}>{place.kicker}</Label>
+            <Display color={ink} style={place.sentence ? styles.sentenceHeadline : styles.headline} numberOfLines={place.sentence ? 5 : 3}
+              adjustsFontSizeToFit minimumFontScale={0.6}>{place.headline}</Display>
+            {!!place.stat && <Title color={ink} style={styles.stat}>{place.stat}</Title>}
+            {!!place.detail && <Body color={ink} style={styles.body}>{place.detail}</Body>}
+            {!!place.line && <Body weight={700} color={ink} style={styles.body}>{place.line}</Body>}
+            {!!place.beat && <Animated.View testID="story-amount-beat" style={[styles.beat, { borderColor: ink }, reveal(0.45, 0.6)]}>
+              <Title color={ink}>{place.beat}</Title>
+            </Animated.View>}
           </>}
-          {scene.type === 'pattern' && <>
-            <View style={styles.patternTitle}><Display color={ink} style={styles.headline} numberOfLines={2} adjustsFontSizeToFit>{patternCategory}</Display></View>
-            <View style={styles.categoryIcon}><Icon name={CATEGORY_ICONS[scene.categoryId] ?? 'sparkles'} size={112} color={ink} stroke={1.5} /></View>
-            <View style={styles.patternFacts}>
-              <Display numeric color={ink} style={styles.percentage}>{`${scene.recordedSharePercent}%`}</Display>
-              <Title color={ink}>{t('recapStoryRecordedShare', { category: patternCategory })}</Title>
-              {!!comparison && <Body color={ink} style={styles.body}>{comparison}</Body>}
-              {!!scene.merchantCameo && <Label color={ink} numberOfLines={2} style={styles.cameo}>{scene.merchantCameo}</Label>}
+          {scene.type === 'foodPodium' && <>
+            <Label weight={700} color={ink} style={styles.kicker}>{podium!.kicker}</Label>
+            <Body weight={700} color={ink} style={styles.podiumLine}>{podium!.line}</Body>
+            <View style={styles.podium}>
+              {PODIUM_COLUMNS.map(({ rank, height, reveal: [from, to] }) => {
+                const entry = scene.places[rank];
+                if (!entry) return <View key={rank} style={styles.podiumColumn} />;
+                return <Animated.View key={rank} testID={`story-podium-${rank + 1}`} style={[styles.podiumColumn, reveal(from, to)]}>
+                  {rank === 0 && <Title color={ink} style={styles.crown}>👑</Title>}
+                  <Label weight={700} color={ink} numberOfLines={3} style={styles.podiumName}>{entry.name}</Label>
+                  <Label color={ink} style={styles.podiumVisits}>{visitsText(entry.visits)}</Label>
+                  <View style={[styles.podiumBlock, { height, borderColor: ink, backgroundColor: palette.accent }]}>
+                    <Display numeric color={ink}>{String(rank + 1)}</Display>
+                  </View>
+                </Animated.View>;
+              })}
             </View>
           </>}
           {scene.type === 'spotlight' && (
@@ -429,29 +569,30 @@ export function RecapStoryFrame({ scene, mode, motion, progress, mascotConfig, m
               </View>
             </View>
           )}
-          {scene.type === 'habit' && <>
-            <View style={styles.habitCopy}>
-              <Display color={ink} style={styles.headline}>{days}</Display>
-              <Title color={ink} style={styles.body}>{weeks}</Title>
+          {scene.type === 'finale' && !shortFinale && <>
+            <Title color={ink} style={styles.finaleTitle}>{t('recapStory_finale_kicker')}</Title>
+            <View style={styles.collage}>
+              {finaleRows.map((row) => <View key={row.label} style={[styles.collageRow, { borderColor: ink }]}>
+                <Label color={ink}>{row.label}</Label>
+                <Title color={ink} numberOfLines={3} style={styles.collageValue}>{row.value}</Title>
+              </View>)}
             </View>
-            <View style={styles.calendar}>
-              <Svg testID="story-calendar-motif" width={280} height={224} viewBox="0 0 280 224" accessible={false}>
-                {/* An unlabelled motif, not invented dates or a chart of the user's activity. */}
-                {Array.from({ length: 28 }, (_, i) => <Rect key={i} x={(i % 7) * 40 + 4} y={Math.floor(i / 7) * 48 + 16}
-                  width={28} height={32} rx={8} fill="none" stroke={ink} strokeWidth={2} />)}
-                <Path d="M224 168 l16 16 32-40" stroke={ink} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              </Svg>
+            <Body weight={700} color={ink} style={styles.cliffhanger}>{finaleClosing}</Body>
+          </>}
+          {shortFinale && <>
+            <Display color={ink} style={styles.headline}>{t('recapStory_short_kicker')}</Display>
+            <Body color={ink} style={styles.body}>{t('recapStory_short_body')}</Body>
+            <View style={styles.lockedList}>
+              {lockedRows.map((row) => <View key={row.title} style={[styles.locked, { borderColor: ink }]}>
+                <Label weight={700} color={ink}>{`🔒 ${row.title}`}</Label>
+                <Label color={ink} style={styles.lockedHint}>{row.hint}</Label>
+              </View>)}
+            </View>
+            <View style={styles.mascot}>
+              <SvgXml xml={mascotXml} width={248} height={208} accessible={false} />
+              <PipFestiveAccessory accessory={theme.pipAccessory} ink={ink} accent={palette.accent} />
             </View>
           </>}
-          {scene.type === 'finale' && <View style={[styles.badges, badges.length < 2 && styles.singleBadge]}>
-            {badges.map((badge, index) => <View key={badge.id}
-              style={[styles.sticker, { borderColor: ink, backgroundColor: palette.background,
-                transform: [{ rotate: index % 2 === 0 ? '-4deg' : '4deg' }], alignSelf: index % 2 === 0 ? 'flex-start' : 'flex-end' }]}>
-              <View style={styles.stickerHeading}><Icon name={index === 0 ? 'sparkles' : index === 1 ? 'check' : 'calendar'} size={24} color={ink} />
-                <Title color={ink} style={styles.stickerLabel}>{badge.label}</Title></View>
-              <Body color={ink} style={styles.badgeBody}>{badge.body}</Body>
-            </View>)}
-          </View>}
         </Animated.View>
         <View style={styles.wordmark}><Label color={ink}>Pip</Label></View>
       </View>
@@ -463,21 +604,35 @@ const styles = StyleSheet.create({
   frame: { width: STORY_LOGICAL_WIDTH, height: STORY_LOGICAL_HEIGHT, overflow: 'hidden' },
   artwork: { flex: 1 },
   ornaments: { ...StyleSheet.absoluteFillObject },
+  ornamentLayer: { ...StyleSheet.absoluteFillObject },
   month: { position: 'absolute', top: 48, left: 32, right: 80 },
   scene: { position: 'absolute', top: 96, left: 32, right: 32, bottom: 72 },
+  kicker: { marginBottom: 12, letterSpacing: 0.4 },
   headline: { lineHeight: 44, letterSpacing: -1 },
-  body: { marginTop: 16, lineHeight: 24 },
+  sentenceHeadline: { fontSize: 30, lineHeight: 36, letterSpacing: -0.6 },
+  stat: { marginTop: 12, lineHeight: 28 },
+  body: { marginTop: 12, lineHeight: 22 },
+  beat: { alignSelf: 'flex-start', marginTop: 20, borderWidth: 2, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8 },
+  placeIcon: { position: 'absolute', bottom: 8, right: -8, opacity: 0.9, transform: [{ rotate: '12deg' }] },
   ritualTitle: { width: 280 },
   cow: { position: 'absolute', bottom: 0, right: 0 },
-  identityCopy: { width: 296 },
-  mascot: { position: 'absolute', bottom: 28, right: 0, width: 248, height: 208, zIndex: 2 },
-  patternTitle: { width: 280 },
-  categoryIcon: { position: 'absolute', top: 104, right: 0, transform: [{ rotate: '12deg' }] },
-  patternFacts: { position: 'absolute', top: 244, left: 0, right: 0 },
-  percentage: { lineHeight: 48, marginBottom: 8 },
-  cameo: { marginTop: 16, lineHeight: 20 },
-  habitCopy: { width: 256 },
-  calendar: { position: 'absolute', bottom: 24, right: -8, transform: [{ rotate: '-8deg' }] },
+  podiumLine: { lineHeight: 22 },
+  podium: { position: 'absolute', left: 0, right: 0, bottom: 8, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  podiumColumn: { flex: 1, alignItems: 'stretch' },
+  crown: { textAlign: 'center', marginBottom: 4 },
+  podiumName: { textAlign: 'center', lineHeight: 16 },
+  podiumVisits: { textAlign: 'center', marginTop: 2, marginBottom: 6 },
+  podiumBlock: { borderWidth: 2, borderTopLeftRadius: 12, borderTopRightRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  finaleTitle: { lineHeight: 28 },
+  collage: { marginTop: 16, gap: 10 },
+  collageRow: { borderWidth: 2, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8 },
+  collageValue: { marginTop: 2, lineHeight: 26, fontSize: 18 },
+  cliffhanger: { marginTop: 16, lineHeight: 22 },
+  lockedList: { marginTop: 20, gap: 10, width: 236 },
+  locked: { borderWidth: 2, borderStyle: 'dashed', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, opacity: 0.85 },
+  lockedHint: { marginTop: 2, fontWeight: '500' },
+  // Drawn at the accessory artwork's own 248×208 size, then scaled to fit beside the locked list.
+  mascot: { position: 'absolute', bottom: -36, right: -48, width: 248, height: 208, transform: [{ scale: 0.62 }] },
   spotlightScene: { flex: 1, justifyContent: 'space-between', paddingBottom: 16 },
   spotlightPill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 4 },
   spotlightIcon: { alignSelf: 'center', marginVertical: 20 },
@@ -485,11 +640,5 @@ const styles = StyleSheet.create({
   spotlightTag: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12 },
   spotlightTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   spotlightPlace: { marginTop: 0 },
-  badges: { flex: 1, justifyContent: 'center', gap: 24 },
-  singleBadge: { justifyContent: 'center' },
-  sticker: { width: 272, borderWidth: 2, borderRadius: 24, padding: 16 },
-  stickerHeading: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  stickerLabel: { flex: 1, lineHeight: 28 },
-  badgeBody: { marginTop: 8, lineHeight: 20 },
   wordmark: { position: 'absolute', bottom: 40, right: 32 },
 });

@@ -2,6 +2,8 @@
 export const FREE_MONTHLY_LIMIT = 20;
 export const FREE_DAILY_LIMIT = 3;
 export const RESERVATION_TTL_MS = 60_000; // 1 minute
+/** Free scans one network address may spend per UTC day, across every install behind it. */
+export const FREE_IP_DAILY_LIMIT = 40;
 
 export interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
@@ -57,12 +59,116 @@ export async function getUsage(
   return { dayUsed, monthUsed };
 }
 
+/**
+ * Reservations still in flight for this install today. They have not been committed yet, so
+ * `getUsage` cannot see them; without counting them, N parallel scans all read the same
+ * `used_count` and every one of them passes the limit.
+ */
+export async function countActiveReservations(
+  db: D1Database,
+  hash: string,
+  dayKey: string,
+  now: number
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM reservations
+       WHERE installation_hash = ? AND day_key = ? AND status = 'reserved' AND expires_at > ?`
+    )
+    .bind(hash, dayKey, now)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/**
+ * The network a request comes from, as the unit the daily cap counts. One IPv6 connection
+ * normally controls a whole /64, billions of addresses, so hashing the full address would let a
+ * script walk through it. IPv4 and IPv4-mapped IPv6 stay per address.
+ */
+export function ipBucketKey(ip: string): string {
+  const raw = ip.trim().toLowerCase().replace(/^\[|\]$/g, '').split('%')[0];
+  const mapped = raw.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return mapped[1];
+  if (!raw.includes(':')) return raw;
+
+  // Expand `::` so the first four groups (the /64) are the same however the address is written.
+  const [head, tail] = raw.split('::');
+  const headGroups = head ? head.split(':') : [];
+  const tailGroups = tail !== undefined && tail !== '' ? tail.split(':') : [];
+  const missing = Math.max(0, 8 - headGroups.length - tailGroups.length);
+  const groups = tail === undefined ? headGroups : [...headGroups, ...Array(missing).fill('0'), ...tailGroups];
+  const prefix = groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, '') || '0');
+  while (prefix.length < 4) prefix.push('0');
+  return `${prefix.join(':')}::/64`;
+}
+
+export interface IpSlot {
+  /** False when this network is over its daily cap. */
+  ok: boolean;
+  /** True when a slot was actually taken and must be released if the scan does not complete. */
+  held: boolean;
+}
+
+/**
+ * Takes one of the network's daily slots *before* any model call. Increment-then-check, in one
+ * statement, so a burst of parallel requests each get a distinct count rather than all reading
+ * the same stale number. Over the cap, the increment is handed straight back.
+ *
+ * Fails open: this is an abuse brake, and a missing table or a D1 hiccup must not stop real
+ * users from scanning.
+ */
+export async function claimIpSlot(
+  db: D1Database,
+  ipHash: string,
+  dayKey: string,
+  limit: number
+): Promise<IpSlot> {
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO ip_usage (ip_hash, day_key, used_count) VALUES (?, ?, 1)
+         ON CONFLICT(ip_hash, day_key) DO UPDATE SET used_count = used_count + 1
+         RETURNING used_count`
+      )
+      .bind(ipHash, dayKey)
+      .first<{ used_count: number }>();
+    const count = row?.used_count ?? 1;
+    if (count > limit) {
+      await releaseIpSlot(db, ipHash, dayKey);
+      return { ok: false, held: false };
+    }
+    return { ok: true, held: true };
+  } catch (e) {
+    console.warn('ip_usage unavailable, skipping network cap:', e instanceof Error ? e.message : e);
+    return { ok: true, held: false };
+  }
+}
+
+/** Gives a slot back when the scan it was taken for did not complete (or was never charged). */
+export async function releaseIpSlot(db: D1Database, ipHash: string, dayKey: string): Promise<void> {
+  try {
+    await db
+      .prepare(
+        'UPDATE ip_usage SET used_count = MAX(used_count - 1, 0) WHERE ip_hash = ? AND day_key = ?'
+      )
+      .bind(ipHash, dayKey)
+      .run();
+  } catch {
+    // Worst case the network loses one slot for the day.
+  }
+}
+
 export interface ReserveResult {
   ok: boolean;
   blockedBy: 'daily' | 'monthly' | null;
   dayUsed: number;
   monthUsed: number;
   alreadyCommitted?: boolean;
+  /**
+   * Blocked only because other scans for this install are still in flight, not because the
+   * allowance is spent. The caller should say "try again in a moment", not "daily limit".
+   */
+  busy?: boolean;
 }
 
 export async function checkAndReserve(
@@ -115,13 +221,23 @@ export async function checkAndReserve(
     return { ok: false, blockedBy: 'monthly', dayUsed: usage.dayUsed, monthUsed: usage.monthUsed };
   }
 
-  // Atomically create or replace reservation
+  // Insert first, then count: two parallel requests each see the other's reservation, so the
+  // limit holds even though D1 gives us no cross-statement transaction. The failure mode is
+  // over-blocking (both are turned away as "busy" and the user simply scans again), never
+  // letting extras through.
   await db
     .prepare(
       'INSERT OR REPLACE INTO reservations (idempotency_key, installation_hash, day_key, month_key, created_at, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
     .bind(idempotencyKey, hash, dayKey, monthKey, now, now + RESERVATION_TTL_MS, 'reserved')
     .run();
+
+  const inFlight = await countActiveReservations(db, hash, dayKey, now);
+  if (usage.dayUsed + inFlight > FREE_DAILY_LIMIT || usage.monthUsed + inFlight > FREE_MONTHLY_LIMIT) {
+    await rollbackReservation(db, idempotencyKey);
+    // This scan alone would have fit; it only lost because of the others in flight.
+    return { ok: false, blockedBy: null, dayUsed: usage.dayUsed, monthUsed: usage.monthUsed, busy: true };
+  }
 
   return { ok: true, blockedBy: null, dayUsed: usage.dayUsed, monthUsed: usage.monthUsed };
 }

@@ -95,6 +95,9 @@ export interface Transaction {
    *  existing fixtures and callers predate the field; the DB and repo always resolve it to a
    *  real value (string or null). */
   tripId?: string | null;
+  /** Clock time printed on the scanned row, `HH:mm`. Only a duplicate hint: never used for
+   *  ordering or month bucketing. Optional for the same reason `remark` is. */
+  time?: string | null;
 }
 
 export type ReliefOrigin = 'auto' | 'commitment' | 'manual';

@@ -34,8 +34,8 @@ type SparkSpec = {
 };
 
 type BurstSpec = {
-  left: string;
-  top: string;
+  left: `${number}%`;
+  top: `${number}%`;
   delay: number;
   flash: string;
   sparks: SparkSpec[];

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fmtMoney } from '../lib/format';
+import { groupHues, uniqueMonograms } from '../lib/friends';
 import { computeSplit, fromCents, sharesFromSplit, toCents, validateSplit, type Participant } from '../lib/split';
 import type { SplitDraft, SplitMethod } from '../lib/types';
 import { useLanguage } from '../i18n';
@@ -9,7 +10,8 @@ import { useAccent } from '../state/accent';
 import { useThemeColors } from '../state/colorScheme';
 import { useAppData } from '../state/store';
 import { numFont, radius, shadowToggle, uiFont } from '../theme';
-import { AddPersonModal } from './AddPersonModal';
+import { FriendAvatar } from './FriendAvatar';
+import { FriendPickerSheet } from './FriendPickerSheet';
 import { Icon } from './Icon';
 import { InfoButton } from './InfoButton';
 import { BtnLabel, PrimaryButton } from './ui';
@@ -53,7 +55,7 @@ export function SplitSheet({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh } = useLanguage();
-  const { people, addPerson } = useAppData();
+  const { people } = useAppData();
 
   const [currentGross, setCurrentGross] = useState(gross ?? 0);
   const [editingGross, setEditingGross] = useState(false);
@@ -65,7 +67,7 @@ export function SplitSheet({
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [exacts, setExacts] = useState<Record<string, string>>({});
   const [selfWeight, setSelfWeight] = useState(1);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Re-seed whenever the sheet opens, so re-opening an existing split shows what is already
@@ -158,15 +160,11 @@ export function SplitSheet({
   }, [result]);
 
   const nameById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p.name])), [people]);
-  const unpicked = useMemo(() => people.filter((p) => !picked.includes(p.id)), [people, picked]);
+  const monograms = useMemo(() => uniqueMonograms(people.filter((p) => picked.includes(p.id))), [people, picked]);
+  const hues = useMemo(() => groupHues(picked), [picked]);
 
   const toggle = (id: string) =>
     setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
-  const addNew = async (name: string) => {
-    const person = await addPerson(name);
-    setPicked((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]));
-  };
 
   const bump = (id: string, by: number) =>
     setWeights((prev) => ({ ...prev, [id]: Math.max(1, (prev[id] ?? 1) + by) }));
@@ -279,29 +277,28 @@ export function SplitSheet({
 
           <Text style={[styles.fieldLabel, { color: colorTheme.ink2 }]}>{isZh ? '同行人员' : 'Who else was there'}</Text>
           <View style={styles.chipWrap}>
-            {unpicked.map((p) => (
-              <Pressable key={p.id} onPress={() => toggle(p.id)} style={[styles.chip, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-                <Icon name="plus" size={13} color={theme.accent} stroke={2.4} />
-                <Text style={[styles.chipText, { color: theme.onTint }]}>{p.name}</Text>
-              </Pressable>
-            ))}
-            <Pressable onPress={() => setAddPersonOpen(true)} style={[styles.chip, styles.addChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
+            <Pressable
+              testID="open-friend-picker"
+              onPress={() => setPickerOpen(true)}
+              style={[styles.chip, styles.addChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}
+              accessibilityRole="button"
+            >
               <Icon name="plus" size={13} color={colorTheme.ink2} stroke={2.4} />
-              <Text style={[styles.chipText, { color: colorTheme.ink2 }]}>{isZh ? '添加人员' : 'Add a name'}</Text>
+              <Text style={[styles.chipText, { color: colorTheme.ink2 }]}>
+                {picked.length > 0 ? (isZh ? '添加或移除人员' : 'Add or remove people') : (isZh ? '添加同行人员' : 'Add people')}
+              </Text>
             </Pressable>
           </View>
 
           {picked.length === 0 ? (
             <Text style={[styles.empty, { color: colorTheme.ink3 }]}>
-              {isZh ? '尚未添加同行人员。点击上方人员或新建人员。' : 'Nobody added yet. Tap a name above, or type a new one.'}
+              {isZh ? '尚未添加同行人员。点击上方按钮选择好友。' : 'Nobody added yet. Tap Add people to pick who was there.'}
             </Text>
           ) : (
             <View style={styles.list}>
               {picked.map((id) => (
                 <View key={id} style={[styles.personRow, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
-                  <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
-                    <Text style={[styles.avatarText, { color: theme.onTint }]}>{(nameById[id] ?? '?').slice(0, 1).toUpperCase()}</Text>
-                  </View>
+                  <FriendAvatar monogram={monograms[id] ?? '?'} hue={hues[id]} size={30} />
                   <Text style={[styles.personName, { color: colorTheme.ink }]} numberOfLines={1}>
                     {nameById[id] ?? (isZh ? '某人' : 'Someone')}
                   </Text>
@@ -421,7 +418,7 @@ export function SplitSheet({
         </View>
       </KeyboardAvoidingView>
 
-      <AddPersonModal visible={addPersonOpen} onClose={() => setAddPersonOpen(false)} onSubmit={addNew} />
+      <FriendPickerSheet visible={pickerOpen} selected={picked} onChange={setPicked} onClose={() => setPickerOpen(false)} />
     </Modal>
   );
 }
@@ -501,14 +498,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontFamily: uiFont(700), fontSize: 13 },
   personName: { flex: 1, fontFamily: uiFont(600), fontSize: 14.5 },
   owed: { fontFamily: numFont(700), fontSize: 15 },
   exactInput: {

@@ -43,13 +43,18 @@ export function useReminderSync(): void {
     ready,
     transactions,
     openShares,
-    reminderCadence,
+    reminderCadence: cadenceChosen,
     reminderHourOverride,
-    owedReminderEnabled,
+    notificationsEnabled,
+    owedReminderEnabled: owedChosen,
     commitmentOccurrences,
     commitments,
-    commitmentReminderEnabled,
+    commitmentReminderEnabled: commitmentChosen,
   } = useAppData();
+  // The master switch silences every kind without touching the per-kind choices underneath it.
+  const reminderCadence = notificationsEnabled ? cadenceChosen : 'off';
+  const owedReminderEnabled = notificationsEnabled && owedChosen;
+  const commitmentReminderEnabled = notificationsEnabled && commitmentChosen;
 
   useEffect(() => {
     // Before the first load lands, `transactions` is still empty and would look like a user

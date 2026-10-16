@@ -15,7 +15,7 @@
 <body>
   <p><a href="./index.html">PipSavings</a> · Privacy Policy · <a href="./terms.html">Terms of Use</a></p>
   <h1>Privacy Policy for PipSavings</h1>
-  <p class="meta">Last updated: 27 September 2026</p>
+  <p class="meta">Last updated: 14 October 2026</p>
   <p>PipSavings (“Pip”) is a personal bookkeeping app for Android. Contact: <a href="mailto:zichienyang@gmail.com">zichienyang@gmail.com</a>. Pip is not directed at children.</p>
 
   <h2>What stays on your phone</h2>
@@ -25,7 +25,7 @@
   <h2>What can leave the phone</h2>
   <p><strong>Crash reports (on by default).</strong> In a production build, a crash may send Sentry a scrubbed stack trace, a random install ID, and device model. Turn this off in Settings → Data → Crash Diagnostics.</p>
   <p><strong>Bug reports.</strong> Settings → About → Report a bug sends the text you type to Sentry only when you tap Send.</p>
-  <p><strong>Scans (optional).</strong> A scan image is sent over HTTPS to our Cloudflare proxy, then to an external AI service to extract merchant, date, amount, and category. We do not keep the image. We may cache the extracted JSON against a request hash (quota retries). External AI models may use scan images and extracted rows. Pip does not train its own models. A hashed install token is stored to enforce scan limits and promo codes.</p>
+  <p><strong>Scans (optional).</strong> A scan image is sent over HTTPS to our Cloudflare proxy, then to an external AI service to extract merchant, date, amount, and category. We do not keep the image. We may cache the extracted JSON against a request hash for up to 24 hours (so a retry is not charged twice), then it is deleted. External AI models may use scan images and extracted rows. Pip does not train its own models. A hashed install token is stored to enforce scan limits and promo codes. To stop automated abuse we also keep a daily count of scans per network address, stored only as a salted hash and deleted within two days.</p>
   <p><strong>Pip Pro.</strong> Google Play handles payment. We never see your card. RevenueCat (and our proxy) receive an anonymous app user ID to confirm Pro.</p>
   <p><strong>Google Drive backup (optional).</strong> Google Sign-In may provide the <strong>email</strong> of the account you pick (kept on device). The backup zip of your ledger goes to your Drive, not to our servers, and is not encrypted by Pip.</p>
   <p><strong>Live prices (optional).</strong> Ticker or currency codes are sent to Yahoo Finance for public quotes, not your quantities.</p>

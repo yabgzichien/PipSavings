@@ -8,6 +8,10 @@ import {
   isComposerBinaryKind,
   planComposerSend,
   spreadsheetBytesToText,
+  SPREADSHEET_MAX_BYTES,
+  SPREADSHEET_MAX_SHEETS,
+  SPREADSHEET_TOO_LARGE_NOTE,
+  SPREADSHEET_UNREADABLE_NOTE,
   takeNextScanImage,
 } from '../src/lib/askPip/composerAttach';
 
@@ -120,6 +124,31 @@ describe('spreadsheetBytesToText', () => {
     const text = spreadsheetBytesToText(bytes);
     expect(text).toContain('date,amount');
     expect(text).toContain('2026-01-01');
+  });
+
+  it('refuses an oversized file without handing it to the parser', () => {
+    const big = new Uint8Array(SPREADSHEET_MAX_BYTES + 1);
+    expect(spreadsheetBytesToText(big)).toBe(SPREADSHEET_TOO_LARGE_NOTE);
+  });
+
+  it('turns a corrupt file into a note instead of throwing', () => {
+    const garbage = new Uint8Array(2048).map((_, i) => (i * 31) % 251);
+    expect(() => spreadsheetBytesToText(garbage)).not.toThrow();
+    const out = spreadsheetBytesToText(garbage);
+    expect(typeof out).toBe('string');
+    expect(out.length).toBeLessThan(50_000);
+  });
+
+  it('reads at most the first handful of sheets', () => {
+    const wb = XLSX.utils.book_new();
+    for (let i = 0; i < SPREADSHEET_MAX_SHEETS + 5; i++) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['n'], [i]]), `S${i}`);
+    }
+    const bytes = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+    const text = spreadsheetBytesToText(bytes);
+    expect(text).toContain(`# S${SPREADSHEET_MAX_SHEETS - 1}`);
+    expect(text).not.toContain(`# S${SPREADSHEET_MAX_SHEETS}\n`);
+    expect(SPREADSHEET_UNREADABLE_NOTE).not.toBe(text);
   });
 });
 

@@ -222,6 +222,31 @@ describe('receiptGenerator', () => {
   });
 
   describe('generateReceiptCanvasHtml', () => {
+    it('cannot be broken out of its <script> block by a hostile merchant or friend name', () => {
+      const evil = '</script><img src=x onerror="window.ReactNativeWebView.postMessage(1)">\u2028';
+      const receipt = generateDeterministicReceipt(baseInput({ merchant: evil, personName: evil }));
+      const html = generateReceiptCanvasHtml({
+        key: 'share-evil',
+        receipts: [receipt],
+        currency: 'MYR',
+        personName: evil,
+        total: 42.5,
+        isZh: false,
+      });
+
+      // Exactly one closing tag, and it is the template's own at the very end of the script.
+      const scriptCloses = html.match(/<\/script>/gi) ?? [];
+      expect(scriptCloses).toHaveLength(1);
+      expect(html).not.toContain('<img src=x');
+      expect(html).not.toContain('\u2028');
+
+      // The data still round-trips: the escape is invisible to the script that reads it.
+      const m = html.match(/const raw = (.*);\n/);
+      expect(m).not.toBeNull();
+      const parsed = JSON.parse(m![1]);
+      expect(parsed.personName).toBe(evil);
+    });
+
     it('generates HTML with canvas script, mascot, items, and total (no QR, no barcode, no promo link)', () => {
       const receipt = generateDeterministicReceipt(baseInput());
       const html = generateReceiptCanvasHtml({

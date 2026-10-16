@@ -16,7 +16,7 @@ import { Amount, B, BtnLabel, BubbleText, Card, CategoryChip, Eyebrow, PipSays, 
 import { type CategorizeAdjustment } from '../lib/categorizeAdjustments';
 import { visibleChoices } from '../lib/chipRow';
 import { applyDateEdit, fullDateWithWeekday, ISO_DATE_RE, isValidIsoDate, shortDate } from '../lib/dates';
-import { findDuplicate, todayISO } from '../lib/duplicates';
+import { findBatchCopy, findDuplicate, todayISO, undatedWindow } from '../lib/duplicates';
 import { currencyPrefix, fmtMoney } from '../lib/format';
 import { tap } from '../lib/haptics';
 import { BASE_CURRENCY } from '../lib/currency';
@@ -24,7 +24,7 @@ import { getActiveCurrencies } from '../db/currencyRepo';
 import { useModalHandoff } from '../lib/modalHandoff';
 import { CLASS_BY_ID } from '../lib/networth';
 import { confirmAction } from '../lib/platformAlert';
-import { suggestMultiSettlement, type MultiSettlementMatch } from '../lib/split';
+import { peopleOwing, settlementForPerson, suggestMultiSettlement, type MultiSettlementMatch } from '../lib/split';
 import { tripsForPicker } from '../lib/tripPicker';
 import { DROP, type Category, type CategorySuggestion, type ExtractedTxn, type SplitDraft, type TxnType } from '../lib/types';
 import type { IconName } from '../components/Icon';
@@ -80,7 +80,7 @@ export function CategorizeScreen({
   ) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { transactions, accounts, openShares, knownBankLabels, trips = [] } = useAppData();
+  const { transactions, accounts, openShares, knownBankLabels, splits = [], trips = [] } = useAppData();
   const { t, tCat, isZh } = useLanguage();
   // The ledger as it stood when this batch opened. Deliberately frozen: `commitCategorized`
   // writes the batch on the last Finish tap, the store's `transactions` then updates while this
@@ -141,8 +141,18 @@ export function CategorizeScreen({
     [items]
   );
 
+  // An undated row that repeats a dated row of this same scan is almost always a misread echo
+  // from the seam between two extraction pieces. Worked out once against the batch as it
+  // arrived, and those rows start skipped: the user sees why on their step and can keep one.
+  const batchCopyOf = useMemo(() => extracted.map((_, i) => findBatchCopy(extracted, i)), [extracted]);
+  const suggestedFor = (i: number): string | null => {
+    const categoryId = suggestions[i]?.categoryId;
+    const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined;
+    return category?.kind === items[i]?.type ? category.id : null;
+  };
   const [assignments, setAssignments] = useState<(string | null)[]>(() =>
     extracted.map((item, i) => {
+      if (batchCopyOf[i] !== null) return DROP;
       const categoryId = suggestions[i]?.categoryId;
       const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined;
       return category?.kind === item.type ? category.id : null;
@@ -171,6 +181,10 @@ export function CategorizeScreen({
   const { request: requestPaySheet, onDismiss: onPayPickerDismissed } = useModalHandoff();
   /** Inbound rows the user has told us are NOT a repayment, so we stop asking. */
   const [notRepayment, setNotRepayment] = useState<Record<number, boolean>>({});
+  /** Friend picked by hand for an inbound row no name matched (a nickname, say). */
+  const [manualPayer, setManualPayer] = useState<Record<number, string>>({});
+  /** Rows whose "Is someone paying you back?" friend list is open. */
+  const [payerListOpen, setPayerListOpen] = useState<Record<number, boolean>>({});
   /** Expansion state for multi-debt allocation breakdown. */
   const [expandedSettlement, setExpandedSettlement] = useState<Record<number, boolean>>({});
 
@@ -207,9 +221,23 @@ export function CategorizeScreen({
   const suggestionCat = suggestion ? categories.find((c) => c.id === suggestion) : undefined;
   const isLast = safeStep === stepIndices.length - 1;
 
-  const dup = item ? findDuplicate(ledgerAtOpen, { merchant: item.merchant, amount: item.amount, date: item.date }, today) : null;
-  const showBanner = !!dup && !acked[originalIndex];
-  const dupDay = dup ? shortDate(dup.date ?? dup.createdAt) : '';
+  // A batch echo outranks a ledger duplicate: it explains itself from the screenshot alone.
+  const copyIndex = hasSteps ? batchCopyOf[originalIndex] : null;
+  const copySource = copyIndex !== null ? items[copyIndex] : null;
+  const dup = item && !copySource
+    ? findDuplicate(
+        ledgerAtOpen,
+        { merchant: item.merchant, amount: item.amount, date: item.date, time: item.time, type: item.type },
+        today,
+        { splits, window: item.date ? null : undatedWindow(items, originalIndex) }
+      )
+    : null;
+  const dupKind: 'copy' | 'ledger' | null = copySource ? 'copy' : dup ? 'ledger' : null;
+  const showBanner = !!dupKind && !acked[originalIndex];
+  const dupDay = dup ? shortDate(dup.txn.date ?? dup.txn.createdAt) : '';
+  const copyStamp = copySource
+    ? [copySource.date ? shortDate(copySource.date) : '', copySource.time ?? ''].filter(Boolean).join(' · ')
+    : '';
   const keptCount = stepIndices.filter((i) => assignments[i] !== DROP).length;
 
   const activeSplit = hasSteps ? splitDrafts[originalIndex] : null;
@@ -271,9 +299,21 @@ export function CategorizeScreen({
   // holding the screen. Recomputed per step rather than up front so an amount edit re-matches.
   const settlementHit = useMemo(() => {
     if (!item || item.type !== 'income' || showBanner || notRepayment[originalIndex]) return null;
-    return suggestMultiSettlement(openShares, { merchant: item.merchant, amount: item.amount, date: item.date }, today, knownBankLabels);
-  }, [item, showBanner, notRepayment, originalIndex, openShares, today, knownBankLabels]);
+    const candidate = { merchant: item.merchant, amount: item.amount, date: item.date };
+    const picked = manualPayer[originalIndex];
+    if (picked) return settlementForPerson(openShares, picked, candidate);
+    return suggestMultiSettlement(openShares, candidate, today, knownBankLabels);
+  }, [item, showBanner, notRepayment, manualPayer, originalIndex, openShares, today, knownBankLabels]);
   const showSettlement = !!settlementHit;
+  // Nothing recognised the sender, but friends do owe money: offer to pick the payer by hand.
+  // A friend saved as "Ah Boy" whose transfers say TAN WEI MING is matched this way once, and
+  // the label it records lets every later transfer from them match on its own.
+  const owing = useMemo(
+    () => (item && item.type === 'income' && !showBanner && !showSettlement && !notRepayment[originalIndex]
+      ? peopleOwing(openShares, item.amount)
+      : []),
+    [item, showBanner, showSettlement, notRepayment, originalIndex, openShares]
+  );
 
   useEffect(() => {
     fade.setValue(0);
@@ -308,6 +348,13 @@ export function CategorizeScreen({
 
   const changeItemCurrency = (newCurrency: string) => {
     if (!item || item.currency === newCurrency) return;
+    const oldCurrency = item.currency;
+    // Statements are almost always one currency, so a wrong guess on one row is usually wrong on
+    // all of them. Offer the same switch for the other rows still in the old currency; rows the
+    // user already put in something else are left alone.
+    const siblings = stepIndices.filter(
+      (i) => i !== originalIndex && itemsRef.current[i]?.currency === oldCurrency
+    );
 
     replaceItems((prev) => {
       const next = [...prev];
@@ -315,6 +362,23 @@ export function CategorizeScreen({
       return next;
     });
 
+    if (siblings.length === 0) return;
+    const n = siblings.length;
+    confirmAction(
+      isZh ? '应用到其他项目？' : 'Apply to other items?',
+      isZh
+        ? `将另外 ${n} 笔 ${oldCurrency} 的交易也改为 ${newCurrency}？`
+        : `Also switch the other ${n} ${n === 1 ? 'item' : 'items'} from ${oldCurrency} to ${newCurrency}?`,
+      isZh ? '全部应用' : 'Apply to all',
+      () => {
+        const targets = new Set(siblings);
+        replaceItems((prev) =>
+          prev.map((row, i) => (targets.has(i) ? { ...row, currency: newCurrency } : row))
+        );
+      },
+      undefined,
+      isZh ? '仅此项' : 'Just this one'
+    );
   };
 
   // Editing the date can rewrite the *whole batch* (year-propagation), so it
@@ -495,7 +559,31 @@ export function CategorizeScreen({
     }
   };
 
-  const addAnyway = () => setAcked((a) => ({ ...a, [originalIndex]: true }));
+  const addAnyway = () => {
+    setAcked((a) => ({ ...a, [originalIndex]: true }));
+    // A batch echo started skipped; keeping it puts it back to its suggested category.
+    if (dupKind === 'copy' && assignments[originalIndex] === DROP) {
+      setAssignments((prev) => {
+        const next = [...prev];
+        next[originalIndex] = suggestedFor(originalIndex);
+        return next;
+      });
+    }
+  };
+
+  const pickPayer = (personId: string) => {
+    tap();
+    setManualPayer((m) => ({ ...m, [originalIndex]: personId }));
+    setPayerListOpen((m) => ({ ...m, [originalIndex]: false }));
+  };
+
+  const rejectSettlement = () => {
+    setNotRepayment((m) => ({ ...m, [originalIndex]: true }));
+    setManualPayer((m) => {
+      const { [originalIndex]: _dropped, ...rest } = m;
+      return rest;
+    });
+  };
 
   const go = (dir: number) => {
     flushDrafts();
@@ -551,7 +639,15 @@ export function CategorizeScreen({
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fade, transform: [{ translateX: slide }] }}>
           <PipSays expr={showBanner ? 'curious' : isIncome ? 'happy' : suggestion ? 'idle' : 'curious'}>
-            {showBanner ? (
+            {showBanner && dupKind === 'copy' ? (
+              <BubbleText>
+                {isZh ? (
+                  <>这一行没有日期，金额与本截图中的 <B>‘{copySource!.merchant}’</B> 相同。我已先帮您跳过。</>
+                ) : (
+                  <>This row has no date and matches <B>‘{copySource!.merchant}’</B> from this same screenshot. I’ve set it to skip.</>
+                )}
+              </BubbleText>
+            ) : showBanner ? (
               <BubbleText>
                 {isZh ? (
                   <>注意：<B>‘{item!.merchant}’</B> 看起来与您在 <B>{dupDay}</B> 记录的一笔交易重复。</>
@@ -619,6 +715,39 @@ export function CategorizeScreen({
               commitSlot={amountCommit}
             />
           </Card>
+
+          {owing.length > 0 && (
+            <View style={[styles.payerBox, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
+              <Pressable
+                onPress={() => setPayerListOpen((m) => ({ ...m, [originalIndex]: !m[originalIndex] }))}
+                style={styles.payerHead}
+                hitSlop={4}
+              >
+                <Icon name="gift" size={17} color={theme.accent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.splitTitle, { color: colorTheme.ink }]}>
+                    {isZh ? '是朋友还钱吗？' : 'Is someone paying you back?'}
+                  </Text>
+                  <Text style={[styles.splitSub, { color: colorTheme.ink2 }]} numberOfLines={1}>
+                    {isZh ? '选择朋友后，下次会自动识别这个转账名' : 'Pick the friend and Pip will recognise this sender next time'}
+                  </Text>
+                </View>
+                <Icon name={payerListOpen[originalIndex] ? 'chevronUp' : 'chevronDown'} size={17} color={colorTheme.ink3} />
+              </Pressable>
+              {payerListOpen[originalIndex] && (
+                <View style={styles.chipRow}>
+                  {owing.map((person) => (
+                    <ChoiceChip
+                      key={person.personId}
+                      label={`${person.personName} · ${fmtMoney(person.outstanding, itemCurrency)}`}
+                      on={false}
+                      onPress={() => pickPayer(person.personId)}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
           {!isIncome && !showBanner && (
             <Pressable
@@ -765,24 +894,40 @@ export function CategorizeScreen({
             <View style={[styles.banner, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
               <View style={styles.bannerHead}>
                 <Icon name="alert" size={18} color={theme.onTint} stroke={2} />
-                <Text style={[styles.bannerTitle, { color: theme.onTint }]}>{isZh ? '疑似重复记录' : 'Possible duplicate'}</Text>
+                <Text style={[styles.bannerTitle, { color: theme.onTint }]}>
+                  {dupKind === 'copy' ? (isZh ? '疑似重复读取' : 'Looks like a misread copy') : (isZh ? '疑似重复记录' : 'Possible duplicate')}
+                </Text>
               </View>
               <Text style={[styles.bannerText, { color: colorTheme.ink }]}>
-                {isZh ? (
-                  <>您已在 {dupDay} 记录过 <B>{item!.merchant}</B>（{fmtMoney(item!.amount, itemCurrency)}）。确定再次记录？</>
+                {dupKind === 'copy' ? (
+                  isZh ? (
+                    <>本截图已有 <B>{copySource!.merchant}</B>（{fmtMoney(copySource!.amount, itemCurrency)}{copyStamp ? `，${copyStamp}` : ''}）。这一行可能是重复读取，默认不记入。</>
+                  ) : (
+                    <>This screenshot already has <B>{copySource!.merchant}</B> for {fmtMoney(copySource!.amount, itemCurrency)}{copyStamp ? ` (${copyStamp})` : ''}. This row is probably the same one read twice, so it won’t be recorded.</>
+                  )
+                ) : dup!.split ? (
+                  isZh ? (
+                    <>您已在 {dupDay} 记录并分摊了 <B>{dup!.txn.merchantRaw}</B>：您的份额 {fmtMoney(dup!.split.ownShare, itemCurrency)}，账单共 {fmtMoney(dup!.split.gross, itemCurrency)}。{dup!.sameTime ? `时间相同（${item!.time}）。` : ''}确定再次记录？</>
+                  ) : (
+                    <>You logged <B>{dup!.txn.merchantRaw}</B> on {dupDay} and split it: your share was {fmtMoney(dup!.split.ownShare, itemCurrency)} of {fmtMoney(dup!.split.gross, itemCurrency)}.{dup!.sameTime ? ` Same time, ${item!.time}.` : ''} Record it again?</>
+                  )
+                ) : isZh ? (
+                  <>您已在 {dupDay} 记录过 <B>{dup!.txn.merchantRaw}</B>（{fmtMoney(item!.amount, itemCurrency)}）。{dup!.sameTime ? `时间相同（${item!.time}）。` : ''}确定再次记录？</>
                 ) : (
-                  <>You already logged <B>{item!.merchant}</B> for {fmtMoney(item!.amount, itemCurrency)} on {dupDay}. Record it again?</>
+                  <>You already logged <B>{dup!.txn.merchantRaw}</B> for {fmtMoney(item!.amount, itemCurrency)} on {dupDay}.{dup!.sameTime ? ` Same time, ${item!.time}.` : ''} Record it again?</>
                 )}
               </Text>
               <View style={styles.bannerBtns}>
                 <View style={{ flex: 1 }}>
                   <PrimaryButton onPress={dropCurrent} height={48}>
                     <Icon name="trash" size={17} color="#fff" />
-                    <BtnLabel>{isZh ? '跳过' : 'Skip it'}</BtnLabel>
+                    <BtnLabel>{dupKind === 'copy' ? (isZh ? '保持跳过' : 'Keep skipped') : (isZh ? '跳过' : 'Skip it')}</BtnLabel>
                   </PrimaryButton>
                 </View>
                 <Pressable onPress={addAnyway} style={styles.ghostBtn}>
-                  <Text style={[styles.ghostText, { color: theme.onTint }]}>{isZh ? '仍然添加' : 'Add anyway'}</Text>
+                  <Text style={[styles.ghostText, { color: theme.onTint }]}>
+                    {dupKind === 'copy' ? (isZh ? '这是真的，记入' : 'It’s real, record it') : (isZh ? '仍然添加' : 'Add anyway')}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -862,7 +1007,7 @@ export function CategorizeScreen({
                   </PrimaryButton>
                 </View>
                 <Pressable
-                  onPress={() => setNotRepayment((m) => ({ ...m, [originalIndex]: true }))}
+                  onPress={rejectSettlement}
                   style={styles.ghostBtn}
                 >
                   <Text style={[styles.ghostText, { color: theme.onTint }]}>{isZh ? '不，这是普通收入' : 'No, it’s income'}</Text>
@@ -1480,6 +1625,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
+  payerBox: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  payerHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   splitTitle: { fontFamily: uiFont(700), fontSize: 13.5 },
   splitSub: { fontFamily: uiFont(500), fontSize: 11.5, marginTop: 2 },
   optionalLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },

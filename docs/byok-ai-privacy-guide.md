@@ -188,7 +188,7 @@ No. Ask Pip chat always uses your selected API key for model requests. The scann
 
 If a key is selected, the Android scanner tries that provider first. A successful BYOK scan does not use Pip's free scan allowance. If the provider rate-limits the request, the app may retry through Pip's Cloudflare scan proxy under the normal plan allowance. Other key errors do not silently trigger that retry.
 
-If no key is selected, eligible scans use Pip's scan service and its plan limits. The proxy sends the scan to an external AI service, does not keep the image, and may cache extracted JSON against a request hash for quota retries.
+If no key is selected, eligible scans use Pip's scan service and its plan limits. The proxy sends the scan to an external AI service, does not keep the image, and may cache extracted JSON against a request hash for up to 24 hours so a retry is not charged twice, then deletes it.
 
 ### 31. Why is my key not working?
 

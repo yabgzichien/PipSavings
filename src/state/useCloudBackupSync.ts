@@ -17,8 +17,13 @@ export function useCloudBackupSync(): void {
   // background check should only run on mount/foreground, not on every state change.
   const dataRef = useRef<BackupSourceData>(data);
   dataRef.current = data;
+  // The provider mounts with an empty ledger and fills it a moment later. Backing up in that gap
+  // would upload an empty snapshot, so nothing runs until the load has finished. (The Drive upload
+  // also refuses an empty zip over an existing backup, as a second line of defence.)
+  const ready = data.ready;
 
   useEffect(() => {
+    if (!ready) return;
     if (!isGoogleDrivePlatform(Platform.OS)) return;
     let running = false;
 
@@ -48,5 +53,5 @@ export function useCloudBackupSync(): void {
       if (state === 'active') void run();
     });
     return () => sub.remove();
-  }, []);
+  }, [ready]);
 }

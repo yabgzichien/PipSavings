@@ -18,6 +18,7 @@ interface TxnRow {
   native_amount: number | null;
   fx_rate: number | null;
   trip_id: string | null;
+  txn_time?: string | null;
 }
 
 function toTxn(r: TxnRow): Transaction {
@@ -37,6 +38,7 @@ function toTxn(r: TxnRow): Transaction {
     nativeAmount: r.native_amount ?? null,
     fxRate: r.fx_rate ?? null,
     tripId: r.trip_id ?? null,
+    time: r.txn_time ?? null,
   };
 }
 
@@ -56,6 +58,8 @@ export interface NewTxn {
   fxRate?: number | null;
   /** The trip to attach this transaction to at creation time, if any. */
   tripId?: string | null;
+  /** `HH:mm` printed on the scanned row, kept as a duplicate hint. */
+  time?: string | null;
 }
 
 export async function listTransactions(limit?: number): Promise<Transaction[]> {
@@ -88,8 +92,8 @@ export async function addTransactions(items: NewTxn[]): Promise<Transaction[]> {
       const derived = deriveMyr(it.amount, currency, it.fxRate ?? null);
       await db.runAsync(
         `INSERT INTO transactions
-           (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id, txn_time)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id,
         it.merchantRaw,
         it.merchantKey,
@@ -104,7 +108,8 @@ export async function addTransactions(items: NewTxn[]): Promise<Transaction[]> {
         receiptUri,
         derived.nativeAmount,
         derived.fxRate,
-        it.tripId ?? null
+        it.tripId ?? null,
+        it.time ?? null
       );
       created.push({
         id,
@@ -122,6 +127,7 @@ export async function addTransactions(items: NewTxn[]): Promise<Transaction[]> {
         nativeAmount: derived.nativeAmount,
         fxRate: derived.fxRate,
         tripId: it.tripId ?? null,
+        time: it.time ?? null,
       });
     }
   });

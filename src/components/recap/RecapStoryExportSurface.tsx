@@ -11,16 +11,19 @@ export interface RecapStoryExportSurfaceProps {
   monthLabel: string;
   categoryLabel: (categoryId: string) => string;
   month?: string;
+  currency?: string;
+  hideAmounts?: boolean;
 }
 
 /** A single, settled logical-size frame shared by native view-shot and the web adapter. */
 export const RecapStoryExportSurface = React.forwardRef<React.ComponentRef<typeof View>, RecapStoryExportSurfaceProps>(
-  function RecapStoryExportSurface({ scene, mascotConfig, monthLabel, categoryLabel, month }, ref) {
+  function RecapStoryExportSurface({ scene, mascotConfig, monthLabel, categoryLabel, month, currency, hideAmounts }, ref) {
     return <View testID="story-export-container" collapsable={false} style={styles.container}
       pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View ref={ref} testID="story-export-surface" collapsable={false} style={styles.surface}>
         <RecapStoryFrame scene={scene} mode="export" motion="off" mascotConfig={mascotConfig}
-          monthLabel={monthLabel} categoryLabel={categoryLabel} month={month} />
+          monthLabel={monthLabel} categoryLabel={categoryLabel} month={month}
+          currency={currency} hideAmounts={hideAmounts} />
       </View>
     </View>;
   },

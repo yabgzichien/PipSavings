@@ -1,6 +1,7 @@
 // worker/test/proxy.test.ts
 import worker, { isUsableResult } from '../src/index';
 import { createMockD1 } from './mockD1';
+import { FREE_IP_DAILY_LIMIT } from '../src/quota';
 
 describe('Worker proxy endpoint', () => {
   let db: ReturnType<typeof createMockD1>;
@@ -17,7 +18,7 @@ describe('Worker proxy endpoint', () => {
         'Access-Control-Request-Headers': 'content-type,x-installation-id,x-client-preprocess',
       },
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(204);
     const allowed = res.headers.get('Access-Control-Allow-Headers') || '';
     expect(allowed).toContain('x-client-preprocess');
@@ -29,7 +30,7 @@ describe('Worker proxy endpoint', () => {
     const req = new Request('https://proxy.pip.local/allowance', {
       method: 'GET',
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain('x-installation-id');
@@ -42,7 +43,7 @@ describe('Worker proxy endpoint', () => {
         'x-installation-id': 'device-001',
       },
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({
@@ -64,7 +65,7 @@ describe('Worker proxy endpoint', () => {
         'x-entitlement': 'pro',
       },
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.tier).toBe('free');
@@ -117,7 +118,7 @@ describe('Worker proxy endpoint', () => {
       }),
     });
 
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
@@ -152,7 +153,7 @@ describe('Worker proxy endpoint', () => {
         new Request('https://proxy.pip.local/allowance', {
           headers: { 'x-installation-id': 'browser-device' },
         }),
-        { DB: db },
+        { DB: db, ALLOW_MOCK_SCAN: 'true' },
       );
       expect((await allowanceRes.json()).dayUsed).toBe(0);
     } finally {
@@ -175,7 +176,7 @@ describe('Worker proxy endpoint', () => {
           mimeType: 'image/jpeg',
         }),
       });
-      const resp = await worker.fetch(r, { DB: db });
+      const resp = await worker.fetch(r, { DB: db, ALLOW_MOCK_SCAN: 'true' });
       expect(resp.status).toBe(200);
     }
 
@@ -192,7 +193,7 @@ describe('Worker proxy endpoint', () => {
           mimeType: 'image/jpeg',
         }),
     });
-    const fourthRes = await worker.fetch(fourthReq, { DB: db });
+    const fourthRes = await worker.fetch(fourthReq, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(fourthRes.status).toBe(429);
     const fourthJson = await fourthRes.json();
     expect(fourthJson.ok).toBe(false);
@@ -211,7 +212,7 @@ describe('Worker proxy endpoint', () => {
         },
         body: JSON.stringify({ imageBase64: 'photo-one', mimeType: 'image/jpeg' }),
       }),
-      { DB: db }
+      { DB: db, ALLOW_MOCK_SCAN: 'true' }
     );
     expect(first.status).toBe(200);
     expect((await first.json()).allowance.dayUsed).toBe(1);
@@ -226,7 +227,7 @@ describe('Worker proxy endpoint', () => {
         },
         body: JSON.stringify({ imageBase64: 'photo-two', mimeType: 'image/jpeg' }),
       }),
-      { DB: db }
+      { DB: db, ALLOW_MOCK_SCAN: 'true' }
     );
     expect(second.status).toBe(200);
     expect((await second.json()).allowance.dayUsed).toBe(2);
@@ -240,14 +241,14 @@ describe('Worker proxy endpoint', () => {
     };
     const first = await worker.fetch(
       new Request('https://proxy.pip.local/scan', { method: 'POST', headers, body }),
-      { DB: db }
+      { DB: db, ALLOW_MOCK_SCAN: 'true' }
     );
     const firstJson = await first.json();
     expect(firstJson.allowance.dayUsed).toBe(1);
 
     const second = await worker.fetch(
       new Request('https://proxy.pip.local/scan', { method: 'POST', headers, body }),
-      { DB: db }
+      { DB: db, ALLOW_MOCK_SCAN: 'true' }
     );
     const secondJson = await second.json();
     expect(second.status).toBe(200);
@@ -268,7 +269,7 @@ describe('Worker proxy endpoint', () => {
         mimeType: 'image/jpeg',
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(413);
     const json = await res.json();
     expect(json.error).toContain('400KB');
@@ -286,7 +287,7 @@ describe('Worker proxy endpoint', () => {
         ocrText: hugeText,
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(413);
     const json = await res.json();
     expect(json.error).toContain('48KB');
@@ -303,7 +304,7 @@ describe('Worker proxy endpoint', () => {
         scanType: 'transactions',
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain('Missing ocrText or imageBase64/mimeType');
@@ -321,7 +322,7 @@ describe('Worker proxy endpoint', () => {
         scanType: 'transactions',
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
@@ -342,7 +343,7 @@ describe('Worker proxy endpoint', () => {
         scanType: 'receipt',
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
@@ -361,7 +362,7 @@ describe('Worker proxy endpoint', () => {
         scanType: 'transactions',
       }),
     });
-    const res = await worker.fetch(req, { DB: db });
+    const res = await worker.fetch(req, { DB: db, ALLOW_MOCK_SCAN: 'true' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
@@ -479,7 +480,7 @@ describe('Worker proxy endpoint', () => {
     globalThis.fetch = jest.fn(async () => ({
       ok: true,
       json: async () => ({ items: [{ entitlement_id: 'pip_pro' }] }),
-    })) as typeof fetch;
+    })) as unknown as typeof fetch;
 
     try {
       const res = await worker.fetch(
@@ -520,6 +521,65 @@ describe('Worker proxy endpoint', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe('Worker abuse limits', () => {
+  const scanReq = (id: string, img: string, extra: Record<string, string> = {}) =>
+    new Request('https://proxy.pip.local/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-installation-id': id, ...extra },
+      body: JSON.stringify({ imageBase64: img, mimeType: 'image/jpeg' }),
+    });
+
+  it('does not return invented transactions when no provider key is configured', async () => {
+    const db = createMockD1();
+    const res = await worker.fetch(scanReq('no-keys-device', 'img-a'), { DB: db });
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error).toBe('scan_unavailable'); // a code the app translates, not English prose
+    expect(json.items).toEqual([]);
+    expect(JSON.stringify(json)).not.toContain('Mock Merchant');
+
+    // And the failed attempt must not have cost the user a scan.
+    const allowance = await worker.fetch(
+      new Request('https://proxy.pip.local/allowance', {
+        headers: { 'x-installation-id': 'no-keys-device' },
+      }),
+      { DB: db }
+    );
+    expect((await allowance.json()).dayUsed).toBe(0);
+  });
+
+  it('rejects malformed installation ids', async () => {
+    const db = createMockD1();
+    for (const bad of ['has space', 'x'.repeat(129), '<script>']) {
+      const res = await worker.fetch(scanReq(bad, 'img'), { DB: db, ALLOW_MOCK_SCAN: 'true' });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it('caps one network even when every request brings a fresh installation id', async () => {
+    const db = createMockD1();
+    const env = { DB: db, ALLOW_MOCK_SCAN: 'true' };
+    let blocked = 0;
+    for (let i = 0; i < FREE_IP_DAILY_LIMIT + 3; i++) {
+      const res = await worker.fetch(scanReq(`fresh-${i}`, `img-${i}`, { 'CF-Connecting-IP': '203.0.113.9' }), env);
+      if (res.status === 403) {
+        blocked += 1;
+        expect((await res.json()).error).toBe('ip_daily_limit');
+      }
+    }
+    expect(blocked).toBe(3);
+
+    // A refused scan must not have used up a slot, so the cap does not creep upward on retries.
+    const again = await worker.fetch(scanReq('fresh-again', 'img-again', { 'CF-Connecting-IP': '203.0.113.9' }), env);
+    expect(again.status).toBe(403);
+
+    // A different network is unaffected.
+    const other = await worker.fetch(scanReq('fresh-other', 'img-other', { 'CF-Connecting-IP': '198.51.100.4' }), env);
+    expect(other.status).toBe(200);
   });
 });
 

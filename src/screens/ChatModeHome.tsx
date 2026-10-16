@@ -108,6 +108,8 @@ function viewLabel(view: AskPipViewId, t: (key: string) => string): string {
       return t('exportTitle');
     case 'currencySettings':
       return t('currencySettingsTitle');
+    case 'friends':
+      return t('friends');
     case 'categories':
       return t('categoriesTitle');
     case 'backup':
@@ -587,6 +589,7 @@ export const ChatModeHome = React.forwardRef<ChatModeHomeHandle, ChatModeHomePro
         onOpenCategories={() => showView('categories')}
         onOpenTax={() => showView('tax')}
         onOpenCurrencySettings={() => showView('currencySettings')}
+        onOpenFriends={() => showView('friends')}
         onOpenBackup={() => showView('backup')}
         onOpenWidgetCustomizer={() => showView('widgetCustomizer')}
         onOpenAdvancedImport={() => showView('advancedImport')}

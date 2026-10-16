@@ -53,6 +53,10 @@ describe('backTargetFor', () => {
     expect(backTargetFor('commitments', { ...origins, commitmentsOrigin: 'categories' })).toBe('categories');
   });
 
+  it('returns friends to settings', () => {
+    expect(backTargetFor('friends', origins)).toBe('settings');
+  });
+
   it('returns currencySettings to settings or home based on origin', () => {
     expect(backTargetFor('currencySettings', { ...origins, currencyOrigin: 'settings' })).toBe('settings');
     expect(backTargetFor('currencySettings', { ...origins, currencyOrigin: 'home' })).toBe('home');

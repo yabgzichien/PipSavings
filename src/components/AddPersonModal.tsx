@@ -7,16 +7,25 @@ import { radius, uiFont } from '../theme';
 import { Icon } from './Icon';
 import { BtnLabel, PrimaryButton } from './ui';
 
-/** Compact prompt for a friend's name, used wherever a bill needs someone added on the spot. */
+/** Compact prompt for a friend's name: adding someone new, or renaming them from Friends. */
 export function AddPersonModal({
   visible,
   onClose,
   onSubmit,
+  title,
+  initialName = '',
+  submitLabel,
+  validate,
 }: {
   visible: boolean;
   onClose: () => void;
   /** Creates the person and folds them into the bill; the modal closes once this resolves. */
   onSubmit: (name: string) => Promise<void>;
+  title?: string;
+  initialName?: string;
+  submitLabel?: string;
+  /** An error message to show instead of submitting, e.g. when the name is already taken. */
+  validate?: (name: string) => string | null;
 }) {
   const insets = useSafeAreaInsets();
   const colorTheme = useThemeColors();
@@ -25,14 +34,16 @@ export function AddPersonModal({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (visible) setName('');
-  }, [visible]);
+    if (visible) setName(initialName);
+  }, [visible, initialName]);
+
+  const problem = name.trim() && validate ? validate(name.trim()) : null;
 
   if (!visible) return <Modal visible={false} transparent />;
 
   const submit = async () => {
     const trimmed = name.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || problem) return;
     setBusy(true);
     try {
       await onSubmit(trimmed);
@@ -52,7 +63,7 @@ export function AddPersonModal({
       >
         <View style={[styles.card, { backgroundColor: colorTheme.surface, marginBottom: insets.bottom }]}>
           <View style={styles.head}>
-            <Text style={[styles.title, { color: colorTheme.ink }]}>{isZh ? '添加人员' : 'Add a name'}</Text>
+            <Text style={[styles.title, { color: colorTheme.ink }]}>{title ?? (isZh ? '添加人员' : 'Add a name')}</Text>
             <Pressable onPress={onClose} hitSlop={8}>
               <Icon name="x" size={20} color={colorTheme.ink2} />
             </Pressable>
@@ -69,11 +80,12 @@ export function AddPersonModal({
             returnKeyType="done"
             onSubmitEditing={submit}
           />
+          {problem && <Text style={styles.problem}>{problem}</Text>}
 
           <View style={{ marginTop: 16 }}>
-            <PrimaryButton onPress={submit} disabled={!name.trim() || busy} height={50}>
-              <Icon name="plus" size={18} color="#fff" stroke={2.2} />
-              <BtnLabel>{isZh ? '添加' : 'Add'}</BtnLabel>
+            <PrimaryButton onPress={submit} disabled={!name.trim() || busy || Boolean(problem)} height={50}>
+              {!submitLabel && <Icon name="plus" size={18} color="#fff" stroke={2.2} />}
+              <BtnLabel>{submitLabel ?? (isZh ? '添加' : 'Add')}</BtnLabel>
             </PrimaryButton>
           </View>
         </View>
@@ -96,4 +108,5 @@ const styles = StyleSheet.create({
     fontFamily: uiFont(600),
     fontSize: 15,
   },
+  problem: { color: '#b3261e', fontFamily: uiFont(600), fontSize: 12.5, marginTop: 8 },
 });

@@ -318,6 +318,8 @@ export interface GroupSplitReceiptInput {
   categoryName?: string | null;
   seedId?: string;
   isZh?: boolean;
+  /** Names each person's extras row; defaults to service charge & SST. */
+  surchargeLabel?: string;
 }
 
 export interface GroupSplitReceiptPerson {
@@ -354,6 +356,7 @@ export function generateGroupSplitReceipt(input: GroupSplitReceiptInput): GroupS
     categoryName = null,
     seedId = 'group',
     isZh = false,
+    surchargeLabel,
   } = input;
 
   const seed = hashString(`${seedId}:${merchant}:${toCents(billTotal)}:${people.length}`);
@@ -384,7 +387,7 @@ export function generateGroupSplitReceipt(input: GroupSplitReceiptInput): GroupS
       // rather than a single table-wide line nobody can attribute.
       if (toCents(person.surcharge) !== 0) {
         items.push({
-          name: isZh ? '服务费与销售税' : 'Service charge & SST',
+          name: surchargeLabel ?? (isZh ? '服务费与销售税' : 'Service charge & SST'),
           qty: 1,
           amount: person.surcharge,
         });
@@ -617,7 +620,13 @@ export interface ReceiptCanvasInput {
 export function generateReceiptCanvasHtml(
   input: ReceiptCanvasInput | ReceiptCanvasInput[]
 ): string {
-  const serialized = JSON.stringify(input);
+  // This JSON is spliced into a <script> block, and merchant or friend names are user- and
+  // OCR-supplied. `</script>` inside a string would close the block and run whatever follows,
+  // so make `<` (and the two JS line separators JSON leaves raw) unreachable.
+  const serialized = JSON.stringify(input)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 
   return `<!DOCTYPE html>
 <html>

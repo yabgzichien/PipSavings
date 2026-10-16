@@ -17,6 +17,7 @@ export const ASK_PIP_VIEWS = [
   'tax',
   'export',
   'currencySettings',
+  'friends',
   'categories',
   'backup',
   'widgetCustomizer',

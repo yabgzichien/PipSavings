@@ -6,6 +6,7 @@ import { getMeta, setMeta } from '../../db/metaRepo';
 import { loadAutoBackupEnabled, persistAutoBackupEnabled } from './autoBackupPref';
 import { isGoogleDriveConfigured, refreshAccessToken } from './googleAuth';
 import { backupToDrive as runBackupToDrive, restoreFromDrive as runRestoreFromDrive } from './cloudBackupFlow';
+import { EmptyBackupRefusedError } from './emptyLedgerGuard';
 import { downloadBackup, fetchAccountEmail, uploadBackup } from './googleDriveApi';
 import {
   googleSignInUserMessage,
@@ -163,6 +164,12 @@ export function useCloudBackup(): CloudBackupState {
       setStatus('connected');
       return 'ok';
     } catch (e: any) {
+      if (e instanceof EmptyBackupRefusedError) {
+        // Not a connection problem: Drive is fine and the account is still signed in. Keep the
+        // typed error so the caller can say what actually happened, in the user's language.
+        setStatus('connected');
+        throw e;
+      }
       const message = googleSignInUserMessage(e);
       setError(message);
       setStatus('error');

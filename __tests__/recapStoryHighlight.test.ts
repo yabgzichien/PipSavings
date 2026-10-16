@@ -282,35 +282,24 @@ describe('detectStoryHighlight', () => {
     assertPrivate(highlight);
   });
 
-  it('detects high cafe / coffee stop frequency when 4+ stops occur', () => {
-    const txns: Transaction[] = [
+  it('leaves café runs and a lone big purchase to the place and biggest-day scenes', () => {
+    const cafes: Transaction[] = [
       makeTxn({ merchantRaw: 'Starbucks Coffee', amount: 18, date: '2026-08-01' }),
       makeTxn({ merchantRaw: 'ZUS Coffee', amount: 12, date: '2026-08-04' }),
       makeTxn({ merchantRaw: 'Chagee Tea', amount: 15, date: '2026-08-08' }),
       makeTxn({ merchantRaw: 'Local Cafe', remark: 'Iced latte', amount: 16, date: '2026-08-12' }),
       makeTxn({ amount: 50, date: '2026-08-15' }),
     ];
+    expect(detectStoryHighlight(cafes, '2026-08')).toBeNull();
 
-    const highlight = detectStoryHighlight(txns, '2026-08');
-    expect(highlight?.kind).toBe('cafeRhythm');
-    expect(highlight?.count).toBe(4);
-    expect(highlight?.iconName).toBe('utensils');
-    assertPrivate(highlight);
-  });
-
-  it('falls back to standout outlier spend when no specific keywords exist', () => {
-    const txns: Transaction[] = [
+    const outlier: Transaction[] = [
       makeTxn({ amount: 20, categoryId: 'food', date: '2026-08-01' }),
       makeTxn({ amount: 25, categoryId: 'food', date: '2026-08-02' }),
       makeTxn({ amount: 30, categoryId: 'food', date: '2026-08-03' }),
       makeTxn({ amount: 22, categoryId: 'food', date: '2026-08-04' }),
-      makeTxn({ amount: 650, categoryId: 'shopping', date: '2026-08-10' }), // Outlier (>60% of total)
+      makeTxn({ amount: 650, categoryId: 'shopping', date: '2026-08-10' }),
     ];
-
-    const highlight = detectStoryHighlight(txns, '2026-08');
-    expect(highlight?.kind).toBe('outlierSpend');
-    expect(highlight?.categoryId).toBe('shopping');
-    assertPrivate(highlight);
+    expect(detectStoryHighlight(outlier, '2026-08')).toBeNull();
   });
 
   it('handles Chinese keywords for tech, vehicles, gifts, massage, and dates', () => {

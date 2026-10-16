@@ -134,6 +134,18 @@ export async function renamePerson(id: string, name: string): Promise<void> {
   await db.runAsync('UPDATE people SET name = ? WHERE id = ?', name.trim(), id);
 }
 
+/**
+ * Forget a person who has never been on a bill. Anyone with a share keeps their row, since
+ * debts and history point at the id; returns whether the row was removed.
+ */
+export async function deletePersonIfUnused(id: string): Promise<boolean> {
+  const db = await getDb();
+  const used = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM split_shares WHERE person_id = ?', id);
+  if ((used?.n ?? 0) > 0) return false;
+  await db.runAsync('DELETE FROM people WHERE id = ?', id);
+  return true;
+}
+
 /* --- Splits -------------------------------------------------------------- */
 
 export async function listSplits(): Promise<Split[]> {

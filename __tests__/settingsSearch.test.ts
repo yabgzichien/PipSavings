@@ -39,7 +39,8 @@ describe('Settings Search', () => {
       expect(filterSettings('black and white').matchingKeys.has('accent')).toBe(true);
       expect(filterSettings('ink').matchingKeys.has('accent')).toBe(true);
       expect(filterSettings('colour').matchingKeys.has('accent')).toBe(true);
-      expect(filterSettings('monochrome').matchingKeys.has('appearanceStyle')).toBe(false);
+      // `appearanceStyle` is no longer a setting key; keep asserting it never resurfaces.
+      expect((filterSettings('monochrome').matchingKeys as ReadonlySet<string>).has('appearanceStyle')).toBe(false);
     });
 
     it('finds language settings', () => {
@@ -130,6 +131,12 @@ describe('Settings Search', () => {
     it('finds category settings', () => {
       expect(filterSettings('categories').matchingKeys.has('data_categories')).toBe(true);
       expect(filterSettings('custom category').matchingKeys.has('data_categories')).toBe(true);
+    });
+
+    it('finds friends', () => {
+      expect(filterSettings('friends').matchingKeys.has('data_friends')).toBe(true);
+      expect(filterSettings('people').matchingKeys.has('data_friends')).toBe(true);
+      expect(filterSettings('好友').matchingKeys.has('data_friends')).toBe(true);
     });
 
     it('finds currency settings', () => {

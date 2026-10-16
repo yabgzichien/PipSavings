@@ -65,6 +65,7 @@ import {
   recordPayment as dbRecordPayment,
   revertPayment as dbRevertPayment,
   renamePerson as dbRenamePerson,
+  deletePersonIfUnused as dbDeletePersonIfUnused,
   writeOffShare as dbWriteOffShare,
 } from '../db/splitRepo';
 import { fromCents, openReceivableTotal, outstanding, receivableMyr, toCents, type OpenShare } from '../lib/split';
@@ -151,7 +152,9 @@ import type { ScannedReceipt } from '../lib/parseReceipt';
 const ONBOARDING_KEY = 'onboarding_complete';
 // The monthly amount the borrower committed to keeping back. A preference, not ledger data, so
 // it lives in app_meta rather than earning a table of its own.
-// Local reminder preferences. Both default to off so the OS permission prompt only ever
+// Local reminder preferences. The log nudge defaults to off; chasing debts and recurring bills
+// default to on (absent row means on), since those are about money genuinely waiting on the
+// user. Nothing is delivered until the OS grants permission, and that prompt still only ever
 // appears because the user reached for it in Settings. Deliberately survive `resetAllData`,
 // `resetToOnboarding` and demo-profile loads: this is how the owner of the phone wants to be
 // interrupted, not persona data, and having a demo reset silently unsubscribe them would be a
@@ -159,6 +162,9 @@ const ONBOARDING_KEY = 'onboarding_complete';
 const REMINDER_CADENCE_KEY = 'reminder_cadence';
 const OWED_REMINDER_KEY = 'owed_reminder_on';
 const COMMITMENT_REMINDER_KEY = 'commitment_reminder_on';
+// Master switch over every reminder above. Off silences all of them without forgetting the
+// per-reminder choices, so turning it back on restores exactly what was there. Absent means on.
+const NOTIFICATIONS_ENABLED_KEY = 'notifications_on';
 // docs/ui-engagement-plan.md Step 7: overrides the behaviour-inferred log-reminder fire hour.
 // Empty string means "no override, follow the inferred/fallback hour" (autonomy stays the
 // default; a user who never opens this row keeps the app deciding for them).
@@ -403,6 +409,8 @@ export interface AppData {
   /** Remember a name (or return the one already saved under it, case-insensitively). */
   addPerson: (name: string) => Promise<Person>;
   renamePerson: (id: string, name: string) => Promise<void>;
+  /** Forget someone who has never been on a bill; false (and nothing removed) once they have. */
+  deletePerson: (id: string) => Promise<boolean>;
   /** Record a direct debt where someone owes money to the user. */
   addDirectDebt: (
     personName: string,
@@ -454,6 +462,10 @@ export interface AppData {
    *  when I actually log" (docs/ui-engagement-plan.md Step 7, item 1). */
   reminderHourOverride: number | null;
   setReminderHourOverride: (hour: number | null) => Promise<void>;
+  /** Master switch over every local reminder. Off silences them all but keeps each one's own
+   *  setting, so switching back on restores them as they were. */
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (on: boolean) => Promise<void>;
   /** Whether to chase debts that have aged past `AGING_DAYS`, weekly. */
   owedReminderEnabled: boolean;
   setOwedReminderEnabled: (on: boolean) => Promise<void>;
@@ -638,8 +650,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [tutorialDismissed, setTutorialDismissedState] = useState(false);
   const [reminderCadence, setReminderCadenceState] = useState<ReminderCadence>('off');
   const [reminderHourOverride, setReminderHourOverrideState] = useState<number | null>(null);
-  const [owedReminderEnabled, setOwedReminderEnabledState] = useState(false);
-  const [commitmentReminderEnabled, setCommitmentReminderEnabledState] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabledState] = useState(true);
+  const [owedReminderEnabled, setOwedReminderEnabledState] = useState(true);
+  const [commitmentReminderEnabled, setCommitmentReminderEnabledState] = useState(true);
   const [motionSetting, setMotionSettingState] = useState<MotionSetting>('full');
   const [widgetMascotConfig, setWidgetMascotConfigState] = useState<WidgetMascotConfig>(
     DEFAULT_WIDGET_MASCOT_CONFIG
@@ -658,7 +671,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [recapStoryHomeHandledMonth, setRecapStoryHomeHandledMonth] = useState<string | null>(null);
 
   const refreshAll = useCallback(async () => {
-    const [cats, txns, mem, income, alloc, snaps, accts, entries, cache, onboardingFlag, tutorialScanRaw, tutorialManualRaw, tutorialDismissedRaw, exploreTasksDoneRaw, reminderCadenceRaw, reminderHourOverrideRaw, owedReminderRaw, commitmentReminderRaw, motionSettingRaw, widgetMascotRaw, soundEnabledRaw, glossaryEnabledRaw, diagnosticsEnabledRaw, diagnosticsInstallIdRaw, streakFreezeMonthRaw, streakFreezeAvailableRaw, streakFreezeSpentForRaw, streakPausedSinceRaw, recapStoryHomeHandledMonthRaw, peopleRows, splitRows, shareRows, paymentRows, tripRows, checkInDays, knownBankLabelMap] =
+    const [cats, txns, mem, income, alloc, snaps, accts, entries, cache, onboardingFlag, tutorialScanRaw, tutorialManualRaw, tutorialDismissedRaw, exploreTasksDoneRaw, reminderCadenceRaw, reminderHourOverrideRaw, owedReminderRaw, commitmentReminderRaw, notificationsEnabledRaw, motionSettingRaw, widgetMascotRaw, soundEnabledRaw, glossaryEnabledRaw, diagnosticsEnabledRaw, diagnosticsInstallIdRaw, streakFreezeMonthRaw, streakFreezeAvailableRaw, streakFreezeSpentForRaw, streakPausedSinceRaw, recapStoryHomeHandledMonthRaw, peopleRows, splitRows, shareRows, paymentRows, tripRows, checkInDays, knownBankLabelMap] =
       await Promise.all([
         listCategories(),
         listTransactions(),
@@ -678,6 +691,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         getMeta(REMINDER_HOUR_OVERRIDE_KEY),
         getMeta(OWED_REMINDER_KEY),
         getMeta(COMMITMENT_REMINDER_KEY),
+        getMeta(NOTIFICATIONS_ENABLED_KEY),
         getMeta(MOTION_SETTING_KEY),
         getMeta(WIDGET_MASCOT_CONFIG_KEY),
         getMeta(SOUND_ENABLED_KEY),
@@ -710,8 +724,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         ? parsedHourOverride
         : null
     );
-    setOwedReminderEnabledState(owedReminderRaw === 'true');
-    setCommitmentReminderEnabledState(commitmentReminderRaw === 'true');
+    // Absent-means-on: a fresh install chases debts and bills without being asked to.
+    setOwedReminderEnabledState(owedReminderRaw !== 'false');
+    setCommitmentReminderEnabledState(commitmentReminderRaw !== 'false');
+    setNotificationsEnabledState(notificationsEnabledRaw !== 'false');
     const resolvedMotionSetting = isMotionSetting(motionSettingRaw) ? motionSettingRaw : 'full';
     setMotionSettingState(resolvedMotionSetting);
     setWidgetMascotConfigState(parseWidgetMascotConfig(widgetMascotRaw));
@@ -1186,6 +1202,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           receiptUri: receiptUris?.[i] ?? null,
           currency,
           fxRate,
+          time: it.time ?? null,
         });
         draftFor.push(draft);
       }
@@ -1277,6 +1294,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const renamePerson = useCallback(async (id: string, name: string) => {
     await dbRenamePerson(id, name);
     setPeople(await dbListPeople());
+  }, []);
+
+  const deletePerson = useCallback(async (id: string) => {
+    const removed = await dbDeletePersonIfUnused(id);
+    if (removed) setPeople(await dbListPeople());
+    return removed;
   }, []);
 
   /**
@@ -1397,6 +1420,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const setReminderHourOverride = useCallback(async (hour: number | null) => {
     await setMeta(REMINDER_HOUR_OVERRIDE_KEY, hour === null ? '' : String(hour));
     setReminderHourOverrideState(hour);
+  }, []);
+
+  const setNotificationsEnabled = useCallback(async (on: boolean) => {
+    await setMeta(NOTIFICATIONS_ENABLED_KEY, on ? 'true' : 'false');
+    setNotificationsEnabledState(on);
   }, []);
 
   const setOwedReminderEnabled = useCallback(async (on: boolean) => {
@@ -2462,6 +2490,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     knownBankLabels,
     addPerson,
     renamePerson,
+    deletePerson,
     addDirectDebt,
     deleteDirectDebt,
     splitTransaction,
@@ -2478,6 +2507,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setReminderCadence,
     reminderHourOverride,
     setReminderHourOverride,
+    notificationsEnabled,
+    setNotificationsEnabled,
     owedReminderEnabled,
     setOwedReminderEnabled,
     commitmentReminderEnabled,

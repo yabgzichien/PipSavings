@@ -90,11 +90,17 @@ jest.mock('../src/state/store', () => ({
 const notify = jest.requireMock('../src/lib/platformAlert').notify as jest.Mock;
 const redeemPromoCode = jest.requireMock('../src/billing/scanProxy').redeemPromoCode as jest.Mock;
 
-async function renderSettings() {
+async function renderSettings({ openPro = true }: { openPro?: boolean } = {}) {
   let tree: ReturnType<typeof TestRenderer.create>;
   await TestRenderer.act(async () => {
     tree = TestRenderer.create(<SettingsScreen onBack={jest.fn()} />);
   });
+  // Restore, redeem and manage live one tap down, on the Pip Pro page.
+  if (openPro) {
+    await TestRenderer.act(async () => {
+      tree!.root.findByProps({ testID: 'settings-pro' }).props.onPress();
+    });
+  }
   return tree!;
 }
 

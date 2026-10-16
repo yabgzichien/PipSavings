@@ -154,3 +154,82 @@ describe('D1 Quota enforcement', () => {
     expect(usage.monthUsed).toBe(1);
   });
 });
+
+describe('checkAndReserve under concurrency', () => {
+  it('does not let parallel requests all pass a limit that only has room for one', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { createMockD1 } = require('./mockD1');
+    const {
+      checkAndReserve,
+      commitReservation,
+      getUtcKeys,
+      FREE_DAILY_LIMIT,
+    } = require('../src/quota');
+    const db = createMockD1();
+    const now = Date.UTC(2026, 8, 15, 12);
+    const { dayKey, monthKey } = getUtcKeys(now);
+
+    // Leave exactly one scan of room today.
+    for (let i = 0; i < FREE_DAILY_LIMIT - 1; i++) {
+      const key = `seed-${i}`;
+      await checkAndReserve(db, 'h', key, false, now);
+      await commitReservation(db, key, false, now, { hash: 'h', dayKey, monthKey });
+    }
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, i) => checkAndReserve(db, 'h', `burst-${i}`, false, now))
+    );
+    // Over-blocking is fine (the client retries); letting more than the remaining room through is not.
+    expect(results.filter((r: { ok: boolean }) => r.ok).length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('network cap', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createMockD1 } = require('./mockD1');
+  const { claimIpSlot, releaseIpSlot, ipBucketKey } = require('../src/quota');
+
+  it('lets exactly `limit` of a large parallel burst through', async () => {
+    const db = createMockD1();
+    const results = await Promise.all(
+      Array.from({ length: 200 }, () => claimIpSlot(db, 'ip-hash', '2026-09-15', 40))
+    );
+    expect(results.filter((r: { ok: boolean }) => r.ok)).toHaveLength(40);
+    // Everything over the cap was handed back, so the counter sits at the limit, not at 200.
+    expect((await claimIpSlot(db, 'ip-hash', '2026-09-15', 41)).ok).toBe(true);
+  });
+
+  it('returns a slot when the scan it was for does not complete', async () => {
+    const db = createMockD1();
+    expect((await claimIpSlot(db, 'h', 'd', 1)).ok).toBe(true);
+    expect((await claimIpSlot(db, 'h', 'd', 1)).ok).toBe(false);
+    await releaseIpSlot(db, 'h', 'd');
+    expect((await claimIpSlot(db, 'h', 'd', 1)).ok).toBe(true);
+  });
+
+  it('fails open when the table is missing, so a late migration cannot take scanning down', async () => {
+    const broken = {
+      prepare() {
+        throw new Error('no such table: ip_usage');
+      },
+      batch: async () => [],
+    };
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const slot = await claimIpSlot(broken, 'h', 'd', 40);
+    expect(slot).toEqual({ ok: true, held: false });
+    warn.mockRestore();
+  });
+
+  it('counts a whole IPv6 /64 as one network, however the address is written', () => {
+    const a = ipBucketKey('2001:db8:abcd:12::1');
+    expect(ipBucketKey('2001:0db8:abcd:0012:ffff:ffff:ffff:ffff')).toBe(a);
+    expect(ipBucketKey('2001:DB8:ABCD:12:1:2:3:4')).toBe(a);
+    expect(ipBucketKey('2001:db8:abcd:13::1')).not.toBe(a);
+  });
+
+  it('keeps IPv4 per address and unwraps IPv4-mapped IPv6', () => {
+    expect(ipBucketKey('203.0.113.9')).toBe('203.0.113.9');
+    expect(ipBucketKey('::ffff:203.0.113.9')).toBe('203.0.113.9');
+    expect(ipBucketKey('203.0.113.10')).not.toBe(ipBucketKey('203.0.113.9'));
+  });
+});

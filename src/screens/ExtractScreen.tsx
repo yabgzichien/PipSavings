@@ -28,6 +28,7 @@ import { useLanguage } from '../i18n';
 import { useEntitlement } from '../billing/entitlement';
 import { usePaywall } from '../billing/paywallContext';
 import { submitScan } from '../billing/scanProxy';
+import { localizeScanError } from '../lib/scanErrors';
 import { ScanQuotaBadge } from '../components/ScanQuotaBadge';
 import type { TallRead } from '../lib/prepareScanImage';
 import type { OcrOutcome } from '../lib/receiptOcr';
@@ -238,7 +239,7 @@ export function ExtractScreen({
         }
         if (!proxyResult.ok || !proxyResult.items || proxyResult.items.length === 0) {
           if (!alive) return;
-          const message = proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image.");
+          const message = localizeScanError(proxyResult.error, isZh) || proxyResult.error || (isZh ? '未能在该截图中识别到任何交易。' : "I couldn't read any transactions in that image.");
           if (keepPrevious(message)) return;
           setError(message);
           setPhase('error');

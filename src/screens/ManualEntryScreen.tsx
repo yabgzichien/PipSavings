@@ -28,6 +28,7 @@ import { rateFor, ratesFromCache } from '../lib/fx';
 import { tap } from '../lib/haptics';
 import { SplitSheet } from '../components/SplitSheet';
 import { matchInstitution } from '../lib/institutions';
+import { canonicalMerchantName, merchantSuggestions, placesForCategory } from '../lib/merchantGroups';
 import { useModalHandoff } from '../lib/modalHandoff';
 import { tripsForPicker } from '../lib/tripPicker';
 import type { Account, Category, CategorySuggestion, ExtractedTxn, SplitDraft, TxnType } from '../lib/types';
@@ -116,7 +117,7 @@ export function ManualEntryScreen({
   const colorTheme = useThemeColors();
   const { t, formatFullDate, isZh } = useLanguage();
   const { isPro } = useEntitlement();
-  const { accounts, recordBalanceLink, ensureDefaultAccount, trips } = useAppData();
+  const { accounts, recordBalanceLink, ensureDefaultAccount, trips, transactions = [] } = useAppData();
   const [merchant, setMerchant] = useState(initialMerchant ?? '');
   const [amountText, setAmountText] = useState(
     initialAmount ? initialAmount.toFixed(decimalsFor(initialCurrency ?? BASE_CURRENCY)) : ''
@@ -377,6 +378,19 @@ export function ManualEntryScreen({
   /** The trip this entry will join, if any. Expense-only: trips group spending. */
   const currentTrip = useMemo(() => (tripId ? trips.find((trip) => trip.id === tripId) ?? null : null), [tripId, trips]);
 
+  // Merchant names feed the monthly story's places, so offer the user's own usual spellings:
+  // one tap beats retyping, and reusing a name keeps "ZUS" and "Zus Coffee" from splitting.
+  const usualPlaces = useMemo(
+    () => (type === 'expense' && cat ? placesForCategory(transactions, cat) : []),
+    [transactions, type, cat],
+  );
+  // Suggestions come from past spending, so an income source field gets none.
+  const typedSuggestions = useMemo(
+    () => (type === 'expense' ? merchantSuggestions(transactions, merchant) : []),
+    [transactions, merchant, type],
+  );
+  const merchantCanonical = canonicalMerchantName(merchant);
+
   /** What the collapsed More details row reports. */
   const detailsSummary = useMemo(() => {
     const parts: string[] = [];
@@ -592,6 +606,29 @@ export function ManualEntryScreen({
           </View>
         </TourAnchor>
 
+        {usualPlaces.length > 0 && (
+          <>
+            <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>{isZh ? '常去的地方（选填）' : 'Your usual places (optional)'}</Eyebrow>
+            <View style={styles.accountChips}>
+              {usualPlaces.map((place) => {
+                const on = merchantCanonical === canonicalMerchantName(place);
+                return (
+                  <ChoiceChip
+                    key={place}
+                    label={place}
+                    on={on}
+                    accessibilityLabel={`${isZh ? '地点' : 'Place'}: ${place}`}
+                    onPress={() => {
+                      tap();
+                      setMerchant(on ? '' : place);
+                    }}
+                  />
+                );
+              })}
+            </View>
+          </>
+        )}
+
         <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>{t('date')}</Eyebrow>
         <View style={styles.dateChips}>
           {[
@@ -746,6 +783,22 @@ export function ManualEntryScreen({
             placeholderTextColor={colorTheme.ink3}
             style={[styles.textInputSm, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line, color: colorTheme.ink }]}
           />
+          {typedSuggestions.length > 0 && (
+            <View style={[styles.accountChips, { marginTop: 8 }]}>
+              {typedSuggestions.map((suggestion) => (
+                <ChoiceChip
+                  key={suggestion}
+                  label={suggestion}
+                  on={false}
+                  accessibilityLabel={`${isZh ? '建议' : 'Suggestion'}: ${suggestion}`}
+                  onPress={() => {
+                    tap();
+                    setMerchant(suggestion);
+                  }}
+                />
+              ))}
+            </View>
+          )}
 
           <Eyebrow style={{ marginTop: 18, marginBottom: 8 }}>{isZh ? '备注（选填）' : 'Remark (optional)'}</Eyebrow>
           <TextInput

@@ -1,6 +1,6 @@
 import { en } from '../src/i18n/translations/en';
 import { zh } from '../src/i18n/translations/zh';
-import { RECAP_BADGE_KEYS, RECAP_PERSONA_KEYS } from '../src/lib/recapStory';
+import { RECAP_STORY_COPY_KEYS, RECAP_STORY_LINE_VARIANTS, recapStoryLineKey } from '../src/lib/recapStoryCopy';
 
 const VIEWER_COPY_KEYS = [
   'recapStoryOpen',
@@ -28,40 +28,15 @@ const VIEWER_COPY_KEYS = [
   'recapStorySavedToPhotos',
   'recapStoryCloseCaptureTitle',
   'recapStoryCloseCaptureBody',
-  'recapStoryRecordedShare',
-  'recapStoryComparisonHigher',
-  'recapStoryComparisonLower',
-  'recapStoryComparisonSame',
-  'recapStoryMerchantOff',
-  'recapStoryMerchantDisclosure',
-  'recapStoryDays',
-  'recapStoryWeeks',
 ] as const;
 
-const REVIEWED_PERSONA_TITLES = {
-  food: ['The Flavour Finder', '寻味达人'],
-  shopping: ['The Thoughtful Curator', '精挑策展人'],
-  entertainment: ['The Joy Collector', '快乐收藏家'],
-  travelling: ['The Weekend Wanderer', '周末漫游家'],
-  learning: ['The Curious Builder', '好奇进修家'],
-  family: ['The Family Anchor', '家庭守护者'],
-  medical: ['The Wellness Keeper', '健康守门人'],
-  utilities: ['The Home Conductor', '生活调度家'],
-  subscriptions: ['The Digital Regular', '数码常客'],
-  rental: ['The Home Base Hero', '安居主理人'],
-  phoneBill: ['The Connected Regular', '在线常驻客'],
-  insurance: ['The Future Minder', '未来照看者'],
-  other: ['The Pattern Spotter', '规律发现家'],
-  consistent: ['The Cool Consistent', '稳稳记录派'],
-  explorer: ['The Curious Explorer', '好奇探索家'],
-  smallChapter: ['A Small Chapter', '小小一章'],
-  incomeOnly: ['The First Notes', '开篇几笔'],
-} as const;
-
-const ALLOWED_FACT_TOKENS = new Set(['days', 'weeks', 'percent', 'category', 'month']);
+/** Faces only: object emoji such as the crown and lock are part of the story's voice. */
+const FACE_EMOJI = /[\u{1F600}-\u{1F64F}\u{1F910}-\u{1F92F}\u{1F970}-\u{1F97F}\u{1F9D0}\u{2639}\u{263A}]/u;
+/** The story reacts to facts; it never tells anyone how to spend. */
+const MORALIZING = /\bshould\b|cut back|overspen|too much|wasteful|应该|省着|浪费|乱花/i;
 
 function tokens(value: string): string[] {
-  return [...value.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);
+  return [...value.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]).sort();
 }
 
 describe('monthly recap story copy', () => {
@@ -69,35 +44,47 @@ describe('monthly recap story copy', () => {
   const zhCopy = zh as unknown as Record<string, string>;
 
   test('keeps the monthly ritual sentence exact in English', () => {
-    expect(en.recapStoryRitualTitle).toBe("Wake up—it’s the first of the month");
+    expect(en.recapStoryRitualTitle).toBe('Wake up—it’s the first of the month');
   });
 
-  test.each(VIEWER_COPY_KEYS)('%s is present in both locales', (key) => {
+  test.each([...VIEWER_COPY_KEYS, ...RECAP_STORY_COPY_KEYS])('%s is present in both locales', (key) => {
     expect(enCopy[key]?.trim()).toBeTruthy();
     expect(zhCopy[key]?.trim()).toBeTruthy();
   });
 
-  test.each(RECAP_PERSONA_KEYS)('%s has its reviewed title and a body in both locales', (key) => {
-    const [englishTitle, chineseTitle] = REVIEWED_PERSONA_TITLES[key];
-    expect(enCopy[`recapStoryPersona_${key}_title`]).toBe(englishTitle);
-    expect(zhCopy[`recapStoryPersona_${key}_title`]).toBe(chineseTitle);
-    expect(enCopy[`recapStoryPersona_${key}_body`]?.trim()).toBeTruthy();
-    expect(zhCopy[`recapStoryPersona_${key}_body`]?.trim()).toBeTruthy();
+  test.each(RECAP_STORY_COPY_KEYS)('%s uses the same placeholders in both locales', (key) => {
+    expect(tokens(zhCopy[key])).toEqual(tokens(enCopy[key]));
   });
 
-  test.each(RECAP_BADGE_KEYS)('%s badge has a label and body in both locales', (key) => {
-    expect(enCopy[`recapStoryBadge_${key}_label`]?.trim()).toBeTruthy();
-    expect(enCopy[`recapStoryBadge_${key}_body`]?.trim()).toBeTruthy();
-    expect(zhCopy[`recapStoryBadge_${key}_label`]?.trim()).toBeTruthy();
-    expect(zhCopy[`recapStoryBadge_${key}_body`]?.trim()).toBeTruthy();
-  });
-
-  test('persona bodies interpolate only approved factual values', () => {
-    for (const copy of [enCopy, zhCopy]) {
-      for (const key of RECAP_PERSONA_KEYS) {
-        const value = copy[`recapStoryPersona_${key}_body`];
-        expect(tokens(value).filter((token) => !ALLOWED_FACT_TOKENS.has(token))).toEqual([]);
+  test('every scene line variant exists', () => {
+    for (const [sceneId, count] of Object.entries(RECAP_STORY_LINE_VARIANTS)) {
+      for (let variant = 0; variant < count; variant += 1) {
+        expect(RECAP_STORY_COPY_KEYS).toContain(`recapStory_${sceneId}_line${variant}`);
       }
     }
+  });
+
+  test('picks a line key that exists for every month', () => {
+    for (const month of ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']) {
+      for (const sceneId of Object.keys(RECAP_STORY_LINE_VARIANTS) as (keyof typeof RECAP_STORY_LINE_VARIANTS)[]) {
+        expect(RECAP_STORY_COPY_KEYS).toContain(recapStoryLineKey(month, sceneId));
+      }
+    }
+  });
+
+  test('has no face emoji and no spending advice in either locale', () => {
+    for (const key of RECAP_STORY_COPY_KEYS) {
+      for (const copy of [enCopy, zhCopy]) {
+        expect(copy[key]).not.toMatch(FACE_EMOJI);
+        expect(copy[key]).not.toMatch(MORALIZING);
+      }
+    }
+  });
+
+  test('retires the persona, badge, merchant-cameo and share-of-spending copy', () => {
+    const retired = Object.keys(enCopy).filter((key) =>
+      /^recapStory(Persona_|Badge_|Merchant|RecordedShare|Comparison|Days$|Weeks$|Spotlight_cafe|Spotlight_outlier)/.test(key));
+    expect(retired).toEqual([]);
+    expect(Object.keys(zhCopy).filter((key) => /^recapStory(Persona_|Badge_)/.test(key))).toEqual([]);
   });
 });

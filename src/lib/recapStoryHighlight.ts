@@ -11,9 +11,7 @@ export type RecapStoryHighlightKind =
   | 'incomeBoost'
   | 'selfCare'
   | 'dates'
-  | 'cafeRhythm'
-  | 'tripAdventure'
-  | 'outlierSpend';
+  | 'tripAdventure';
 
 export interface RecapStoryHighlight {
   kind: RecapStoryHighlightKind;
@@ -80,12 +78,6 @@ const DATE_KEYWORDS = [
   '约会', '七夕', '情人节',
 ];
 
-const CAFE_KEYWORDS = [
-  'coffee', 'cafe', 'starbucks', 'zus', 'chagee', 'boba', 'kopi', 'tealive', 'gigi coffee',
-  'cappuccino', 'latte', 'espresso', 'flat white',
-  '咖啡', '奶茶', '下午茶',
-];
-
 function canonicalTechLabel(text: string): string {
   if (text.includes('macbook')) return 'MacBook';
   if (text.includes('ipad')) return 'iPad';
@@ -142,7 +134,6 @@ export function detectStoryHighlight(
 
   // Sort expenses by amount descending
   const sortedExpenses = [...expenses].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-  const totalExpenseAmount = sortedExpenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const medianExpenseAmount = sortedExpenses.length > 0
     ? Math.abs(sortedExpenses[Math.floor(sortedExpenses.length / 2)].amount)
     : 0;
@@ -250,33 +241,6 @@ export function detectStoryHighlight(
       count: dateTxns.length,
       iconName: 'heart',
     };
-  }
-
-  // 8. Cafe Rhythm (4+ cafe stops)
-  const cafeTxns = sortedExpenses.filter((t) => {
-    const text = combinedText(t);
-    return CAFE_KEYWORDS.some((kw) => text.includes(kw));
-  });
-  if (cafeTxns.length >= 4) {
-    return {
-      kind: 'cafeRhythm',
-      count: cafeTxns.length,
-      iconName: 'utensils',
-    };
-  }
-
-  // 9. Statistical Outlier Spend (Fallback when no keywords matched, requires at least 3 expenses)
-  if (sortedExpenses.length >= 3 && totalExpenseAmount > 0) {
-    const top = sortedExpenses[0];
-    const topAmount = Math.abs(top.amount);
-    const topShare = topAmount / totalExpenseAmount;
-    if (topShare >= 0.35 || (medianExpenseAmount > 0 && topAmount >= medianExpenseAmount * 3)) {
-      return {
-        kind: 'outlierSpend',
-        categoryId: top.categoryId ?? 'shopping',
-        iconName: 'sparkles',
-      };
-    }
   }
 
   return null;

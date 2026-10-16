@@ -1,6 +1,6 @@
 # Privacy Policy for PipSavings
 
-Last updated: 27 September 2026
+Last updated: 14 October 2026
 
 PipSavings (“Pip”) is a personal bookkeeping app for Android. Contact: **zichienyang@gmail.com**. Pip is not directed at children.
 
@@ -16,7 +16,7 @@ Camera, photos, and notifications are used only for scans, saving a story image,
 
 **Bug reports.** Settings → About → Report a bug sends the text you type to Sentry only when you tap Send.
 
-**Scans (optional).** A scan image is sent over HTTPS to our Cloudflare proxy, then to an external AI service to extract merchant, date, amount, and category. We do not keep the image. We may cache the extracted JSON against a request hash (quota retries). External AI models may use scan images and extracted rows. Pip does not train its own models. A hashed install token is stored to enforce scan limits and promo codes.
+**Scans (optional).** A scan image is sent over HTTPS to our Cloudflare proxy, then to an external AI service to extract merchant, date, amount, and category. We do not keep the image. We may cache the extracted JSON against a request hash for up to 24 hours (so a retry is not charged twice), then it is deleted. External AI models may use scan images and extracted rows. Pip does not train its own models. A hashed install token is stored to enforce scan limits and promo codes. To stop automated abuse we also keep a daily count of scans per network address, stored only as a salted hash and deleted within two days.
 
 **Pip Pro.** Google Play handles payment. We never see your card. RevenueCat (and our proxy) receive an anonymous app user ID to confirm Pro.
 

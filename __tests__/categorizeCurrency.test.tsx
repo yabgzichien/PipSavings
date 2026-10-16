@@ -43,7 +43,7 @@ jest.mock('../src/lib/platformAlert', () => ({
   notify: (...args: any[]) => mockNotify(...args),
 }));
 
-const mockActivateCurrency = jest.fn(async () => true);
+const mockActivateCurrency = jest.fn<Promise<boolean>, any[]>(async () => true);
 const mockGetActiveCurrencies = jest.fn(async () => ['MYR']);
 jest.mock('../src/db/currencyRepo', () => ({
   activateCurrency: (...args: any[]) => mockActivateCurrency(...args),
@@ -250,6 +250,23 @@ describe('CurrencyPickerSheet component', () => {
     expect(mockActivateCurrency).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
   });
+});
+
+// These fixtures are dated September 2026 and the screens derive "this month" from the clock, so
+// the suite only held while the real calendar was in that month. Pin Date (and nothing else:
+// timers, microtasks and animation frames stay real so async rendering behaves as usual).
+beforeAll(() => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-15T12:00:00Z'),
+    doNotFake: [
+      'nextTick', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval',
+      'setTimeout', 'clearTimeout', 'queueMicrotask', 'requestAnimationFrame',
+      'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'performance', 'hrtime',
+    ],
+  });
+});
+afterAll(() => {
+  jest.useRealTimers();
 });
 
 describe('CategorizeScreen Currency Switching and Batch Propagation', () => {

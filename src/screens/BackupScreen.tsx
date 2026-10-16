@@ -9,6 +9,7 @@ import { getMeta, setMeta } from '../db/metaRepo';
 import { buildBackupZip } from '../lib/backupBundle';
 import { InvalidBackupError, formatRelativeBackupTime as formatRelative, peekBackupZip } from '../lib/backupRestore';
 import { enableAutoBackup } from '../lib/cloudBackup/autoBackupPref';
+import { EmptyBackupRefusedError } from '../lib/cloudBackup/emptyLedgerGuard';
 import { isGoogleDrivePlatform } from '../lib/cloudBackup/googleAuth';
 import { useCloudBackup } from '../lib/cloudBackup/useCloudBackup';
 import { saveOrDownloadExport } from '../lib/financialExport';
@@ -125,7 +126,10 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
       });
       if (result === 'cancelled') return;
     } catch (e: any) {
-      notify(isZh ? '云备份失败' : 'Cloud backup failed', e?.message);
+      notify(
+        isZh ? '云备份失败' : 'Cloud backup failed',
+        e instanceof EmptyBackupRefusedError ? t('cloudBackupEmptyRefused') : e?.message
+      );
     } finally {
       setBackingUpCloud(false);
     }
@@ -147,7 +151,10 @@ export function BackupScreen({ onBack, embedded }: { onBack: () => void; embedde
       const result = await cloud.backupToDrive(zip);
       if (result === 'cancelled') return;
     } catch (e: any) {
-      notify(isZh ? '云备份失败' : 'Cloud backup failed', e?.message);
+      notify(
+        isZh ? '云备份失败' : 'Cloud backup failed',
+        e instanceof EmptyBackupRefusedError ? t('cloudBackupEmptyRefused') : e?.message
+      );
     } finally {
       setBackingUpCloud(false);
     }

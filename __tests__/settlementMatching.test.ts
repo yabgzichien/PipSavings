@@ -1,4 +1,4 @@
-import { suggestMultiSettlement, type OpenShare } from '../src/lib/split';
+import { peopleOwing, settlementForPerson, suggestMultiSettlement, type OpenShare } from '../src/lib/split';
 
 describe('suggestMultiSettlement', () => {
   const TODAY = '2026-06-15';
@@ -195,6 +195,81 @@ describe('suggestMultiSettlement', () => {
 
       expect(match).not.toBeNull();
       expect(match!.confidence).toBe('strong');
+    });
+  });
+
+  describe('nickname friends', () => {
+    it('matches a friend saved by their initials', () => {
+      const match = suggestMultiSettlement(
+        [makeShare({ personId: 'cjx', personName: 'cjx', outstanding: 13.5, billDate: '2026-10-14', merchant: 'F2F NOODLE HOUSE SEPANG' })],
+        { merchant: 'Receive from CHOY JIAN XUAN', amount: 12.6, date: '2026-10-14' },
+        '2026-10-15'
+      );
+      expect(match).not.toBeNull();
+      expect(match!.personName).toBe('cjx');
+      expect(match!.settledTotal).toBe(12.6);
+    });
+
+    it('needs the initials in order and as whole words', () => {
+      const open = [makeShare({ personId: 'cjx', personName: 'cjx', outstanding: 13.5 })];
+      expect(suggestMultiSettlement(open, { merchant: 'Receive from XUAN JIAN CHOY', amount: 12.6, date: '2026-06-05' }, TODAY)).toBeNull();
+      expect(suggestMultiSettlement(open, { merchant: 'Receive from CHOY JIAN', amount: 12.6, date: '2026-06-05' }, TODAY)).toBeNull();
+    });
+
+    it('ignores the transfer wording when reading initials', () => {
+      // "Receive From Ali" must not read as a friend saved as "rfa".
+      const open = [makeShare({ personId: 'rfa', personName: 'rfa', outstanding: 50 })];
+      expect(suggestMultiSettlement(open, { merchant: 'Receive from Ali', amount: 20, date: '2026-06-05' }, TODAY)).toBeNull();
+    });
+
+    it('matches a learned bank name even when it shares nothing with the nickname', () => {
+      const match = suggestMultiSettlement(
+        [makeShare({ personId: 'boy', personName: 'Ah Boy', outstanding: 40 })],
+        { merchant: 'Receive from TAN WEI MING', amount: 15, date: '2026-06-05' },
+        TODAY,
+        { boy: ['Receive from TAN WEI MING'] }
+      );
+      expect(match).not.toBeNull();
+      expect(match!.personName).toBe('Ah Boy');
+      expect(match!.confidence).toBe('strong');
+    });
+
+    it('does not let the shared "Receive from" wording act as a learned name', () => {
+      const match = suggestMultiSettlement(
+        [makeShare({ personId: 'boy', personName: 'Ah Boy', outstanding: 40 })],
+        { merchant: 'Receive from LIM KAH WAI', amount: 15, date: '2026-06-05' },
+        TODAY,
+        { boy: ['Receive from TAN WEI MING'] }
+      );
+      expect(match).toBeNull();
+    });
+  });
+
+  describe('picking the friend by hand', () => {
+    const open = [
+      makeShare({ shareId: 'a', personId: 'cjx', personName: 'cjx', outstanding: 12.6, billDate: '2026-10-14' }),
+      makeShare({ shareId: 'b', personId: 'fyy', personName: 'fyy', outstanding: 30, billDate: '2026-10-10' }),
+      makeShare({ shareId: 'c', personId: 'fyy', personName: 'fyy', outstanding: 20, billDate: '2026-10-12' }),
+    ];
+
+    it('lists everyone who owes, closest amount first', () => {
+      const people = peopleOwing(open, 12.6);
+      expect(people.map((p) => p.personId)).toEqual(['cjx', 'fyy']);
+      expect(people[1].outstanding).toBe(50);
+    });
+
+    it('builds the settlement for the chosen friend', () => {
+      const match = settlementForPerson(open, 'fyy', { merchant: 'Receive from FOO YEE YEE', amount: 35, date: '2026-10-15' });
+      expect(match).not.toBeNull();
+      expect(match!.allocations.map((a) => [a.share.shareId, a.amount])).toEqual([['b', 30], ['c', 5]]);
+      expect(match!.partial).toBe(true);
+      expect(match!.excess).toBe(0);
+    });
+
+    it('carries an overpayment as excess', () => {
+      const match = settlementForPerson(open, 'cjx', { merchant: 'Receive from CHOY', amount: 15, date: '2026-10-15' });
+      expect(match!.settledTotal).toBe(12.6);
+      expect(match!.excess).toBe(2.4);
     });
   });
 

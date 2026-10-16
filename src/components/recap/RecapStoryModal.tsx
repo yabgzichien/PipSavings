@@ -45,7 +45,7 @@ function IconControl({ label, hint, icon, onPress }: {
 }
 
 function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStoryModalProps) {
-  const { motionSetting, catById, transactions = [] } = useAppData();
+  const { motionSetting, catById } = useAppData();
   const reduced = useReducedMotion();
   const { t, tCat, isZh, formatMonthLabel } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -60,14 +60,11 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
   const soundActive = useRef(false);
   const hold = useRef<{ started: number } | null>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
-  const [sessionModel, setSessionModel] = useState(model);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareInitialSceneId, setShareInitialSceneId] = useState<RecapStoryScene['id'] | undefined>(undefined);
 
-  useEffect(() => { setSessionModel(model); }, [model]);
-
-  const total = sessionModel.scenes.length;
-  const scene = sessionModel.scenes[state.index] ?? sessionModel.scenes[0];
+  const total = model.scenes.length;
+  const scene = model.scenes[state.index] ?? model.scenes[0];
   const position = `${state.index + 1} of ${total}`;
   const status = state.paused ? (isZh ? '已暂停' : 'Paused') : position;
   const scale = Math.max(0, Math.min(stage.width / STORY_LOGICAL_WIDTH, stage.height / STORY_LOGICAL_HEIGHT));
@@ -106,12 +103,12 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
     if (playedCycle.current !== state.cycle) {
       playedCycle.current = state.cycle;
       soundActive.current = true;
-      storyIntro(sessionModel.month);
+      storyIntro(model.month);
     } else if (!soundActive.current) {
       soundActive.current = true;
       resumeStoryIntro();
     }
-  }, [autoplay, state.muted, state.completed, state.cycle, sessionModel.month]);
+  }, [autoplay, state.muted, state.completed, state.cycle, model.month]);
 
   useEffect(() => {
     return () => {
@@ -142,15 +139,6 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
     onShareScene?.(scene.id);
     setShareInitialSceneId(scene.id);
     setShareSheetVisible(true);
-  }
-
-  function handleMerchantCameo(merchant: string) {
-    setSessionModel((current) => ({
-      ...current,
-      scenes: current.scenes.map((s) =>
-        s.type === 'pattern' ? { ...s, merchantCameo: merchant } : s
-      ),
-    }));
   }
 
   const getCategoryLabel = (id: string) => catById[id] ? tCat(catById[id]) : (isZh ? '未分类' : 'Uncategorized');
@@ -201,7 +189,7 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
       <View testID="story-progress" accessibilityRole="progressbar" accessibilityLabel={position}
         accessibilityValue={{ min: 0, max: 100, now: state.completed ? 100 : Math.round(state.index / total * 100) }}
         style={styles.segments}>
-        {sessionModel.scenes.map((card, index) => <View key={card.id} style={styles.segment}>
+        {model.scenes.map((card, index) => <View key={card.id} style={styles.segment}>
           <Animated.View style={[styles.fill, { width: index < state.index || state.completed ? '100%'
             : index === state.index ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) : '0%' }]} />
         </View>)}
@@ -214,10 +202,10 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
           <View style={{ width: STORY_LOGICAL_WIDTH, height: STORY_LOGICAL_HEIGHT,
             transform: [{ scale }], transformOrigin: 'top left' }}>
             <RecapStoryFrame scene={scene} mode="animated" motion={motion} progress={progress}
-              mascotConfig={mascotConfig} monthLabel={formatMonthLabel(sessionModel.month)}
+              mascotConfig={mascotConfig} monthLabel={formatMonthLabel(model.month)}
               categoryLabel={getCategoryLabel}
               accessibilityPositionLabel={position}
-              month={sessionModel.month} />
+              month={model.month} currency={model.currency} />
           </View>
           {/* Receive touches in the displayed rectangle's coordinate system, independent
               of which text or illustration lies beneath the finger. */}
@@ -235,14 +223,12 @@ function StorySession({ model, mascotConfig, onClose, onShareScene }: RecapStory
         </View>
       </View>
       {shareSheetVisible && <RecapStoryShareSheet
-        model={sessionModel}
-        transactions={transactions}
+        model={model}
         mascotConfig={mascotConfig}
-        monthLabel={formatMonthLabel(sessionModel.month)}
+        monthLabel={formatMonthLabel(model.month)}
         categoryLabel={getCategoryLabel}
         initialSceneId={shareInitialSceneId}
         onClose={() => setShareSheetVisible(false)}
-        onMerchantCameo={handleMerchantCameo}
       />}
     </View>
   </Modal>;

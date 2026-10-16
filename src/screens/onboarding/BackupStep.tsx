@@ -12,6 +12,8 @@ import { Body, BtnLabel, Card, PrimaryButton, Title } from '../../components/ui'
 import { useLanguage } from '../../i18n';
 import { buildBackupZip } from '../../lib/backupBundle';
 import { enableAutoBackup, persistAutoBackupEnabled } from '../../lib/cloudBackup/autoBackupPref';
+import { EmptyBackupRefusedError } from '../../lib/cloudBackup/emptyLedgerGuard';
+import { RestoreBackupModal } from '../../components/RestoreBackupModal';
 import { useCloudBackup } from '../../lib/cloudBackup/useCloudBackup';
 import * as haptics from '../../lib/haptics';
 import { useThemeColors } from '../../state/colorScheme';
@@ -27,7 +29,8 @@ export function BackupStep({ onNext, onSkip }: { onNext: () => void; onSkip: () 
   const appData = useAppData();
   const cloud = useCloudBackup();
   const { t } = useLanguage();
-  const [status, setStatus] = useState<'idle' | 'granted' | 'failed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'granted' | 'failed' | 'existing'>('idle');
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const granted = status === 'granted';
 
@@ -44,8 +47,15 @@ export function BackupStep({ onNext, onSkip }: { onNext: () => void; onSkip: () 
       if (result === 'cancelled') return;
       haptics.payoff();
       setStatus('granted');
-    } catch {
+    } catch (e) {
       haptics.warn();
+      if (e instanceof EmptyBackupRefusedError) {
+        // A reinstall or a new phone: Drive already holds the user's backup and this ledger is
+        // empty. Auto-backup is NOT switched off here, since the next thing they want is to
+        // restore, after which it should simply be on. Point them at the restore.
+        setStatus('existing');
+        return;
+      }
       await persistAutoBackupEnabled(false);
       setStatus('failed');
     } finally {
@@ -83,6 +93,16 @@ export function BackupStep({ onNext, onSkip }: { onNext: () => void; onSkip: () 
         </FadeIn>
       </View>
 
+      {status === 'existing' && (
+        <FadeIn>
+          <Card style={[styles.notice, { backgroundColor: colorTheme.surface2 }]}>
+            <Body color={colorTheme.ink2} style={{ lineHeight: 19 }}>
+              {t('wizardBackupExistingNotice')}
+            </Body>
+          </Card>
+        </FadeIn>
+      )}
+
       {status === 'failed' && (
         <FadeIn>
           <Card style={[styles.notice, { backgroundColor: colorTheme.surface2 }]}>
@@ -107,6 +127,19 @@ export function BackupStep({ onNext, onSkip }: { onNext: () => void; onSkip: () 
               <Text style={[styles.skipText, { color: colorTheme.ink2 }]}>{t('wizardSkipForNow')}</Text>
             </Pressable>
           </>
+        ) : status === 'existing' ? (
+          <>
+            <PrimaryButton onPress={() => { haptics.tap(); setRestoreOpen(true); }}>
+              <BtnLabel>{t('wizardBackupRestoreExistingBtn')}</BtnLabel>
+              <Icon name="arrowRight" size={19} color="#fff" />
+            </PrimaryButton>
+            <Pressable
+              onPress={skip}
+              style={({ pressed }) => [styles.skipBtn, pressed && styles.skipPressed]}
+            >
+              <Text style={[styles.skipText, { color: colorTheme.ink2 }]}>{t('wizardSkipForNow')}</Text>
+            </Pressable>
+          </>
         ) : (
           <PrimaryButton onPress={() => { haptics.tap(); onNext(); }}>
             <BtnLabel>{t('wizardContinue')}</BtnLabel>
@@ -114,6 +147,7 @@ export function BackupStep({ onNext, onSkip }: { onNext: () => void; onSkip: () 
           </PrimaryButton>
         )}
       </FadeIn>
+      <RestoreBackupModal visible={restoreOpen} onClose={() => setRestoreOpen(false)} />
     </ScrollView>
   );
 }

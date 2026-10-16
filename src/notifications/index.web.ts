@@ -25,6 +25,13 @@ export async function ensurePermission(): Promise<boolean> {
   return false;
 }
 
+
+export type PermissionStatus = 'granted' | 'denied' | 'undetermined';
+
+export async function getPermissionStatus(): Promise<PermissionStatus> {
+  return 'denied';
+}
+
 export async function syncScheduledReminders(_plan: ReminderPlan): Promise<void> {
   /* no notifications on web */
 }

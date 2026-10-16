@@ -61,7 +61,7 @@ export function RecapScreen({ onBack, onOpenCalendar, onOpenExport, onOpenTrip, 
   const months = useMemo(() => availableMonths(transactions, Object.keys(snapshots), now), [transactions, snapshots, todayMonth]); // eslint-disable-line react-hooks/exhaustive-deps
   const month = months.includes(selected) ? selected : todayMonth;
   const storyModel = useMemo(
-    () => buildRecapStoryModel({ transactions, month, now, trips, spendOf: dc.convertTxn }),
+    () => buildRecapStoryModel({ transactions, month, now, trips, spendOf: dc.convertTxn, currency: dc.code }),
     [transactions, month, now, trips, dc.code, dc.rates], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [storyOpen, setStoryOpen] = useState(false);

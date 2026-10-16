@@ -177,6 +177,7 @@ export interface Translations {
   taxRelief: string;
   categories: string;
   currencies: string;
+  friends: string;
   advancedImport: string;
   financialReportsExport: string;
   backupRestore: string;
@@ -197,6 +198,24 @@ export interface Translations {
   nothingToCancelBody: string;
   glossary: string;
   glossaryHint: string;
+  settingsGeneral: string;
+  settingsYourMoney: string;
+  settingsDataPrivacy: string;
+  settingsHelpAbout: string;
+  settingsAdvanced: string;
+  notifications: string;
+  notificationsMaster: string;
+  notificationsMasterHint: string;
+  notificationsSummary: string;
+  notificationsBlockedBody: string;
+  notificationsAllow: string;
+  notificationsOpenSettings: string;
+  logSpendingReminderHint: string;
+  chaseOwedReminderHint: string;
+  recurringBillsReminderHint: string;
+  crashDiagnostics: string;
+  crashDiagnosticsHint: string;
+  resetHint: string;
   resetAllData: string;
   resetAllDataTitle: string;
   resetAllDataBody: string;
@@ -207,6 +226,14 @@ export interface Translations {
   legalTrademarksNotice: string;
   widgetCustomizer: string;
   widgetCustomizerHint: string;
+  widgetCustomizeCta: string;
+  pipProUpgradeCta: string;
+  askPipKeyActive: string;
+  askPipKeyCtaSetup: string;
+  askPipKeyCtaManage: string;
+  friendsAddFirst: string;
+  recurringTrackedCount: string;
+  recurringAddFirst: string;
   widgetPreviewHint: string;
   widgetPreset: string;
   widgetSize: string;
@@ -371,65 +398,77 @@ export interface Translations {
   recapStorySavedToPhotos: string;
   recapStoryCloseCaptureTitle: string;
   recapStoryCloseCaptureBody: string;
-  recapStoryRecordedShare: string;
-  recapStoryComparisonHigher: string;
-  recapStoryComparisonLower: string;
-  recapStoryComparisonSame: string;
-  recapStoryMerchantOff: string;
-  recapStoryMerchantDisclosure: string;
-  recapStoryDays: string;
-  recapStoryWeeks: string;
   recapStoryRitualTitle: string;
-  recapStoryPersona_food_title: string;
-  recapStoryPersona_food_body: string;
-  recapStoryPersona_shopping_title: string;
-  recapStoryPersona_shopping_body: string;
-  recapStoryPersona_entertainment_title: string;
-  recapStoryPersona_entertainment_body: string;
-  recapStoryPersona_travelling_title: string;
-  recapStoryPersona_travelling_body: string;
-  recapStoryPersona_learning_title: string;
-  recapStoryPersona_learning_body: string;
-  recapStoryPersona_family_title: string;
-  recapStoryPersona_family_body: string;
-  recapStoryPersona_medical_title: string;
-  recapStoryPersona_medical_body: string;
-  recapStoryPersona_utilities_title: string;
-  recapStoryPersona_utilities_body: string;
-  recapStoryPersona_subscriptions_title: string;
-  recapStoryPersona_subscriptions_body: string;
-  recapStoryPersona_rental_title: string;
-  recapStoryPersona_rental_body: string;
-  recapStoryPersona_phoneBill_title: string;
-  recapStoryPersona_phoneBill_body: string;
-  recapStoryPersona_insurance_title: string;
-  recapStoryPersona_insurance_body: string;
-  recapStoryPersona_other_title: string;
-  recapStoryPersona_other_body: string;
-  recapStoryPersona_consistent_title: string;
-  recapStoryPersona_consistent_body: string;
-  recapStoryPersona_explorer_title: string;
-  recapStoryPersona_explorer_body: string;
-  recapStoryPersona_smallChapter_title: string;
-  recapStoryPersona_smallChapter_body: string;
-  recapStoryPersona_incomeOnly_title: string;
-  recapStoryPersona_incomeOnly_body: string;
-  recapStoryBadge_fiveExpenses_label: string;
-  recapStoryBadge_fiveExpenses_body: string;
-  recapStoryBadge_threeDays_label: string;
-  recapStoryBadge_threeDays_body: string;
-  recapStoryBadge_fourWeeks_label: string;
-  recapStoryBadge_fourWeeks_body: string;
-  recapStoryBadge_threeWeeks_label: string;
-  recapStoryBadge_threeWeeks_body: string;
-  recapStoryBadge_fourCategories_label: string;
-  recapStoryBadge_fourCategories_body: string;
-  recapStoryBadge_weekendRhythm_label: string;
-  recapStoryBadge_weekendRhythm_body: string;
-  recapStoryBadge_weekdayRhythm_label: string;
-  recapStoryBadge_weekdayRhythm_body: string;
-  recapStoryBadge_firstChapter_label: string;
-  recapStoryBadge_firstChapter_body: string;
+  recapStory_visitsOne: string,
+  recapStory_visitsMany: string,
+  recapStory_topSpot_kicker: string,
+  recapStory_topSpot_everyDay: string,
+  recapStory_topSpot_everyDays: string,
+  recapStory_topSpot_total: string,
+  recapStory_topSpot_line0: string,
+  recapStory_topSpot_line1: string,
+  recapStory_topSpot_line2: string,
+  recapStory_foodPodium_kicker: string,
+  recapStory_foodPodium_crown: string,
+  recapStory_foodPodium_line0: string,
+  recapStory_foodPodium_line1: string,
+  recapStory_shoppingRegular_kicker: string,
+  recapStory_shoppingRegular_trips: string,
+  recapStory_shoppingRegular_line0: string,
+  recapStory_shoppingRegular_line1: string,
+  recapStory_discoveries_kicker: string,
+  recapStory_discoveries_countOne: string,
+  recapStory_discoveries_countMany: string,
+  recapStory_discoveries_best: string,
+  recapStory_discoveries_returned: string,
+  recapStory_discoveries_once: string,
+  recapStory_discoveries_line0: string,
+  recapStory_discoveries_line1: string,
+  recapStory_rideOrDie_kicker: string,
+  recapStory_rideOrDie_months: string,
+  recapStory_rideOrDie_line0: string,
+  recapStory_rideOrDie_line1: string,
+  recapStory_rideOrDie_line2: string,
+  recapStory_ghosted_kicker: string,
+  recapStory_ghosted_detail: string,
+  recapStory_ghosted_line0: string,
+  recapStory_ghosted_line1: string,
+  recapStory_ghosted_line2: string,
+  recapStory_biggestDay_kicker: string,
+  recapStory_biggestDay_stops: string,
+  recapStory_biggestDay_oneStop: string,
+  recapStory_biggestDay_line0: string,
+  recapStory_biggestDay_line1: string,
+  recapStory_biggestDay_line2: string,
+  recapStory_versusLastMonth_kicker: string,
+  recapStory_versusLastMonth_less: string,
+  recapStory_versusLastMonth_more: string,
+  recapStory_versusLastMonth_same: string,
+  recapStory_versusLastMonth_movedUp: string,
+  recapStory_versusLastMonth_movedDown: string,
+  recapStory_versusLastMonth_totals: string,
+  recapStory_finale_kicker: string,
+  recapStory_finale_topSpot: string,
+  recapStory_finale_foodPodium: string,
+  recapStory_finale_biggestDay: string,
+  recapStory_finale_versus: string,
+  recapStory_finale_challenger: string,
+  recapStory_finale_crown: string,
+  recapStory_finale_missesYou: string,
+  recapStory_finale_seeYou: string,
+  recapStory_short_kicker: string,
+  recapStory_short_body: string,
+  recapStory_locked_topSpot: string,
+  recapStory_locked_topSpotHint: string,
+  recapStory_locked_foodPodium: string,
+  recapStory_locked_foodPodiumHint: string,
+  recapStory_locked_biggestDay: string,
+  recapStory_locked_biggestDayHint: string,
+  recapStory_locked_discoveries: string,
+  recapStory_locked_discoveriesHint: string,
+  recapStory_hideAllAmounts: string,
+  recapStory_amountsShown: string,
+  recapStory_amountsHidden: string,
   recapStorySpotlightBadge: string;
   recapStorySpotlight_tech_title: string;
   recapStorySpotlight_tech_body: string;
@@ -450,10 +489,6 @@ export interface Translations {
   recapStorySpotlight_wellness_body: string;
   recapStorySpotlight_dates_title: string;
   recapStorySpotlight_dates_body: string;
-  recapStorySpotlight_cafe_title: string;
-  recapStorySpotlight_cafe_body: string;
-  recapStorySpotlight_outlier_title: string;
-  recapStorySpotlight_outlier_body: string;
 
   // Transactions / Activity
   allTransactionsTitle: string;
@@ -921,6 +956,9 @@ export interface Translations {
   wizardBackupGrantedTitle: string;
   wizardBackupGrantedBody: string;
   wizardBackupFailedNotice: string;
+  wizardBackupExistingNotice: string;
+  wizardBackupRestoreExistingBtn: string;
+  cloudBackupEmptyRefused: string;
   wizardBackupEnableBtn: string;
   wizardBackupBusyBtn: string;
   wizardWidgetCanPinTitle: string;

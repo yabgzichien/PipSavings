@@ -41,6 +41,7 @@ import { CategoriesScreen } from './CategoriesScreen';
 import { CategoryDetailScreen } from './CategoryDetailScreen';
 import { CommitmentsScreen } from './CommitmentsScreen';
 import { CurrencySettingsScreen } from './CurrencySettingsScreen';
+import { FriendsScreen } from './FriendsScreen';
 import { ExportScreen } from './ExportScreen';
 import { CategorizeScreen } from './CategorizeScreen';
 import { ExtractScreen } from './ExtractScreen';
@@ -103,6 +104,7 @@ export type ChatCanvasHostProps = {
   onOpenCategories?: () => void;
   onOpenTax?: () => void;
   onOpenCurrencySettings?: () => void;
+  onOpenFriends?: () => void;
   onOpenBackup?: () => void;
   onOpenWidgetCustomizer?: () => void;
   onOpenAdvancedImport?: () => void;
@@ -132,6 +134,7 @@ export function ChatCanvasHost({
   onOpenCategories = noop,
   onOpenTax = noop,
   onOpenCurrencySettings = noop,
+  onOpenFriends = noop,
   onOpenBackup = noop,
   onOpenWidgetCustomizer = noop,
   onOpenAdvancedImport = noop,
@@ -198,6 +201,7 @@ export function ChatCanvasHost({
         onOpenCategories,
         onOpenTax,
         onOpenCurrencySettings,
+        onOpenFriends,
         onOpenBackup,
         onOpenWidgetCustomizer,
         onOpenAdvancedImport,
@@ -721,6 +725,8 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
       );
     case 'currencySettings':
       return <CurrencySettingsScreen onBack={ctx.onPop} embedded />;
+    case 'friends':
+      return <FriendsScreen onBack={ctx.onPop} embedded />;
     case 'categories':
       return (
         <CategoriesScreen
@@ -746,6 +752,7 @@ function renderView(frame: AskPipFrame, ctx: HostCallbacks) {
           onOpenCommitments={ctx.onReviewCommitments}
           onOpenTax={ctx.onOpenTax}
           onOpenCurrencySettings={ctx.onOpenCurrencySettings}
+          onOpenFriends={ctx.onOpenFriends}
           onOpenBackup={ctx.onOpenBackup}
           onOpenWidgetCustomizer={ctx.onOpenWidgetCustomizer}
           onAskPipKeyChanged={ctx.onAskPipKeyChanged}

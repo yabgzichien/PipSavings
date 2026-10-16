@@ -654,6 +654,38 @@ export function oldestOverdueDays(open: OpenShare[], today: string): number {
 }
 
 /**
+ * Wording a bank or e-wallet wraps around the sender's name. Stripped before reading
+ * initials or comparing learned labels, so "Receive from" is never mistaken for part of a name.
+ */
+const TRANSFER_WORDS = new Set([
+  'receive', 'received', 'from', 'to', 'transfer', 'trf', 'fund', 'funds', 'duitnow', 'instant',
+  'ibg', 'ibft', 'qr', 'payment', 'pay', 'wallet', 'by', 'via',
+]);
+
+/** The words of a transfer label that can belong to the sender. */
+function senderWords(merchant: string): string[] {
+  return merchantKey(merchant)
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !TRANSFER_WORDS.has(w));
+}
+
+/**
+ * True when a friend saved under their initials ("cjx") matches the sender's full name
+ * ("Receive from CHOY JIAN XUAN"). The initials must cover consecutive words, in order. Only
+ * three or four letters: two-letter initials would match far too many names.
+ */
+function initialsMatch(merchant: string, personName: string): boolean {
+  const initials = personName.toLowerCase().trim();
+  if (!/^[a-z]{3,4}$/.test(initials)) return false;
+  const words = senderWords(merchant).filter((w) => /^[a-z]/.test(w));
+  const k = initials.length;
+  for (let i = 0; i + k <= words.length; i++) {
+    if (words.slice(i, i + k).map((w) => w[0]).join('') === initials) return true;
+  }
+  return false;
+}
+
+/**
  * True when the transfer's label carries the person's name using fuzzy matching.
  *
  * A DuitNow transfer usually arrives labelled with the sender, which is the strongest
@@ -665,6 +697,7 @@ export function oldestOverdueDays(open: OpenShare[], today: string): number {
 function nameMatches(merchant: string, personName: string): boolean {
   const hay = merchantKey(merchant);
   if (!hay) return false;
+  if (initialsMatch(merchant, personName)) return true;
   const hayNoSpace = hay.replace(/\s+/g, '');
   const pName = personName.toLowerCase().trim();
   const pNameNoSpace = pName.replace(/\s+/g, '');
@@ -697,8 +730,12 @@ function nameMatches(merchant: string, personName: string): boolean {
 }
 
 /**
- * Check if the merchant label matches any previously-confirmed bank labels for the person.
- * Used to boost confidence on fuzzy matches (likely → strong), not to create new matches.
+ * Check if the merchant label matches a bank label previously confirmed for the person.
+ *
+ * This is what recognises a friend saved under a nickname ("Ah Boy") whose transfers arrive
+ * under their real name: once one repayment is matched by hand, the label is remembered and
+ * counts as a name match from then on. Transfer wording is stripped first, so two different
+ * senders who share "Receive from" never match each other.
  */
 function learnedNameMatches(
   merchant: string,
@@ -707,15 +744,14 @@ function learnedNameMatches(
 ): boolean {
   const labels = knownBankLabels[personId];
   if (!labels || labels.length === 0) return false;
-  const hay = merchantKey(merchant);
+  const hay = senderWords(merchant).join(' ');
   if (!hay) return false;
   return labels.some((label) => {
-    const lk = merchantKey(label);
-    // Exact key match (most bank labels repeat exactly)
+    const lk = senderWords(label).join(' ');
+    if (!lk) return false;
     if (lk === hay) return true;
-    // Containment (one is a substring of the other)
-    if (lk.length >= 3 && (hay.includes(lk) || lk.includes(hay))) return true;
-    return false;
+    const [short, long] = lk.length <= hay.length ? [lk, hay] : [hay, lk];
+    return short.length >= 4 && long.includes(short);
   });
 }
 
@@ -795,8 +831,8 @@ export function suggestMultiSettlement(
   const matches: MultiSettlementMatch[] = [];
 
   for (const [, { personId, name, shares, totalCents }] of byPerson) {
-    const hasNameMatch = nameMatches(candidate.merchant, name);
     const hasLearnedMatch = learnedNameMatches(candidate.merchant, personId, knownBankLabels);
+    const hasNameMatch = hasLearnedMatch || nameMatches(candidate.merchant, name);
 
     // Check for amount-only match against individual shares (no name needed)
     const exactSingleHit = !hasNameMatch && shares.length > 0 &&
@@ -804,18 +840,7 @@ export function suggestMultiSettlement(
 
     if (!hasNameMatch && !exactSingleHit) continue;
 
-    // Allocate the transfer across this person's debts, oldest first
-    let remainingCents = amountCents;
-    const allocations: SettlementAllocation[] = [];
-
-    for (const share of shares) {
-      if (remainingCents <= 0) break;
-      const shareCents = toCents(share.outstanding);
-      const allocCents = Math.min(remainingCents, shareCents);
-      allocations.push({ share, amount: fromCents(allocCents) });
-      remainingCents -= allocCents;
-    }
-
+    const { allocations, remainingCents } = allocateOldestFirst(shares, amountCents);
     if (allocations.length === 0) continue;
 
     const settledCents = amountCents - remainingCents;
@@ -866,6 +891,85 @@ export function suggestMultiSettlement(
   });
 
   return matches[0];
+}
+
+/** Spread an inbound amount across shares already sorted oldest first. */
+function allocateOldestFirst(
+  shares: OpenShare[],
+  amountCents: number
+): { allocations: SettlementAllocation[]; remainingCents: number } {
+  let remainingCents = amountCents;
+  const allocations: SettlementAllocation[] = [];
+  for (const share of shares) {
+    if (remainingCents <= 0) break;
+    const allocCents = Math.min(remainingCents, toCents(share.outstanding));
+    if (allocCents <= 0) continue;
+    allocations.push({ share, amount: fromCents(allocCents) });
+    remainingCents -= allocCents;
+  }
+  return { allocations, remainingCents };
+}
+
+/** One friend who still owes you, for the "Is someone paying you back?" picker. */
+export interface OwingPerson {
+  personId: string;
+  personName: string;
+  outstanding: number;
+  /** Most recent bill they are on, YYYY-MM-DD, or null. */
+  latestBill: string | null;
+}
+
+/**
+ * Everyone with an open share, closest total to `amount` first, then most recent bill.
+ *
+ * Backs the hand-pick fallback for a transfer no name or learned label recognised (a friend
+ * saved as "Ah Boy" sending as TAN WEI MING), so the likeliest payer sits at the top.
+ */
+export function peopleOwing(open: OpenShare[], amount: number): OwingPerson[] {
+  const byPerson = new Map<string, { personName: string; cents: number; latestBill: string | null }>();
+  for (const share of open) {
+    const cents = toCents(share.outstanding);
+    if (cents <= 0) continue;
+    const entry = byPerson.get(share.personId) ?? { personName: share.personName, cents: 0, latestBill: null };
+    entry.cents += cents;
+    const bill = dayOf(share.billDate);
+    if (bill && (!entry.latestBill || bill > entry.latestBill)) entry.latestBill = bill;
+    byPerson.set(share.personId, entry);
+  }
+  const target = toCents(amount);
+  return [...byPerson.entries()]
+    .map(([personId, e]) => ({ personId, personName: e.personName, outstanding: fromCents(e.cents), latestBill: e.latestBill, gap: Math.abs(e.cents - target) }))
+    .sort((a, b) => a.gap - b.gap || (b.latestBill ?? '').localeCompare(a.latestBill ?? ''))
+    .map(({ gap: _gap, ...person }) => person);
+}
+
+/**
+ * The settlement an inbound row makes against one chosen friend's open shares, oldest first,
+ * with anything beyond what they owe carried as excess. Null when they owe nothing.
+ */
+export function settlementForPerson(
+  open: OpenShare[],
+  personId: string,
+  candidate: SettlementCandidate
+): MultiSettlementMatch | null {
+  const amountCents = toCents(candidate.amount);
+  if (amountCents <= 0) return null;
+  const shares = open
+    .filter((s) => s.personId === personId && toCents(s.outstanding) > 0)
+    .sort((a, b) => (a.billDate ?? '').localeCompare(b.billDate ?? ''));
+  if (shares.length === 0) return null;
+  const totalCents = shares.reduce((sum, s) => sum + toCents(s.outstanding), 0);
+  const { allocations, remainingCents } = allocateOldestFirst(shares, amountCents);
+  const settledCents = amountCents - remainingCents;
+  return {
+    personName: shares[0].personName,
+    personId,
+    allocations,
+    settledTotal: fromCents(settledCents),
+    excess: fromCents(remainingCents),
+    partial: settledCents < totalCents,
+    confidence: 'likely',
+  };
 }
 
 /**

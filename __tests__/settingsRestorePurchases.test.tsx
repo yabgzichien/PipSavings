@@ -94,11 +94,17 @@ jest.mock('../src/state/store', () => ({
 const notify = jest.requireMock('../src/lib/platformAlert').notify as jest.Mock;
 const restore = jest.requireMock('../src/billing/purchases').restore as jest.Mock;
 
-async function renderSettings() {
+async function renderSettings({ openPro = true }: { openPro?: boolean } = {}) {
   let tree: ReturnType<typeof TestRenderer.create>;
   await TestRenderer.act(async () => {
     tree = TestRenderer.create(<SettingsScreen onBack={jest.fn()} />);
   });
+  // Restore, redeem and manage live one tap down, on the Pip Pro page.
+  if (openPro) {
+    await TestRenderer.act(async () => {
+      tree!.root.findByProps({ testID: 'settings-pro' }).props.onPress();
+    });
+  }
   return tree!;
 }
 
@@ -133,7 +139,7 @@ describe('settings restore purchases', () => {
   });
 
   it('keeps the settings search field outside the scrolling content', async () => {
-    const tree = await renderSettings();
+    const tree = await renderSettings({ openPro: false });
     const searchInput = tree.root.findByType(TextInput);
     const scrollView = tree.root.findByType(ScrollView);
 

@@ -41,6 +41,7 @@ import { ExportScreen } from './src/screens/ExportScreen';
 import { CommitmentsScreen } from './src/screens/CommitmentsScreen';
 import { TaxScreen } from './src/screens/TaxScreen';
 import { CurrencySettingsScreen } from './src/screens/CurrencySettingsScreen';
+import { FriendsScreen } from './src/screens/FriendsScreen';
 import { BackupScreen } from './src/screens/BackupScreen';
 import { WidgetCustomizerScreen } from './src/screens/WidgetCustomizerScreen';
 import { TripsScreen } from './src/screens/TripsScreen';
@@ -1147,6 +1148,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
             setScreen('currencySettings');
           }}
           onOpenBackup={() => setScreen('backup')}
+          onOpenFriends={() => setScreen('friends')}
           onOpenWidgetCustomizer={() => {
             setScreen('widgetCustomizer');
           }}
@@ -1212,6 +1214,7 @@ function Root({ fontsLoaded }: { fontsLoaded: boolean }) {
       {screen === 'commitments' && <CommitmentsScreen onBack={goBack} />}
       {screen === 'tax' && <TaxScreen onBack={goBack} />}
       {screen === 'currencySettings' && <CurrencySettingsScreen onBack={goBack} />}
+      {screen === 'friends' && <FriendsScreen onBack={goBack} />}
       {screen === 'budget' && <BudgetScreen onBack={goBack} onOpenRecap={() => { setRecapStoryRequested(false); setRecapMonth(undefined); setScreen('recap'); }} />}
       {screen === 'categoryDetail' && categoryDetailId && (
         <CategoryDetailScreen categoryId={categoryDetailId} onBack={goBack} />

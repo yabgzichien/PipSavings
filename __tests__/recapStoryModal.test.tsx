@@ -29,9 +29,11 @@ jest.mock('../src/i18n', () => {
 const Renderer = require('react-test-renderer');
 let trees: any[] = [];
 let gesture: any;
-const model: RecapStoryModel = { month: '2026-08', kind: 'sparse',
-  scenes: [{ id: 'ritual', type: 'ritual' }, { id: 'identity', type: 'identity', persona: 'food', activityDays: 3 },
-    { id: 'finale', type: 'finale', badges: ['firstChapter'] }], defaultSelectedSceneIds: ['identity', 'finale'] };
+const topSpot = { id: 'topSpot', type: 'topSpot', name: 'ZUS Coffee', visits: 3, total: 36, categoryId: 'food', everyDays: 10 } as const;
+const shortFinale = { id: 'finale', type: 'finale', collage: {}, cliffhanger: null, locked: ['foodPodium', 'biggestDay'] } as const;
+const model: RecapStoryModel = { month: '2026-08', kind: 'short', currency: 'SGD',
+  scenes: [{ id: 'ritual', type: 'ritual' }, topSpot, { ...shortFinale, locked: [...shortFinale.locked] }],
+  defaultSelectedSceneIds: ['topSpot', 'finale'] };
 const defaults = { visible: true, model, mascotConfig: DEFAULT_WIDGET_MASCOT_CONFIG, onClose: jest.fn() };
 function render(props = {}) {
   let tree: any;
@@ -66,7 +68,7 @@ afterEach(() => {
 it('advances at 7.5 seconds and stops after the last scene', () => {
   const tree = render();
   advance(7499); expect(frame(tree).scene.id).toBe('ritual');
-  advance(1); expect(frame(tree).scene.id).toBe('identity');
+  advance(1); expect(frame(tree).scene.id).toBe('topSpot');
   advance(7500); expect(frame(tree).scene.id).toBe('finale');
   advance(7500); expect(tree.root.findByProps({ testID: 'story-progress' }).props.accessibilityValue.now).toBe(100);
   advance(15000); expect(frame(tree).scene.id).toBe('finale');
@@ -74,7 +76,7 @@ it('advances at 7.5 seconds and stops after the last scene', () => {
 
 it('taps the right side for next, the left side for previous, and the middle to pause', () => {
   const tree = render();
-  tap(300); expect(frame(tree).scene.id).toBe('identity');
+  tap(300); expect(frame(tree).scene.id).toBe('topSpot');
   tap(20); expect(frame(tree).scene.id).toBe('ritual');
   tap(180);
   expect(tree.root.findByProps({ testID: 'story-status' }).props.accessibilityLabel).toBe('Paused');
@@ -85,7 +87,7 @@ it('taps the right side for next, the left side for previous, and the middle to 
 
 it('one threshold-crossing swipe navigates once, with its direction taking precedence over release position', () => {
   const tree = render();
-  grant(); release(-48, 0); expect(frame(tree).scene.id).toBe('identity');
+  grant(); release(-48, 0); expect(frame(tree).scene.id).toBe('topSpot');
   grant(0); release(80, 300); expect(frame(tree).scene.id).toBe('ritual');
 });
 
@@ -96,16 +98,16 @@ it('a middle tap pauses and a second middle tap resumes only the remaining durat
   advance(8000); expect(frame(tree).progress.__getValue()).toBeCloseTo(held, 2);
   expect(frame(tree).scene.id).toBe('ritual');
   tap(180); advance(5499); expect(frame(tree).scene.id).toBe('ritual');
-  advance(1); expect(frame(tree).scene.id).toBe('identity');
+  advance(1); expect(frame(tree).scene.id).toBe('topSpot');
 });
 
 it('a left tap restarts a card including the clamped first card', () => {
   const tree = render(); advance(3000); tap(20);
   advance(7499); expect(frame(tree).scene.id).toBe('ritual');
-  advance(1); expect(frame(tree).scene.id).toBe('identity');
+  advance(1); expect(frame(tree).scene.id).toBe('topSpot');
   advance(2000); tap(20);
   advance(7499); expect(frame(tree).scene.id).toBe('ritual');
-  advance(1); expect(frame(tree).scene.id).toBe('identity');
+  advance(1); expect(frame(tree).scene.id).toBe('topSpot');
 });
 
 it('plays continuously across scenes and pauses on a middle tap or mute', () => {
@@ -125,7 +127,7 @@ it.each([['reduced', false], ['off', false], ['full', true]])('motion %s OS redu
   mockMotion = motion as string; mockReduced = reduced as boolean;
   const tree = render(); advance(20000);
   expect(frame(tree).scene.id).toBe('ritual'); expect(sound.storyIntro).not.toHaveBeenCalled();
-  tap(300); expect(frame(tree).scene.id).toBe('identity');
+  tap(300); expect(frame(tree).scene.id).toBe('topSpot');
   expect(frame(tree).motion).toBe(motion === 'off' ? 'off' : 'reduced');
 });
 
@@ -160,8 +162,10 @@ it('opens the concrete picker from quiet share and finale defaults while preserv
   expect(tree.root.findAllByType(RecapStoryShareSheet)).toHaveLength(0);
 });
 
-it('provides translated position/month/custom categories, safe scale, and 44-point controls', () => {
+it('provides translated position/month/custom categories, currency, safe scale, and 44-point controls', () => {
   const tree = render();
+  expect(frame(tree).currency).toBe('SGD');
+  expect(frame(tree).hideAmounts).toBeFalsy();
   expect(frame(tree).accessibilityPositionLabel).toContain('1 of 3');
   expect(frame(tree).monthLabel).toBe('August 2026');
   expect(frame(tree).categoryLabel('custom')).toBe('Pottery');
@@ -193,7 +197,7 @@ it('a middle tap keeps the story paused through a later hold, and another middle
   grant(180); advance(1000); release(0, 180); advance(6000);
   expect(frame(tree).scene.id).toBe('ritual');
   tap(180); advance(5500);
-  expect(frame(tree).scene.id).toBe('identity');
+  expect(frame(tree).scene.id).toBe('topSpot');
 });
 
 it('a cancelled gesture does not navigate and a duplicate swipe release does not advance again', () => {
@@ -201,7 +205,7 @@ it('a cancelled gesture does not navigate and a duplicate swipe release does not
   Renderer.act(() => gesture.onPanResponderTerminate());
   expect(frame(tree).scene.id).toBe('ritual');
   advance(4499); expect(frame(tree).scene.id).toBe('ritual');
-  advance(1); expect(frame(tree).scene.id).toBe('identity');
+  advance(1); expect(frame(tree).scene.id).toBe('topSpot');
   grant(); release(-48); release(-80);
   expect(frame(tree).scene.id).toBe('finale');
 });
@@ -214,7 +218,7 @@ it('turning motion off stops active audio and autoplay, with no new sound on re-
   advance(10000); expect(frame(tree).scene.id).toBe('ritual');
   mockMotion = 'full';
   Renderer.act(() => tree.update(<RecapStoryModal {...defaults} />));
-  advance(5500); expect(frame(tree).scene.id).toBe('identity');
+  advance(5500); expect(frame(tree).scene.id).toBe('topSpot');
   expect(sound.storyIntro).toHaveBeenCalledTimes(1);
 });
 
@@ -271,7 +275,7 @@ it.each(['held release', 'termination', 'tap', 'swipe'] as const)(
         expect(frame(tree).scene.id).toBe('ritual');
       } else {
         expect(sound.resumeStoryIntro).not.toHaveBeenCalled();
-        expect(frame(tree).scene.id).toBe('identity');
+        expect(frame(tree).scene.id).toBe('topSpot');
       }
     } finally {
       // Also release ownership when the regression intentionally fails in the RED run.
@@ -284,10 +288,11 @@ it('renders spotlight scene and steps through 6-scene story', () => {
   const fullModelWithSpotlight: RecapStoryModel = {
     month: '2026-08',
     kind: 'full',
+    currency: 'MYR',
     scenes: [
       { id: 'ritual', type: 'ritual' },
-      { id: 'identity', type: 'identity', persona: 'food', activityDays: 4 },
-      { id: 'pattern', type: 'pattern', categoryId: 'food', recordedSharePercent: 80 },
+      topSpot,
+      { id: 'ghosted', type: 'ghosted', name: 'Tealive', previousVisits: 4 },
       {
         id: 'spotlight',
         type: 'spotlight',
@@ -297,27 +302,27 @@ it('renders spotlight scene and steps through 6-scene story', () => {
           iconName: 'laptop-outline',
         },
       },
-      { id: 'habit', type: 'habit', activityDays: 4, activityWeeks: 3 },
-      { id: 'finale', type: 'finale', badges: ['fiveExpenses'] },
+      { id: 'biggestDay', type: 'biggestDay', day: '2026-08-20', total: 200, stops: 2 },
+      { id: 'finale', type: 'finale', collage: {}, cliffhanger: { kind: 'crown', name: 'ZUS Coffee' }, locked: [] },
     ],
-    defaultSelectedSceneIds: ['identity', 'finale'],
+    defaultSelectedSceneIds: ['topSpot', 'finale'],
   };
   const tree = render({ model: fullModelWithSpotlight });
   expect(frame(tree).scene.id).toBe('ritual');
   tap(300);
-  expect(frame(tree).scene.id).toBe('identity');
+  expect(frame(tree).scene.id).toBe('topSpot');
   tap(300);
-  expect(frame(tree).scene.id).toBe('pattern');
+  expect(frame(tree).scene.id).toBe('ghosted');
   tap(300);
   expect(frame(tree).scene.id).toBe('spotlight');
   expect(frame(tree).scene.type).toBe('spotlight');
   tap(300);
-  expect(frame(tree).scene.id).toBe('habit');
+  expect(frame(tree).scene.id).toBe('biggestDay');
   tap(300);
   expect(frame(tree).scene.id).toBe('finale');
   expect(tree.root.findByProps({ testID: 'story-status' }).props.children.props.children).toBe('6 of 6');
   tap(20);
-  expect(frame(tree).scene.id).toBe('habit');
+  expect(frame(tree).scene.id).toBe('biggestDay');
   tap(20);
   expect(frame(tree).scene.id).toBe('spotlight');
 });

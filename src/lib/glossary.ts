@@ -128,7 +128,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     short: 'Divide a shared bill so only your share counts as spending.',
     body:
       'Receipt Scanning (Itemized):\n' +
-      '• Add who was at the table, then tap their initials under each dish to assign who ordered it. Tap "Shared" to split an item evenly. Tax and tips are automatically prorated.\n\n' +
+      '• Tap + under each dish to pick who had it: search your friends, add someone new, or choose "Everyone on this bill" to split it evenly. Each person shows as a name pill; tap its ✕ to take them off. Anyone on any dish is on the bill, and dishes nobody claimed are shared across it. Tax and tips are automatically prorated.\n\n' +
       'Manual Bill Splitting:\n' +
       '• Choose Equal, Shares, or Exact amounts, and adjust individual weights.\n\n' +
       'Ledger Impact:\n' +
@@ -138,7 +138,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
       {
         badge: 'Receipt Split',
         title: 'Itemized receipt assignment',
-        desc: 'Add table friends, then tap their initials on each dish to assign who ordered it. Tap "Shared" to split evenly.',
+        desc: 'Tap + under each dish to pick who had it, or choose "Everyone on this bill". Tap a name pill\'s ✕ to remove someone.',
         visualKey: 'split_receipt_step',
       },
       {

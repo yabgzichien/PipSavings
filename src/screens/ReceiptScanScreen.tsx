@@ -4,11 +4,12 @@
 // and ride on each person's own items; the amount the card was charged is the figure everything
 // reconciles to, because that is what left the account.
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AddPersonModal } from '../components/AddPersonModal';
 import { CurrencyChip } from '../components/CurrencyChip';
+import { FriendPickerSheet } from '../components/FriendPickerSheet';
+import { ReceiptImageRenderer } from '../components/ReceiptImageRenderer';
 import { Icon } from '../components/Icon';
 import { InfoButton } from '../components/InfoButton';
 import { ReceiptItemModal } from '../components/ReceiptItemModal';
@@ -21,8 +22,12 @@ import { BASE_CURRENCY } from '../lib/currency';
 import { scanDocument } from '../lib/documentScanner';
 import { currencyPrefix, fmtMoney } from '../lib/format';
 import { llmErrorMessage } from '../llm';
+import { localizeScanError } from '../lib/scanErrors';
 import { derivedSurcharges, type ScannedReceipt } from '../lib/parseReceipt';
 import { notify, notifyWarning } from '../lib/platformAlert';
+import { generateReceiptCanvasHtml, groupReceiptCanvasInput } from '../lib/receiptGenerator';
+import { downloadReceiptImage, shareReceiptImage } from '../lib/receiptShare';
+import { buildScanSplitReceipt } from '../lib/scanSplitReceipt';
 import { saveReceiptImage } from '../lib/receiptStorage';
 import type { OcrOutcome } from '../lib/receiptOcr';
 import type { TallRead } from '../lib/prepareScanImage';
@@ -85,6 +90,8 @@ const EMPTY_SCAN: ScannedReceipt = {
 type Phase = 'capture' | 'reading' | 'assign';
 
 const PREVIEW_H = 280;
+/** Marks an item as shared by everyone on the bill, however many join later. */
+const EVERYONE = '__everyone__';
 
 export function ReceiptScanScreen({
   initialImage,
@@ -125,7 +132,7 @@ export function ReceiptScanScreen({
   const theme = useAccent();
   const colorTheme = useThemeColors();
   const { isZh, t } = useLanguage();
-  const { people, addPerson } = useAppData();
+  const { people } = useAppData();
   const reducedMotion = useReducedMotion();
   const {
     isPro,
@@ -149,8 +156,12 @@ export function ReceiptScanScreen({
     initialDraft?.surcharges ?? { serviceChargePct: 0, taxPct: 0, discount: null }
   );
   const [chargedText, setChargedText] = useState(initialDraft?.chargedText ?? '');
-  const [picked, setPicked] = useState<string[]>(initialDraft?.picked ?? []);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  // The item whose "who had this" dropdown is open.
+  const [peopleFor, setPeopleFor] = useState<string | null>(null);
+  // A split receipt image being painted off screen, and what to do with it once it arrives.
+  const [receiptHtml, setReceiptHtml] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<'share' | 'download' | null>(null);
+  const exportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [itemModal, setItemModal] = useState<{ visible: boolean; item: ReceiptLine | null }>({
     visible: false,
     item: null,
@@ -195,17 +206,29 @@ export function ReceiptScanScreen({
     setActiveCurrencies(await getActiveCurrencies());
   };
 
+  // Nobody is "at the table" up front: whoever is ticked on any item is on the bill.
+  const picked = useMemo(() => {
+    const seen: string[] = [];
+    for (const l of lines) for (const id of l.assignedTo) if (id !== SELF && id !== EVERYONE && !seen.includes(id)) seen.push(id);
+    return seen;
+  }, [lines]);
   // The payer is always at the table, and always last, so every rounding residue lands on them.
   const participants = useMemo(() => [...picked, SELF], [picked]);
+  // "Everyone on this bill" stays a marker on the line, so someone added later joins it too.
+  const splitLines = useMemo(
+    () => lines.map((l) => (l.assignedTo.includes(EVERYONE) ? { ...l, assignedTo: participants } : l)),
+    [lines, participants]
+  );
+  const peopleLine = lines.find((l) => l.id === peopleFor) ?? null;
   const nameById = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p.name])), [people]);
-  const unpicked = useMemo(() => people.filter((p) => !picked.includes(p.id)), [people, picked]);
+  const personName = (id: string) => (id === SELF ? (isZh ? '你' : 'You') : nameById[id] ?? (isZh ? '某人' : 'Someone'));
 
   const charged = Math.max(0, Math.round((parseFloat(chargedText.replace(/[^0-9.]/g, '')) || 0) * 100) / 100);
   // The base the voucher's RM/% toggle converts against.
   const itemsSubtotal = useMemo(() => lines.reduce((s, l) => s + Math.max(0, l.amount), 0), [lines]);
   const result = useMemo(
-    () => computeItemized(lines, surcharges, charged, participants),
-    [lines, surcharges, charged, participants]
+    () => computeItemized(splitLines, surcharges, charged, participants),
+    [splitLines, surcharges, charged, participants]
   );
   const owedByPerson = useMemo(() => {
     const map: Record<string, number> = { [SELF]: result.ownShare };
@@ -278,7 +301,7 @@ export function ReceiptScanScreen({
           notifyWarning(t('webByokTitle'), t('webByokBody'));
           setError(t('webByokBody'));
         } else {
-          setError(llmErrorMessage(e));
+          setError(localizeScanError(e?.message, isZh) ?? llmErrorMessage(e));
         }
         setPhase('assign');
         return;
@@ -293,7 +316,7 @@ export function ReceiptScanScreen({
         notifyWarning(t('webByokTitle'), t('webByokBody'));
         setError(t('webByokBody'));
       } else {
-        setError(llmErrorMessage(e));
+        setError(localizeScanError(e?.message, isZh) ?? llmErrorMessage(e));
       }
       applyScan(EMPTY_SCAN);
       onScanned?.(EMPTY_SCAN);
@@ -371,36 +394,16 @@ export function ReceiptScanScreen({
     }
   };
 
-  const toggleAssign = (lineId: string, personId: string) =>
+  // "Everyone" and named people are exclusive: picking one clears the other.
+  const setWhoHad = (lineId: string, next: string[]) =>
     setLines((prev) =>
-      prev.map((l) =>
-        l.id !== lineId
-          ? l
-          : {
-              ...l,
-              assignedTo: l.assignedTo.includes(personId)
-                ? l.assignedTo.filter((x) => x !== personId)
-                : [...l.assignedTo, personId],
-            }
-      )
+      prev.map((l) => {
+        if (l.id !== lineId) return l;
+        const hadEveryone = l.assignedTo.includes(EVERYONE);
+        const assignedTo = !hadEveryone && next.includes(EVERYONE) ? [EVERYONE] : hadEveryone && next.length > 1 ? next.filter((x) => x !== EVERYONE) : next;
+        return { ...l, assignedTo };
+      })
     );
-
-  const shareWholeTable = (lineId: string) =>
-    setLines((prev) =>
-      prev.map((l) =>
-        l.id !== lineId ? l : { ...l, assignedTo: l.assignedTo.length === participants.length ? [] : [...participants] }
-      )
-    );
-
-  const addNew = async (name: string) => {
-    const person = await addPerson(name);
-    setPicked((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]));
-  };
-
-  const removePerson = (id: string) => {
-    setPicked((prev) => prev.filter((x) => x !== id));
-    setLines((prev) => prev.map((l) => ({ ...l, assignedTo: l.assignedTo.filter((x) => x !== id) })));
-  };
 
   const handleSaveItem = (itemData: { id?: string; label: string; amount: number }) => {
     let nextLines: ReceiptLine[];
@@ -437,6 +440,64 @@ export function ReceiptScanScreen({
       return next;
     });
   };
+
+  const receiptFilename = () => {
+    const slug = (receipt?.merchant ?? 'split').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'split';
+    return `pip-split-${slug}.png`;
+  };
+
+  // Paint the receipt only when asked: the canvas reloads on every change, so keeping it
+  // mounted would repaint on every tap while the user is still assigning items.
+  const exportReceipt = (action: 'share' | 'download') => {
+    if (exporting || !splitting || negative) return;
+    const now = new Date();
+    const billDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const groupReceipt = buildScanSplitReceipt({
+      merchant: receipt?.merchant ?? null,
+      currency: receipt?.currency ?? BASE_CURRENCY,
+      lines: splitLines,
+      surcharges,
+      charged,
+      participants,
+      nameOf: personName,
+      billDate,
+      isZh,
+    });
+    setExporting(action);
+    setReceiptHtml(generateReceiptCanvasHtml(groupReceiptCanvasInput(groupReceipt, 'scan-split')));
+    exportTimer.current = setTimeout(() => {
+      setReceiptHtml(null);
+      setExporting(null);
+      notify(isZh ? '无法生成小票图片' : "Couldn't make the receipt image", isZh ? '请稍后重试。' : 'Try again in a moment.');
+    }, 10000);
+  };
+
+  const onReceiptImage = useCallback(
+    async (dataUrl: string) => {
+      if (exportTimer.current) clearTimeout(exportTimer.current);
+      exportTimer.current = null;
+      setReceiptHtml(null);
+      const action = exporting;
+      const filename = receiptFilename();
+      if (action === 'share') {
+        const outcome = await shareReceiptImage(dataUrl, filename);
+        if (outcome === 'failed') notify(isZh ? '无法分享' : "Couldn't share", isZh ? '可以改用下载。' : 'Try Download instead.');
+      } else if (action === 'download') {
+        const outcome = await downloadReceiptImage(dataUrl, filename);
+        if (outcome === 'saved') notify(isZh ? '已保存到相册' : 'Saved to Photos');
+        else if (outcome === 'denied')
+          notify(isZh ? '需要相册权限' : 'Photo access needed', isZh ? '请允许 Pip 保存图片到相册。' : 'Allow Pip to save images to your photos.');
+        else if (outcome === 'failed') notify(isZh ? '无法保存' : "Couldn't save", isZh ? '请稍后重试。' : 'Try again in a moment.');
+      }
+      setExporting(null);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [exporting, isZh, receipt?.merchant]
+  );
+
+  useEffect(() => () => {
+    if (exportTimer.current) clearTimeout(exportTimer.current);
+  }, []);
 
   const save = () => {
     if (!canSave) return;
@@ -623,11 +684,11 @@ export function ReceiptScanScreen({
               )
             ) : (
               isZh ? (
-                <>已识别 <B>{lines.length} 项明细</B>。可保存为您个人支出，或添加同行人员并分配各自的点单项目。</>
+                <>已识别 <B>{lines.length} 项明细</B>。可保存为您个人支出，或点击每项下方的 <B>+</B> 添加谁点了它。</>
               ) : (
                 <>
-                  I read <B>{lines.length} items</B>. Save it as yours, or add who was at the table and tap each
-                  item onto whoever ordered it.
+                  I read <B>{lines.length} items</B>. Save it as yours, or tap <B>+</B> under each item to add who
+                  had it.
                 </>
               )
             )}
@@ -670,41 +731,6 @@ export function ReceiptScanScreen({
               accessibilityState={{ checked: keepPhoto }}
             />
           </View>
-        )}
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <Text style={[styles.label, { marginBottom: 0, color: colorTheme.ink2 }]}>{isZh ? '同行人员（选填）' : 'Who was at the table (optional)'}</Text>
-          <InfoButton entry="split_bill" />
-        </View>
-        <View style={styles.chipWrap}>
-          {unpicked.map((p) => (
-            <Pressable key={p.id} onPress={() => setPicked((prev) => [...prev, p.id])} style={[styles.chip, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Icon name="plus" size={13} color={theme.accent} stroke={2.4} />
-              <Text style={[styles.chipText, { color: theme.onTint }]}>{p.name}</Text>
-            </Pressable>
-          ))}
-          <Pressable onPress={() => setAddPersonOpen(true)} style={[styles.chip, styles.addChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
-            <Icon name="plus" size={13} color={colorTheme.ink2} stroke={2.4} />
-            <Text style={[styles.chipText, { color: colorTheme.ink2 }]}>{isZh ? '添加人员' : 'Add a name'}</Text>
-          </Pressable>
-        </View>
-
-        {picked.length > 0 && (
-          <View style={styles.tableRow}>
-            {picked.map((id) => (
-              <Pressable key={id} onPress={() => removePerson(id)} style={[styles.tableChip, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}>
-                <Text style={[styles.tableChipText, { color: colorTheme.ink }]}>{nameById[id] ?? (isZh ? '某人' : 'Someone')}</Text>
-                <Icon name="x" size={12} color={colorTheme.ink3} />
-              </Pressable>
-            ))}
-            <View style={[styles.tableChip, styles.tableChipSelf, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.tableChipText, { color: colorTheme.ink }]}>{isZh ? '你' : 'You'}</Text>
-            </View>
-          </View>
-        )}
-
-        {picked.length === 0 && (
-          <Text style={[styles.empty, { color: colorTheme.ink3 }]}>{isZh ? '独自买单？留空即可，核对下方总额。' : 'Paid for it alone? Leave this empty and just check the total.'}</Text>
         )}
 
         {receipt && receipt.currency !== BASE_CURRENCY && !activeCurrencies.includes(receipt.currency) && (
@@ -770,10 +796,13 @@ export function ReceiptScanScreen({
           </Card>
         )}
 
+
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.label, { marginTop: 0, marginBottom: 0, color: colorTheme.ink2 }]}>
             {isZh ? '点单明细' : 'What they ordered'}
           </Text>
+          <InfoButton entry="split_bill" />
+          <View style={{ flex: 1 }} />
           <Pressable
             onPress={() => setItemModal({ visible: true, item: null })}
             style={[styles.addInlineBtn, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}
@@ -803,22 +832,20 @@ export function ReceiptScanScreen({
           <>
             <Card style={{ overflow: 'hidden' }}>
               {lines.map((line, i) => {
-                const everyone = line.assignedTo.length === participants.length;
                 const receiptCurrency = receipt?.currency ?? BASE_CURRENCY;
+                const editItem = () => setItemModal({ visible: true, item: line });
+                const everyone = line.assignedTo.includes(EVERYONE);
+                const who = [...line.assignedTo.filter((id) => id !== SELF && id !== EVERYONE), ...(line.assignedTo.includes(SELF) ? [SELF] : [])];
                 return (
                   <View key={line.id} style={[styles.itemRow, i > 0 && styles.divider, i > 0 && { borderTopColor: colorTheme.line2 }]}>
                     <View style={styles.itemHead}>
-                      <Pressable
-                        onPress={() => setItemModal({ visible: true, item: line })}
-                        style={styles.itemLabelPressable}
-                        accessibilityLabel={isZh ? `编辑 ${line.label}` : `Edit ${line.label}`}
-                      >
+                      <Pressable onPress={editItem} style={styles.itemLabelPressable} accessibilityLabel={isZh ? `编辑 ${line.label}` : `Edit ${line.label}`}>
                         <Text style={[styles.itemLabel, { color: colorTheme.ink }]} numberOfLines={1}>
                           {line.label}
                         </Text>
                         <Icon name="pencil" size={13} color={colorTheme.ink3} />
                       </Pressable>
-                      <Pressable onPress={() => setItemModal({ visible: true, item: line })}>
+                      <Pressable onPress={editItem}>
                         <Text style={[styles.itemAmount, { color: colorTheme.ink }]}>{fmtMoney(line.amount, receiptCurrency)}</Text>
                       </Pressable>
                       <Pressable
@@ -830,37 +857,41 @@ export function ReceiptScanScreen({
                         <Icon name="trash" size={15} color={colorTheme.ink3} />
                       </Pressable>
                     </View>
-                    {splitting && (
-                    <View style={styles.avatarRow}>
-                      {participants.map((id) => {
-                        const on = line.assignedTo.includes(id);
-                        const name = id === SELF ? (isZh ? '你' : 'You') : nameById[id] ?? '?';
+                    <View testID={`who-row-${line.id}`} style={styles.pillRow}>
+                      {(everyone ? [EVERYONE] : who).map((id) => {
+                        const name = id === EVERYONE ? (isZh ? '全员' : 'Everyone') : personName(id);
                         return (
                           <Pressable
                             key={id}
-                            onPress={() => toggleAssign(line.id, id)}
-                            style={[
-                              styles.avatar,
-                              { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line },
-                              on && styles.avatarOn,
-                              on && { backgroundColor: theme.accent, borderColor: theme.accent },
-                            ]}
-                            accessibilityLabel={isZh ? `${on ? '取消分配' : '分配给'} ${name}：${line.label}` : `${on ? 'Remove' : 'Add'} ${name} on ${line.label}`}
-                            accessibilityState={{ selected: on }}
+                            testID={`pill-${line.id}-${id}`}
+                            onPress={() => setWhoHad(line.id, line.assignedTo.filter((x) => x !== id))}
+                            hitSlop={4}
+                            style={[styles.pill, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={isZh ? `从 ${line.label} 移除 ${name}` : `Remove ${name} from ${line.label}`}
                           >
-                            <Text style={[styles.avatarText, { color: colorTheme.ink2 }, on && { color: theme.onAccent }]}>
-                              {name.slice(0, id === SELF ? 3 : 1).toUpperCase()}
+                            {id === EVERYONE && <Icon name="users" size={12} color={theme.onTint} />}
+                            <Text style={[styles.pillText, { color: theme.onTint }]} numberOfLines={1}>
+                              {name}
                             </Text>
+                            <Icon name="x" size={11} color={theme.onTint} stroke={2.4} />
                           </Pressable>
                         );
                       })}
-                      <Pressable onPress={() => shareWholeTable(line.id)} style={styles.allBtn} hitSlop={4}>
-                        <Text style={[styles.allText, { color: theme.accent }, everyone && { color: colorTheme.ink3 }]}>
-                          {everyone ? (isZh ? '清除' : 'Clear') : (isZh ? '均摊' : 'Shared')}
-                        </Text>
+                      <Pressable
+                        testID={`who-had-${line.id}`}
+                        onPress={() => setPeopleFor(line.id)}
+                        hitSlop={4}
+                        style={[styles.pill, styles.addPill, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={isZh ? `选择谁点了 ${line.label}` : `Choose who had ${line.label}`}
+                      >
+                        <Icon name="plus" size={12} color={colorTheme.ink2} stroke={2.4} />
+                        {who.length === 0 && !everyone && (
+                          <Text style={[styles.pillText, { color: colorTheme.ink3 }]}>{isZh ? '谁点了？' : 'Who had it?'}</Text>
+                        )}
                       </Pressable>
                     </View>
-                    )}
                   </View>
                 );
               })}
@@ -958,6 +989,48 @@ export function ReceiptScanScreen({
               ))}
             </Card>
 
+            <View style={[styles.sharePanel, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
+              <View style={styles.sharePanelHead}>
+                <View style={[styles.sharePanelIcon, { backgroundColor: theme.accent }]}>
+                  <Icon name="receipt" size={17} color={theme.onAccent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sharePanelTitle, { color: theme.onTint }]}>{isZh ? '把账单发给大家' : 'Send everyone their share'}</Text>
+                  <Text style={[styles.sharePanelSub, { color: theme.onTint }]}>
+                    {isZh ? '一张小票图片，列出每个人点的菜和应付金额' : "A receipt image with each person's items and total"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.shareBtns}>
+                <Pressable
+                  testID="share-split-receipt"
+                  onPress={() => exportReceipt('share')}
+                  disabled={Boolean(exporting) || negative}
+                  style={({ pressed }) => [styles.shareBtn, { backgroundColor: theme.accent, opacity: negative ? 0.5 : pressed ? 0.85 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={isZh ? '分享分账小票' : 'Share split receipt'}
+                >
+                  {exporting === 'share' ? <ActivityIndicator size="small" color={theme.onAccent} /> : <Icon name="share" size={16} color={theme.onAccent} />}
+                  <Text style={[styles.shareBtnText, { color: theme.onAccent }]}>{isZh ? '分享' : 'Share'}</Text>
+                </Pressable>
+                <Pressable
+                  testID="download-split-receipt"
+                  onPress={() => exportReceipt('download')}
+                  disabled={Boolean(exporting) || negative}
+                  style={({ pressed }) => [
+                    styles.shareBtn,
+                    styles.shareBtnOutline,
+                    { borderColor: theme.accent, backgroundColor: colorTheme.surface, opacity: negative ? 0.5 : pressed ? 0.85 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={isZh ? '下载分账小票' : 'Download split receipt'}
+                >
+                  {exporting === 'download' ? <ActivityIndicator size="small" color={theme.accent} /> : <Icon name="download" size={16} color={theme.accent} />}
+                  <Text style={[styles.shareBtnText, { color: theme.accent }]}>{isZh ? '下载' : 'Download'}</Text>
+                </Pressable>
+              </View>
+            </View>
+
             {negative && (
               <Text style={styles.error}>
                 {isZh
@@ -988,7 +1061,22 @@ export function ReceiptScanScreen({
       </View>
       </KeyboardAvoidingView>
 
-      <AddPersonModal visible={addPersonOpen} onClose={() => setAddPersonOpen(false)} onSubmit={addNew} />
+      {receiptHtml && <ReceiptImageRenderer html={receiptHtml} onImage={onReceiptImage} />}
+
+      <FriendPickerSheet
+        visible={peopleLine !== null}
+        selected={peopleLine?.assignedTo ?? []}
+        onChange={(next) => peopleLine && setWhoHad(peopleLine.id, next)}
+        onClose={() => setPeopleFor(null)}
+        title={peopleLine?.label}
+        subtitle={peopleLine ? fmtMoney(peopleLine.amount, receipt?.currency ?? BASE_CURRENCY) : undefined}
+        options={[
+          ...(picked.length > 0 || peopleLine?.assignedTo.includes(EVERYONE) ? [{ id: EVERYONE, label: isZh ? '本单全员' : 'Everyone on this bill', icon: 'users' as const }] : []),
+          { id: SELF, label: isZh ? '你' : 'You', icon: 'human' as const },
+        ]}
+        pinnedIds={picked}
+        pinnedLabel={isZh ? '本单人员' : 'On this bill'}
+      />
 
       <ReceiptItemModal
         visible={itemModal.visible}
@@ -1231,31 +1319,6 @@ const styles = StyleSheet.create({
   viewerClose: { position: 'absolute', right: 18, padding: 8 },
 
   label: { fontFamily: uiFont(600), fontSize: 12.5, marginTop: 18, marginBottom: 9 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  chipText: { fontFamily: uiFont(600), fontSize: 13 },
-  addChip: { borderStyle: 'dashed' },
-  tableRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  tableChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  tableChipSelf: {},
-  tableChipText: { fontFamily: uiFont(600), fontSize: 13 },
-  empty: { fontFamily: uiFont(500), fontSize: 13, marginTop: 18, textAlign: 'center' },
 
   itemRow: { paddingHorizontal: 14, paddingVertical: 12, gap: 9 },
   divider: { borderTopWidth: 1 },
@@ -1301,20 +1364,27 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   addItemBottomText: { fontFamily: uiFont(700), fontSize: 13 },
-  avatarRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7 },
-  avatar: {
-    minWidth: 32,
-    height: 32,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    borderWidth: 1,
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  sharePanel: { marginTop: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, gap: 12 },
+  sharePanelHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  sharePanelIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  sharePanelTitle: { fontFamily: uiFont(700), fontSize: 14.5 },
+  sharePanelSub: { fontFamily: uiFont(500), fontSize: 12, marginTop: 2, opacity: 0.85 },
+  shareBtns: { flexDirection: 'row', gap: 10 },
+  shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, height: 44, borderRadius: radius.md },
+  shareBtnOutline: { borderWidth: 1.5 },
+  shareBtnText: { fontFamily: uiFont(700), fontSize: 14 },
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  avatarOn: {},
-  avatarText: { fontFamily: uiFont(700), fontSize: 12 },
-  allBtn: { paddingHorizontal: 9, paddingVertical: 7 },
-  allText: { fontFamily: uiFont(600), fontSize: 12 },
+  addPill: { borderStyle: 'dashed', paddingHorizontal: 9 },
+  pillText: { fontFamily: uiFont(600), fontSize: 12.5, maxWidth: 140 },
   unassigned: { fontFamily: uiFont(500), fontSize: 11.5, marginTop: 9, lineHeight: 16 },
 
   pctRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 12 },

@@ -140,6 +140,23 @@ function allText(root: any): string {
     .join(' ');
 }
 
+// These fixtures are dated September 2026 and the screens derive "this month" from the clock, so
+// the suite only held while the real calendar was in that month. Pin Date (and nothing else:
+// timers, microtasks and animation frames stay real so async rendering behaves as usual).
+beforeAll(() => {
+  jest.useFakeTimers({
+    now: new Date('2026-09-15T12:00:00Z'),
+    doNotFake: [
+      'nextTick', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval',
+      'setTimeout', 'clearTimeout', 'queueMicrotask', 'requestAnimationFrame',
+      'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'performance', 'hrtime',
+    ],
+  });
+});
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 describe('NetWorthHistoryScreen', () => {
   beforeEach(() => {
     mockOpenPaywall.mockClear();

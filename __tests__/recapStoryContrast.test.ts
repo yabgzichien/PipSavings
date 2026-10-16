@@ -1,4 +1,5 @@
-import { MONTHLY_THEMES, STORY_PALETTES, getStoryThemeForMonth } from '../src/lib/recapStoryTheme';
+import { MONTHLY_THEMES, STORY_PALETTES, getStoryThemeForMonth, storyPaletteSlot } from '../src/lib/recapStoryTheme';
+import type { RecapStoryScene } from '../src/lib/recapStory';
 
 function relativeLuminance(hex: string): number {
   const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
@@ -19,7 +20,7 @@ describe('monthly recap story palettes', () => {
     expect(contrastRatio(palette.foreground, palette.background)).toBeGreaterThanOrEqual(4.5);
   });
 
-  test.each(['ritual', 'identity', 'spotlight', 'habit', 'finale'] as const)(
+  test.each(['ritual', 'bold', 'spotlight', 'light', 'finale'] as const)(
     '%s accent supports its intentionally large meaningful label',
     (name) => {
       const palette = STORY_PALETTES[name];
@@ -38,7 +39,7 @@ describe('all 12 monthly themes contrast compliance', () => {
     }
   });
 
-  const SCENES_WITH_ACCENT_LABELS = ['ritual', 'identity', 'spotlight', 'habit', 'finale'] as const;
+  const SCENES_WITH_ACCENT_LABELS = ['ritual', 'bold', 'spotlight', 'light', 'finale'] as const;
 
   test.each(themes)('theme $monthNumber ($titleEn) has accessible accents (>= 3.0:1) in labeled scenes', (theme) => {
     for (const sceneType of SCENES_WITH_ACCENT_LABELS) {
@@ -66,5 +67,25 @@ describe('all 12 monthly themes contrast compliance', () => {
     const theme = getStoryThemeForMonth();
     expect(theme.monthNumber).toBe('08');
     expect(theme.motif).toBe('confetti');
+  });
+});
+
+describe('story scene palettes', () => {
+  const sceneTypes: RecapStoryScene['type'][] = [
+    'ritual', 'topSpot', 'foodPodium', 'shoppingRegular', 'discoveries', 'rideOrDie', 'ghosted', 'biggestDay',
+    'spotlight', 'versusLastMonth', 'finale',
+  ];
+
+  it('gives every scene a palette slot every monthly theme defines', () => {
+    for (const theme of Object.values(MONTHLY_THEMES)) {
+      for (const type of sceneTypes) expect(theme.palettes[storyPaletteSlot(type)]).toBeDefined();
+    }
+  });
+
+  it('alternates light and dark through the main run of scenes', () => {
+    const order = sceneTypes.filter((type) => type !== 'spotlight');
+    for (let index = 1; index < order.length; index += 1) {
+      expect(storyPaletteSlot(order[index])).not.toBe(storyPaletteSlot(order[index - 1]));
+    }
   });
 });

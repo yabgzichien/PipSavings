@@ -53,15 +53,15 @@ jest.mock('../src/billing/entitlement', () => ({
   useEntitlement: () => ({ isPro: mockIsPro, refresh: jest.fn(async () => {}) }),
 }));
 
-const mockFetchManagementURL = jest.fn(async () => null);
-const mockPresentCustomerCenter = jest.fn(async () => false);
+const mockFetchManagementURL = jest.fn<Promise<string | null>, unknown[]>(async () => null);
+const mockPresentCustomerCenter = jest.fn<Promise<boolean>, unknown[]>(async () => false);
 jest.mock('../src/billing/purchases', () => ({
   restore: jest.fn(),
   fetchManagementURL: (...args: unknown[]) => mockFetchManagementURL(...args),
   presentCustomerCenter: (...args: unknown[]) => mockPresentCustomerCenter(...args),
 }));
 
-const mockReportBug = jest.fn(() => true);
+const mockReportBug = jest.fn<boolean, unknown[]>(() => true);
 jest.mock('../src/lib/diagnostics', () => ({
   reportBug: (...args: unknown[]) => mockReportBug(...args),
 }));
@@ -138,6 +138,12 @@ async function renderSettings() {
   return tree!;
 }
 
+async function openPro(tree: any) {
+  await TestRenderer.act(async () => {
+    tree.root.findByProps({ testID: 'settings-pro' }).props.onPress();
+  });
+}
+
 describe('Settings About section', () => {
   beforeEach(() => {
     mockIsPro = false;
@@ -163,12 +169,11 @@ describe('Settings About section', () => {
     const tree = await renderSettings();
     const text = copy(tree);
 
-    expect(text).toContain('aboutSection');
+    expect(text).toContain('settingsHelpAbout');
     expect(tree.root.findByProps({ testID: 'about-version' })).toBeDefined();
     expect(text).toContain(appJson.expo.version);
     expect(tree.root.findByProps({ testID: 'about-privacy' })).toBeDefined();
     expect(tree.root.findByProps({ testID: 'about-terms' })).toBeDefined();
-    expect(tree.root.findByProps({ testID: 'about-manage' })).toBeDefined();
     expect(tree.root.findByProps({ testID: 'about-tutorial' })).toBeDefined();
     expect(tree.root.findByProps({ testID: 'about-connect' })).toBeDefined();
     expect(tree.root.findByProps({ testID: 'about-bug' })).toBeDefined();
@@ -178,6 +183,7 @@ describe('Settings About section', () => {
 
   it('sends a free user from Manage subscription to the paywall', async () => {
     const tree = await renderSettings();
+    await openPro(tree);
     await TestRenderer.act(async () => {
       tree.root.findByProps({ testID: 'about-manage' }).props.onPress();
     });
@@ -189,6 +195,7 @@ describe('Settings About section', () => {
     mockIsPro = true;
     mockFetchManagementURL.mockResolvedValue('https://play.google.com/store/account/subscriptions');
     const tree = await renderSettings();
+    await openPro(tree);
     await TestRenderer.act(async () => {
       await tree.root.findByProps({ testID: 'about-manage' }).props.onPress();
     });
@@ -203,6 +210,7 @@ describe('Settings About section', () => {
     mockFetchManagementURL.mockResolvedValue(null);
     mockPresentCustomerCenter.mockResolvedValue(false);
     const tree = await renderSettings();
+    await openPro(tree);
     await TestRenderer.act(async () => {
       await tree.root.findByProps({ testID: 'about-manage' }).props.onPress();
     });

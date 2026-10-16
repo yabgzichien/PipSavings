@@ -6,6 +6,10 @@ compatibility_date = "2026-09-01"
 [vars]
 PRO_ENTITLEMENT_ID = "pip_pro"
 
+# Nightly cleanup of cached scan results and limit-tracking rows (worker/src/retention.ts).
+[triggers]
+crons = ["17 3 * * *"]
+
 [observability]
 enabled = true
 

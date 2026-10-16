@@ -9,6 +9,7 @@
  * Prints SQL (and optionally runs wrangler d1 execute).
  */
 const { execSync } = require('child_process');
+const { randomInt } = require('crypto');
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
 
@@ -27,7 +28,8 @@ function parseArgs(argv) {
 function randomSegment(len) {
   let s = '';
   for (let i = 0; i < len; i++) {
-    s += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    // crypto, not Math.random: these codes are the only thing standing between a guess and Pro.
+    s += ALPHABET[randomInt(ALPHABET.length)];
   }
   return s;
 }

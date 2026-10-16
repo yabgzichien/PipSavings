@@ -18,7 +18,7 @@ export type IconName =
   | 'burger' | 'food' | 'phone' | 'cash' | 'banknote' | 'swap' | 'calendar'
   | 'gym' | 'plane' | 'pet' | 'gamepad' | 'users' | 'pill'
   | 'robot' | 'human' | 'key'
-  | 'eye' | 'eyeOff' | 'speaker' | 'speakerOff';
+  | 'eye' | 'eyeOff' | 'speaker' | 'speakerOff' | 'bell' | 'globe' | 'help' | 'palette';
 
 type RenderFn = (stroke: string, sw: number) => React.ReactNode;
 
@@ -488,6 +488,33 @@ const ICONS: Record<IconName, RenderFn> = {
     <G fill="none" stroke={s} strokeWidth={w}>
       <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z" />
       <Circle cx={12} cy={12} r={2.4} />
+    </G>
+  ),
+  bell: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6 16.5V11a6 6 0 0112 0v5.5l1.5 2h-15l1.5-2z" />
+      <Path d="M10 20.5a2 2 0 004 0" />
+    </G>
+  ),
+  globe: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Circle cx={12} cy={12} r={8.5} />
+      <Path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.6 5.9 12 3.5z" />
+    </G>
+  ),
+  help: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w} strokeLinecap="round">
+      <Circle cx={12} cy={12} r={8.5} />
+      <Path d="M9.6 9.6a2.5 2.5 0 014.8.9c0 1.7-2.4 2.1-2.4 3.6" />
+      <Circle cx={12} cy={16.9} r={0.6} fill={s} />
+    </G>
+  ),
+  palette: (s, w) => (
+    <G fill="none" stroke={s} strokeWidth={w}>
+      <Path d="M12 3.5a8.5 8.5 0 000 17c1.2 0 1.8-.8 1.8-1.7 0-1.3-1.1-1.6-1.1-2.7 0-1 .8-1.6 1.8-1.6h2.2a3.8 3.8 0 003.8-3.8c0-4-3.8-7.2-8.5-7.2z" />
+      <Circle cx={7.8} cy={11.2} r={1.1} />
+      <Circle cx={10.5} cy={7.4} r={1.1} />
+      <Circle cx={15} cy={7.8} r={1.1} />
     </G>
   ),
   speaker: (s, w) => (

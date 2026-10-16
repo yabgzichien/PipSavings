@@ -218,8 +218,8 @@ export async function restoreFromBackupPayload(
       const merchantRaw = t.description || 'Transaction';
       await db.runAsync(
         `INSERT INTO transactions
-           (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, merchant_raw, merchant_key, amount, currency, type, txn_date, category_id, created_at, source, remark, receipt_uri, native_amount, fx_rate, trip_id, txn_time)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         t.id,
         merchantRaw,
         toMerchantKey(merchantRaw),
@@ -234,7 +234,8 @@ export async function restoreFromBackupPayload(
         receiptUri,
         typeof t.nativeAmount === 'number' ? t.nativeAmount : null,
         typeof t.fxRate === 'number' ? t.fxRate : null,
-        t.tripId ?? null
+        t.tripId ?? null,
+        typeof t.time === 'string' ? t.time : null
       );
     }
     for (const t of payload.transfers ?? []) {

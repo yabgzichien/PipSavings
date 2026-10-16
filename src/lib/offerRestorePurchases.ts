@@ -2,6 +2,7 @@
 // After a backup restore, data is back but store entitlements are not. Ask once whether to
 // restore purchases via RevenueCat; skippable ("Not now" = cancel).
 import type { Tier } from '../billing/entitlementCache';
+import type { ConfirmNeutralAction } from './platformAlert';
 
 export interface OfferRestorePurchasesDeps {
   confirmAction: (
@@ -9,7 +10,7 @@ export interface OfferRestorePurchasesDeps {
     message: string,
     confirmLabel: string,
     onConfirm: () => void | Promise<void>,
-    neutralAction?: unknown,
+    neutralAction?: ConfirmNeutralAction,
     cancelLabel?: string
   ) => void;
   restore: () => Promise<Tier>;

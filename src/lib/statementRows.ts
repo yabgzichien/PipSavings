@@ -84,7 +84,9 @@ export function parseStatementRows(text: string, options: StatementParseOptions 
   let pendingMerchant: string | null = null;
   let pendingAmounts: Money[] = [];
   let pendingMethod: string | null = null;
-  let open: Draft | null = null;
+  // Assigned from the `flush` closure below, which TypeScript's flow analysis cannot see, so a
+  // plain `let open: Draft | null = null` narrows to `null`/`never` at every use in the loop.
+  let open = null as Draft | null;
   let seenAmounts = 0;
   let consumedAmounts = 0;
 

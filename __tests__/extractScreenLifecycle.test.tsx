@@ -109,15 +109,15 @@ it('rescans a statement with the model and drops the on-device prefetch', async 
   const prefetched = { status: 'ok' as const, text: 'garbled rows' };
   await act(async () => { tree = create(<ExtractScreen {...props()} prefetchedOcr={prefetched} />); });
   expect(submitScan).toHaveBeenCalledTimes(1);
-  expect(submitScan.mock.calls[0][0].forceModel).toBeFalsy();
-  expect(submitScan.mock.calls[0][0].prefetchedOcr).toBe(prefetched);
+  expect((submitScan as jest.Mock).mock.calls[0][0].forceModel).toBeFalsy();
+  expect((submitScan as jest.Mock).mock.calls[0][0].prefetchedOcr).toBe(prefetched);
 
   const rescan = tree.root.findByProps({ testID: 'rescan-with-model' });
   await act(async () => { rescan.props.onPress(); });
   expect(submitScan).toHaveBeenCalledTimes(2);
-  expect(submitScan.mock.calls[1][0].forceModel).toBe(true);
-  expect(submitScan.mock.calls[1][0].prefetchedOcr).toBeUndefined();
-  expect(submitScan.mock.calls[1][0].prefetchedTallOcr).toBeUndefined();
+  expect((submitScan as jest.Mock).mock.calls[1][0].forceModel).toBe(true);
+  expect((submitScan as jest.Mock).mock.calls[1][0].prefetchedOcr).toBeUndefined();
+  expect((submitScan as jest.Mock).mock.calls[1][0].prefetchedTallOcr).toBeUndefined();
   expect(JSON.stringify(tree.toJSON())).toContain('McDonalds');
   await act(async () => tree.unmount());
 });

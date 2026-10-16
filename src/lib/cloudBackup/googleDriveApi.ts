@@ -3,6 +3,8 @@
 // the user's normal Drive UI; only this app's OAuth client can read/write it). No native SDK —
 // just fetch, so this needs no config-plugin/prebuild changes. Every function takes an already-
 // valid access token; token refresh lives in googleAuth.ts.
+import { EmptyBackupRefusedError, zipHasLedgerData } from './emptyLedgerGuard';
+
 const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 
@@ -55,6 +57,9 @@ export async function uploadBackup(accessToken: string, zipBytes: Uint8Array): P
   const existingId = await findBackupFileId(accessToken);
 
   if (existingId) {
+    // Every upload path (silent auto-backup, Back up now, the onboarding opt-in) ends here, so
+    // this is the one place that can stop an empty fresh install replacing a real backup.
+    if (!zipHasLedgerData(zipBytes)) throw new EmptyBackupRefusedError();
     await driveFetch(`${DRIVE_UPLOAD_URL}/${existingId}?uploadType=media`, accessToken, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/zip' },

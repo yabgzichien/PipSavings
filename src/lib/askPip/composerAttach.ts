@@ -1,4 +1,7 @@
-import * as XLSX from 'xlsx-js-style';
+// Reading uses stock SheetJS 0.20.3, which carries the prototype-pollution and ReDoS fixes.
+// `xlsx-js-style` (writing styled exports, financialExport.ts) still bundles 0.18.5, so it
+// never touches a file the user picked.
+import * as XLSX from 'xlsx';
 import { docKindFromMime } from '../import';
 import { kindFromUtterance } from './vision';
 import type { AskPipEntryKind } from './catalog';
@@ -133,10 +136,34 @@ export function formatAskPipAttachmentBlock(
   return lines.join('\n');
 }
 
+/**
+ * Limits on what we hand to the spreadsheet parser. The patched SheetJS closes the published
+ * prototype-pollution and ReDoS advisories; the caps stay as defence in depth, since this file
+ * comes from the user's phone but is still untrusted input. A file over a limit, or one the
+ * parser rejects, degrades to a note and never a crash.
+ */
+export const SPREADSHEET_MAX_BYTES = 5 * 1024 * 1024;
+export const SPREADSHEET_MAX_SHEETS = 12;
+export const SPREADSHEET_MAX_CHARS = 120_000;
+
+export const SPREADSHEET_TOO_LARGE_NOTE =
+  '(This spreadsheet is too large to read here. Export the sheet you need as a smaller CSV and attach that.)';
+export const SPREADSHEET_UNREADABLE_NOTE =
+  "(This spreadsheet couldn't be read. Export it as a CSV and attach that instead.)";
+
 export function spreadsheetBytesToText(bytes: Uint8Array): string {
-  const wb = XLSX.read(bytes, { type: 'array' });
-  return wb.SheetNames.map((name) => {
-    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name] ?? {});
-    return wb.SheetNames.length > 1 ? `# ${name}\n${csv}` : csv;
-  }).join('\n\n');
+  if (bytes.length > SPREADSHEET_MAX_BYTES) return SPREADSHEET_TOO_LARGE_NOTE;
+  try {
+    const wb = XLSX.read(bytes, { type: 'array' });
+    const names = wb.SheetNames.slice(0, SPREADSHEET_MAX_SHEETS);
+    const text = names
+      .map((name) => {
+        const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name] ?? {});
+        return names.length > 1 ? `# ${name}\n${csv}` : csv;
+      })
+      .join('\n\n');
+    return text.length > SPREADSHEET_MAX_CHARS ? text.slice(0, SPREADSHEET_MAX_CHARS) : text;
+  } catch {
+    return SPREADSHEET_UNREADABLE_NOTE;
+  }
 }

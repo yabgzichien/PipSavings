@@ -4,21 +4,13 @@ import type {
   RenderAndCaptureStory,
   SaveSelectedStoriesResult,
 } from './recapStoryCapture.types';
+import { RECAP_STORY_SCENE_ORDER } from './recapStory';
 
 export const RECAP_STORY_DOWNLOAD_FILENAME = 'pip-monthly-story.png';
 
-const NARRATIVE_SCENE_IDS: readonly RecapStorySceneId[] = [
-  'ritual',
-  'identity',
-  'pattern',
-  'spotlight',
-  'habit',
-  'finale',
-];
-
 function inNarrativeOrder(sceneIds: readonly RecapStorySceneId[]): RecapStorySceneId[] {
   const selected = new Set(sceneIds);
-  return NARRATIVE_SCENE_IDS.filter((sceneId) => selected.has(sceneId));
+  return RECAP_STORY_SCENE_ORDER.filter((sceneId) => selected.has(sceneId));
 }
 
 async function cleanupAll<Ref>(

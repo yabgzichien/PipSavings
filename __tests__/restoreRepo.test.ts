@@ -143,10 +143,28 @@ describe('restoreFromBackupPayload', () => {
     const txnInsertIndex = db.statements.findIndex((statement) => statement.sql.includes('INSERT INTO transactions'));
     expect(tripInsertIndex).toBeGreaterThan(-1);
     expect(tripInsertIndex).toBeLessThan(txnInsertIndex);
-    // The trailing `icon` proves a chosen landmark survives restore; a backup taken before
-    // icons existed omits the key entirely and must land as null, covered below.
-    expect(db.statements[tripInsertIndex].args).toEqual(['trip-sg', 'Singapore', '2026-09-01T00:00:00.000Z', 0, '2026-09-10', '2026-09-15', 'sg']);
+    // The `icon` proves a chosen landmark survives restore; a backup taken before icons existed
+    // omits the key entirely and must land as null, covered below. This payload also predates
+    // `cover` and `currency`, so those two land as null.
+    expect(db.statements[tripInsertIndex].args).toEqual([
+      'trip-sg', 'Singapore', '2026-09-01T00:00:00.000Z', 0, '2026-09-10', '2026-09-15', 'sg', null, null,
+    ]);
     expect(db.statements[txnInsertIndex].args[14]).toBe('trip-sg');
+  });
+
+  it('restores a trip\'s cover photo and currency instead of dropping them', async () => {
+    const db = install(fakeDb());
+    await restoreFromBackupPayload(
+      {
+        trips: [{
+          id: 'trip-jp', name: 'Tokyo', createdAt: '2026-08-01T00:00:00.000Z', archived: false,
+          startDate: '2026-08-02', endDate: '2026-08-09', icon: 'jp', cover: 'data:image/jpeg;base64,AAA', currency: 'JPY',
+        }],
+      },
+      new Map()
+    );
+    const insert = db.statements.find((statement) => statement.sql.includes('INSERT INTO trips'));
+    expect(insert!.args.slice(-2)).toEqual(['data:image/jpeg;base64,AAA', 'JPY']);
   });
 
   it('restores a pre-icons backup with a null icon, so the name-derived match takes over', async () => {

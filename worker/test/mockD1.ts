@@ -39,6 +39,8 @@ export function createMockD1(): D1Database {
   const grants = new Map<string, GrantRow>();
   const redeemAttempts = new Map<string, { window_start: number; fail_count: number }>();
   const scanResults = new Map<string, { body: string; created_at: number }>();
+  const ipUsage = new Map<string, number>();
+  const entitlementCache = new Map<string, { is_pro: number; checked_at: number }>();
 
   function makeStatement(query: string, params: unknown[] = []): D1PreparedStatement {
     return {
@@ -57,6 +59,39 @@ export function createMockD1(): D1Database {
           if (!row) return null;
           if (colName) return (row as any)[colName] ?? null;
           return row as unknown as T;
+        }
+
+        if (q.includes('COUNT(*)') && q.includes('FROM RESERVATIONS')) {
+          const [hash, dayKey, now] = params as [string, string, number];
+          let n = 0;
+          for (const r of reservations.values()) {
+            if (
+              r.installation_hash === hash &&
+              r.day_key === dayKey &&
+              r.status === 'reserved' &&
+              r.expires_at > now
+            ) {
+              n += 1;
+            }
+          }
+          return { n } as unknown as T;
+        }
+
+        if (q.startsWith('INSERT INTO IP_USAGE') && q.includes('RETURNING')) {
+          const key = `${params[0]}:${params[1]}`;
+          const next = (ipUsage.get(key) ?? 0) + 1;
+          ipUsage.set(key, next);
+          return { used_count: next } as unknown as T;
+        }
+
+        if (q.includes('FROM IP_USAGE')) {
+          const used = ipUsage.get(`${params[0]}:${params[1]}`);
+          return used === undefined ? null : ({ used_count: used } as unknown as T);
+        }
+
+        if (q.includes('FROM ENTITLEMENT_CACHE')) {
+          const row = entitlementCache.get(params[0] as string);
+          return row ? (row as unknown as T) : null;
         }
 
         if (q.includes('FROM RESERVATIONS')) {
@@ -205,6 +240,60 @@ export function createMockD1(): D1Database {
           return { success: true, meta: { changes: 1 } };
         }
 
+        if (q.startsWith('INSERT INTO IP_USAGE')) {
+          const key = `${params[0]}:${params[1]}`;
+          ipUsage.set(key, (ipUsage.get(key) ?? 0) + 1);
+          return { success: true, meta: { changes: 1 } };
+        }
+
+        if (q.startsWith('UPDATE IP_USAGE SET USED_COUNT')) {
+          const key = `${params[0]}:${params[1]}`;
+          const cur = ipUsage.get(key);
+          if (cur === undefined) return { success: true, meta: { changes: 0 } };
+          ipUsage.set(key, Math.max(cur - 1, 0));
+          return { success: true, meta: { changes: 1 } };
+        }
+
+        if (q.startsWith('INSERT INTO ENTITLEMENT_CACHE')) {
+          entitlementCache.set(params[0] as string, { is_pro: 1, checked_at: params[1] as number });
+          return { success: true, meta: { changes: 1 } };
+        }
+
+        if (q.startsWith('DELETE FROM ENTITLEMENT_CACHE WHERE APP_USER_HASH')) {
+          const existed = entitlementCache.delete(params[0] as string);
+          return { success: true, meta: { changes: existed ? 1 : 0 } };
+        }
+
+        if (q.startsWith('DELETE FROM RESERVATIONS WHERE CREATED_AT')) {
+          let changes = 0;
+          for (const [k, r] of reservations) {
+            if (r.created_at < (params[0] as number)) {
+              reservations.delete(k);
+              changes += 1;
+            }
+          }
+          return { success: true, meta: { changes } };
+        }
+
+        if (q.startsWith('DELETE FROM SCAN_RESULTS WHERE CREATED_AT')) {
+          let changes = 0;
+          for (const [k, r] of scanResults) {
+            if (r.created_at < (params[0] as number)) {
+              scanResults.delete(k);
+              changes += 1;
+            }
+          }
+          return { success: true, meta: { changes } };
+        }
+
+        if (
+          q.startsWith('DELETE FROM REDEEM_ATTEMPTS WHERE WINDOW_START') ||
+          q.startsWith('DELETE FROM IP_USAGE') ||
+          q.startsWith('DELETE FROM ENTITLEMENT_CACHE WHERE CHECKED_AT')
+        ) {
+          return { success: true, meta: { changes: 0 } };
+        }
+
         if (q.startsWith('INSERT OR REPLACE INTO REDEEM_ATTEMPTS')) {
           const [bucket, windowStart, failCount] = params;
           redeemAttempts.set(bucket as string, {
@@ -214,7 +303,7 @@ export function createMockD1(): D1Database {
           return { success: true, meta: { changes: 1 } };
         }
 
-        if (q.startsWith('DELETE FROM REDEEM_ATTEMPTS')) {
+        if (q.startsWith('DELETE FROM REDEEM_ATTEMPTS WHERE BUCKET')) {
           const bucket = params[0] as string;
           const existed = redeemAttempts.delete(bucket);
           return { success: true, meta: { changes: existed ? 1 : 0 } };

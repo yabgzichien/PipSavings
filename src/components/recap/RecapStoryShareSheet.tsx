@@ -11,14 +11,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../i18n';
-import {
-  recapStoryMerchantCandidates,
-  type RecapStoryModel,
-  type RecapStoryScene,
-} from '../../lib/recapStory';
+import { sceneHasAmounts, type RecapStoryModel, type RecapStoryScene } from '../../lib/recapStory';
 import { recapStoryCaptureAdapter } from '../../lib/recapStoryCapture';
 import { RECAP_STORY_DOWNLOAD_FILENAME } from '../../lib/recapStoryExport';
-import type { Transaction } from '../../lib/types';
 import type { WidgetMascotConfig } from '../../widget/mascot/config';
 import { radius, spacing } from '../../theme';
 import { STORY_LOGICAL_HEIGHT, STORY_LOGICAL_WIDTH } from '../../lib/recapStoryTheme';
@@ -39,13 +34,11 @@ type ResultState =
 
 export interface RecapStoryShareSheetProps {
   model: RecapStoryModel;
-  transactions: Transaction[];
   mascotConfig: WidgetMascotConfig;
   monthLabel: string;
   categoryLabel: (categoryId: string) => string;
   initialSceneId?: SceneId;
   onClose: () => void;
-  onMerchantCameo?: (merchant: string) => void;
 }
 
 function nextFrame(): Promise<void> {
@@ -71,11 +64,10 @@ function SheetButton({ label, onPress, disabled = false, emphasized = false }: {
   </Pressable>;
 }
 
-export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthLabel, categoryLabel,
-  initialSceneId, onClose, onMerchantCameo }: RecapStoryShareSheetProps) {
+export function RecapStoryShareSheet({ model, mascotConfig, monthLabel, categoryLabel,
+  initialSceneId, onClose }: RecapStoryShareSheetProps) {
   const { t, isZh } = useLanguage();
   const insets = useSafeAreaInsets();
-  const [sessionModel, setSessionModel] = useState(model);
   const [selectedIds, setSelectedIds] = useState<SceneId[]>(() => {
     if (initialSceneId && model.scenes.some((scene) => scene.id === initialSceneId)) return [initialSceneId];
     const defaults = model.scenes.filter((scene) => model.defaultSelectedSceneIds.includes(scene.id)).map((scene) => scene.id);
@@ -86,7 +78,8 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
     ?? model.scenes[0].id);
   const [captureStatus, setCaptureStatus] = useState<'idle' | 'capturing'>('idle');
   const [result, setResult] = useState<ResultState>({ kind: 'idle' });
-  const [merchantProposal, setMerchantProposal] = useState<string | null>(null);
+  // Share-time privacy lives only as long as this sheet: every session starts with amounts shown.
+  const [hiddenAmountIds, setHiddenAmountIds] = useState<SceneId[]>([]);
   const [confirmClose, setConfirmClose] = useState(false);
   const exportRef = useRef<React.ComponentRef<typeof View>>(null);
   const running = useRef(false);
@@ -94,13 +87,10 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
   const mounted = useRef(true);
   const lastAttempt = useRef<{ action: ExportAction; sceneId?: SceneId }>({ action: 'save' });
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const exportScene = sessionModel.scenes.find((scene) => scene.id === exportSceneId) ?? sessionModel.scenes[0];
-  const pattern = sessionModel.scenes.find((scene): scene is Extract<RecapStoryScene, { type: 'pattern' }> => scene.type === 'pattern');
-  const merchantEligible = !!pattern && selectedSet.has('pattern') && !pattern.merchantCameo && transactions.some((transaction) =>
-    transaction.type === 'expense'
-    && (transaction.date ?? transaction.createdAt).slice(0, 7) === sessionModel.month
-    && (transaction.categoryId ?? 'other') === pattern.categoryId
-    && !!transaction.merchantRaw.trim());
+  const exportScene = model.scenes.find((scene) => scene.id === exportSceneId) ?? model.scenes[0];
+  const amountSceneIds = model.scenes.filter(sceneHasAmounts).map((scene) => scene.id);
+  const hiddenSet = new Set(hiddenAmountIds);
+  const allAmountsHidden = amountSceneIds.length > 0 && amountSceneIds.every((id) => hiddenSet.has(id));
 
   useEffect(() => {
     mounted.current = true;
@@ -125,14 +115,24 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
       setSelectedIds(selectedIds.filter((id) => id !== sceneId));
       return;
     }
-    if (selectedIds.length >= sessionModel.scenes.length) {
+    if (selectedIds.length >= model.scenes.length) {
       AccessibilityInfo.announceForAccessibility(
-        isZh ? `最多选择 ${sessionModel.scenes.length} 张卡片。` : `Choose up to ${sessionModel.scenes.length} cards.`
+        isZh ? `最多选择 ${model.scenes.length} 张卡片。` : `Choose up to ${model.scenes.length} cards.`
       );
       return;
     }
     const wanted = new Set([...selectedIds, sceneId]);
-    setSelectedIds(sessionModel.scenes.filter((scene) => wanted.has(scene.id)).map((scene) => scene.id));
+    setSelectedIds(model.scenes.filter((scene) => wanted.has(scene.id)).map((scene) => scene.id));
+  }
+
+  function toggleAmounts(sceneId: SceneId) {
+    if (running.current) return;
+    setHiddenAmountIds(hiddenSet.has(sceneId) ? hiddenAmountIds.filter((id) => id !== sceneId) : [...hiddenAmountIds, sceneId]);
+  }
+
+  function toggleAllAmounts() {
+    if (running.current) return;
+    setHiddenAmountIds(allAmountsHidden ? [] : amountSceneIds);
   }
 
   function checkCancelled() {
@@ -244,20 +244,6 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
     ]);
   }
 
-  function openMerchantDisclosure() {
-    if (!pattern || running.current) return;
-    const [exactMerchant] = recapStoryMerchantCandidates(transactions, sessionModel.month, pattern.categoryId);
-    if (exactMerchant) setMerchantProposal(exactMerchant);
-  }
-
-  function includeMerchant() {
-    if (!merchantProposal || running.current) return;
-    setSessionModel((current) => ({ ...current, scenes: current.scenes.map((scene) =>
-      scene.type === 'pattern' ? { ...scene, merchantCameo: merchantProposal } : scene) }));
-    onMerchantCameo?.(merchantProposal);
-    setMerchantProposal(null);
-  }
-
   const resultMessage = result.kind === 'share-unavailable' ? t('recapStoryShareUnavailable')
     : result.kind === 'permission-denied'
       ? (isZh ? '照片权限仅用于批量保存卡片；你仍可分享一张卡片。' : 'Photos access is only needed to save cards in a batch; you can still share one card.')
@@ -269,8 +255,12 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
           ? `${t('recapStorySavedToPhotos')}. ${isZh ? '未安装 Instagram，或暂时无法打开。' : 'Instagram is not installed or could not be opened.'}`
           : '';
   const sceneLabels: Record<SceneId, string> = isZh
-    ? { ritual: '每月仪式', identity: '你的风格', pattern: '消费特点', spotlight: '特别故事', habit: '记录习惯', finale: '本月徽章' }
-    : { ritual: 'Monthly ritual', identity: 'Your identity', pattern: 'Signature pattern', spotlight: 'Special story', habit: 'Your records', finale: 'Monthly badges' };
+    ? { ritual: '每月仪式', topSpot: '第一名', foodPodium: '美食领奖台', shoppingRegular: '常逛的店', discoveries: '新发现',
+      rideOrDie: '铁杆老主顾', ghosted: '被冷落的它', biggestDay: '花得最多的一天', spotlight: '特别故事',
+      versusLastMonth: '和上个月比', finale: '你的这个月' }
+    : { ritual: 'Monthly ritual', topSpot: '#1 spot', foodPodium: 'Food podium', shoppingRegular: 'Go-to shop',
+      discoveries: 'New discoveries', rideOrDie: 'Ride or die', ghosted: 'The one you ghosted', biggestDay: 'Biggest day',
+      spotlight: 'Special story', versusLastMonth: 'Versus last month', finale: 'Your month' };
 
   return <Modal transparent animationType="slide" visible onRequestClose={requestClose}>
     <View style={styles.backdrop}>
@@ -280,35 +270,45 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
           <SheetButton label={isZh ? '关闭分享选项' : 'Close share options'} onPress={requestClose} />
         </View>
         <ScrollView style={styles.content} contentContainerStyle={styles.contentSpacing}>
-        <Label color="#555555">{isZh ? `已选择 ${selectedIds.length} / ${Platform.OS === 'web' ? 1 : sessionModel.scenes.length} 张`
-          : `${selectedIds.length} of ${Platform.OS === 'web' ? 1 : sessionModel.scenes.length} selected`}</Label>
+        <Label color="#555555">{isZh ? `已选择 ${selectedIds.length} / ${Platform.OS === 'web' ? 1 : model.scenes.length} 张`
+          : `${selectedIds.length} of ${Platform.OS === 'web' ? 1 : model.scenes.length} selected`}</Label>
         <ScrollView horizontal contentContainerStyle={styles.choices} showsHorizontalScrollIndicator={false}>
-          {sessionModel.scenes.map((scene) => {
+          {model.scenes.map((scene) => {
             const checked = selectedSet.has(scene.id);
-            const cameo = scene.type === 'pattern' && !!scene.merchantCameo;
-            const label = `${sceneLabels[scene.id]}. ${checked ? (isZh ? '已选择' : 'Selected') : (isZh ? '未选择' : 'Not selected')}${cameo ? (isZh ? '。已加入商家彩蛋' : '. Merchant cameo included') : ''}`;
-            return <Pressable key={scene.id} testID={`story-choice-${scene.id}`} accessibilityRole="checkbox"
-              accessibilityLabel={label} accessibilityState={{ checked, disabled: captureStatus === 'capturing' }}
-              disabled={captureStatus === 'capturing'} onPress={() => toggleScene(scene.id)}
-              style={[styles.choice, checked && styles.choiceSelected]}>
-              <View pointerEvents="none" style={styles.thumbnailViewport}>
-                <View style={styles.thumbnailScale}>
-                  <RecapStoryFrame scene={scene} mode="export" motion="off" mascotConfig={mascotConfig}
-                    monthLabel={monthLabel} categoryLabel={categoryLabel} month={model.month} />
+            const hidden = hiddenSet.has(scene.id);
+            const label = `${sceneLabels[scene.id]}. ${checked ? (isZh ? '已选择' : 'Selected') : (isZh ? '未选择' : 'Not selected')}`;
+            return <View key={scene.id} style={styles.choiceColumn}>
+              <Pressable testID={`story-choice-${scene.id}`} accessibilityRole="checkbox"
+                accessibilityLabel={label} accessibilityState={{ checked, disabled: captureStatus === 'capturing' }}
+                disabled={captureStatus === 'capturing'} onPress={() => toggleScene(scene.id)}
+                style={[styles.choice, checked && styles.choiceSelected]}>
+                <View pointerEvents="none" style={styles.thumbnailViewport}>
+                  <View style={styles.thumbnailScale}>
+                    <RecapStoryFrame scene={scene} mode="export" motion="off" mascotConfig={mascotConfig}
+                      monthLabel={monthLabel} categoryLabel={categoryLabel} month={model.month}
+                      currency={model.currency} hideAmounts={hidden} />
+                  </View>
                 </View>
-              </View>
-              <View style={styles.choiceLabel}><Label color="#191919">{checked ? '✓ ' : '○ '}{sceneLabels[scene.id]}</Label></View>
-              {cameo && <Label color="#5B3FD6">{isZh ? '已加入商家彩蛋' : 'Merchant cameo included'}</Label>}
-            </Pressable>;
+                <View style={styles.choiceLabel}><Label color="#191919">{checked ? '✓ ' : '○ '}{sceneLabels[scene.id]}</Label></View>
+              </Pressable>
+              {sceneHasAmounts(scene) && <Pressable testID={`story-amounts-${scene.id}`} accessibilityRole="switch"
+                accessibilityLabel={t(hidden ? 'recapStory_amountsHidden' : 'recapStory_amountsShown')}
+                accessibilityState={{ checked: hidden, disabled: captureStatus === 'capturing' }}
+                disabled={captureStatus === 'capturing'} onPress={() => toggleAmounts(scene.id)}
+                style={[styles.amountSwitch, hidden && styles.amountSwitchOn]}>
+                <Label color={hidden ? '#FFFFFF' : '#191919'}>
+                  {`${hidden ? '•••• ' : ''}${t(hidden ? 'recapStory_amountsHidden' : 'recapStory_amountsShown')}`}
+                </Label>
+              </Pressable>}
+            </View>;
           })}
         </ScrollView>
-        {merchantEligible && !merchantProposal && <SheetButton label={isZh ? '加入商家彩蛋' : 'Add merchant cameo'} onPress={openMerchantDisclosure} disabled={captureStatus === 'capturing'} />}
-        {!!merchantProposal && <View style={styles.disclosure}>
-          <Body color="#191919">{t('recapStoryMerchantDisclosure')}</Body>
-          <Title color="#191919">{merchantProposal}</Title>
-          <SheetButton label={isZh ? '加入商家' : 'Include merchant'} onPress={includeMerchant} emphasized disabled={captureStatus === 'capturing'} />
-          <SheetButton label={isZh ? '取消' : 'Cancel'} onPress={() => { if (!running.current) setMerchantProposal(null); }} disabled={captureStatus === 'capturing'} />
-        </View>}
+        {amountSceneIds.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={t('recapStory_hideAllAmounts')}
+          accessibilityState={{ checked: allAmountsHidden, disabled: captureStatus === 'capturing' }}
+          disabled={captureStatus === 'capturing'} onPress={toggleAllAmounts}
+          style={[styles.button, styles.hideAll, allAmountsHidden && styles.amountSwitchOn]}>
+          <Label color={allAmountsHidden ? '#FFFFFF' : '#191919'}>{`${allAmountsHidden ? '✓ ' : '○ '}${t('recapStory_hideAllAmounts')}`}</Label>
+        </Pressable>}
         {!!resultMessage && <View accessibilityLiveRegion="polite"><Body color="#191919">{resultMessage}</Body></View>}
         {confirmClose && <View accessibilityRole="alert" style={styles.disclosure}>
           <Title color="#191919">{t('recapStoryCloseCaptureTitle')}</Title>
@@ -340,7 +340,8 @@ export function RecapStoryShareSheet({ model, transactions, mascotConfig, monthL
         </View>
       </View>
       <RecapStoryExportSurface ref={exportRef} scene={exportScene} mascotConfig={mascotConfig}
-        monthLabel={monthLabel} categoryLabel={categoryLabel} month={model.month} />
+        monthLabel={monthLabel} categoryLabel={categoryLabel} month={model.month}
+        currency={model.currency} hideAmounts={hiddenSet.has(exportScene.id)} />
     </View>
   </Modal>;
 }
@@ -353,12 +354,17 @@ const styles = StyleSheet.create({
   content: { flexShrink: 1 },
   contentSpacing: { gap: spacing.md },
   choices: { gap: spacing.md, paddingVertical: spacing.xs },
+  choiceColumn: { width: 120, gap: spacing.xs },
   choice: { minWidth: 120, minHeight: 44, width: 120, borderWidth: 2, borderColor: '#D7D2CB', borderRadius: radius.sm,
     padding: spacing.sm, gap: spacing.sm, overflow: 'hidden' },
   choiceSelected: { borderColor: '#5B3FD6', borderWidth: 3 },
   thumbnailViewport: { width: 96, height: 96 * STORY_LOGICAL_HEIGHT / STORY_LOGICAL_WIDTH, overflow: 'hidden', borderRadius: radius.sm },
   thumbnailScale: { width: STORY_LOGICAL_WIDTH, height: STORY_LOGICAL_HEIGHT, transform: [{ scale: 96 / STORY_LOGICAL_WIDTH }], transformOrigin: 'top left' },
   choiceLabel: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+  amountSwitch: { minWidth: 44, minHeight: 44, borderRadius: radius.sm, borderWidth: 1, borderColor: '#BBB4AA',
+    paddingHorizontal: spacing.sm, justifyContent: 'center', alignItems: 'center' },
+  amountSwitchOn: { backgroundColor: '#191919', borderColor: '#191919' },
+  hideAll: { alignSelf: 'flex-start' },
   disclosure: { borderRadius: radius.sm, backgroundColor: '#F3F0FF', padding: spacing.base, gap: spacing.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   button: { minWidth: 44, minHeight: 44, borderRadius: radius.sm, borderWidth: 1, borderColor: '#BBB4AA',

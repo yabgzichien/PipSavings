@@ -37,12 +37,13 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
     );
   };
 
-  const toggleReceiptShareAll = (lineId: string) => {
+  // Stands in for the + popup: adds whoever isn't on the dish yet.
+  const addNextReceiptPerson = (lineId: string) => {
     setReceiptLines((prev) =>
       prev.map((line) => {
         if (line.id !== lineId) return line;
-        const allAssigned = line.assignedTo.length === 2;
-        return { ...line, assignedTo: allAssigned ? ['you'] : ['nugget', 'you'] };
+        const missing = ['nugget', 'you'].find((p) => !line.assignedTo.includes(p));
+        return missing ? { ...line, assignedTo: [...line.assignedTo, missing] } : line;
       })
     );
   };
@@ -87,30 +88,10 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
             </View>
           </View>
 
-          {/* Table Members Section */}
-          <Text style={[styles.fieldLabel, { color: colorTheme.ink2 }]}>
-            {isZh ? '同行人员（选填）' : 'Who was at the table (optional)'}
-          </Text>
-          <View style={styles.tableRow}>
-            <View style={[styles.tableChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
-              <Text style={[styles.tableChipText, { color: colorTheme.ink }]}>nugget</Text>
-              <Icon name="x" size={11} color={colorTheme.ink3} />
-            </View>
-            <View style={[styles.tableChip, styles.tableChipSelf, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Text style={[styles.tableChipText, { color: theme.onTint, fontFamily: uiFont(700) }]}>
-                {isZh ? '你 (You)' : 'You'}
-              </Text>
-            </View>
-            <View style={[styles.chip, styles.addChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line, paddingVertical: 4, paddingHorizontal: 8 }]}>
-              <Icon name="plus" size={11} color={colorTheme.ink2} stroke={2.4} />
-              <Text style={[styles.chipText, { color: colorTheme.ink2, fontSize: 11 }]}>{isZh ? '添加好友' : '+ fyy'}</Text>
-            </View>
-          </View>
-
           {/* Items Section */}
           <View style={[styles.sectionHeaderRow, { marginTop: 10 }]}>
             <Text style={[styles.fieldLabel, { color: colorTheme.ink2, marginBottom: 0 }]}>
-              {isZh ? '点单明细（点击头像分配）' : 'What they ordered (Tap to assign)'}
+              {isZh ? '点单明细（点击 + 分配）' : 'What they ordered (tap + to assign)'}
             </Text>
           </View>
 
@@ -131,59 +112,26 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
                     </Text>
                   </View>
 
-                  <View style={styles.avatarRow}>
-                    {/* Nugget Avatar */}
+                  {/* Same pill row as ReceiptScanScreen: a pill per person, then +. */}
+                  <View style={styles.pillRow}>
+                    {line.assignedTo.map((id) => (
+                      <Pressable
+                        key={id}
+                        onPress={() => toggleReceiptAssign(line.id, id)}
+                        style={[styles.pill, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}
+                      >
+                        <Text style={[styles.pillText, { color: theme.onTint }]}>{id === 'you' ? (isZh ? '你' : 'You') : 'nugget'}</Text>
+                        <Icon name="x" size={10} color={theme.onTint} stroke={2.4} />
+                      </Pressable>
+                    ))}
                     <Pressable
-                      onPress={() => toggleReceiptAssign(line.id, 'nugget')}
-                      style={[
-                        styles.itemAvatar,
-                        { backgroundColor: colorTheme.surface, borderColor: colorTheme.line },
-                        hasNugget && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
+                      onPress={() => addNextReceiptPerson(line.id)}
+                      style={[styles.pill, styles.addPill, { backgroundColor: colorTheme.surface, borderColor: colorTheme.line }]}
                     >
-                      <Text
-                        style={[
-                          styles.itemAvatarText,
-                          { color: colorTheme.ink2 },
-                          hasNugget && { color: theme.onAccent, fontFamily: uiFont(700) },
-                        ]}
-                      >
-                        N
-                      </Text>
-                    </Pressable>
-
-                    {/* You Avatar */}
-                    <Pressable
-                      onPress={() => toggleReceiptAssign(line.id, 'you')}
-                      style={[
-                        styles.itemAvatar,
-                        styles.itemAvatarYou,
-                        { backgroundColor: colorTheme.surface, borderColor: colorTheme.line },
-                        hasYou && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.itemAvatarText,
-                          { color: colorTheme.ink2 },
-                          hasYou && { color: theme.onAccent, fontFamily: uiFont(700) },
-                        ]}
-                      >
-                        YOU
-                      </Text>
-                    </Pressable>
-
-                    {/* Shared Toggle */}
-                    <Pressable onPress={() => toggleReceiptShareAll(line.id)} style={styles.sharedBtn}>
-                      <Text
-                        style={[
-                          styles.sharedBtnText,
-                          { color: isShared ? theme.accent : colorTheme.ink3 },
-                          isShared && { fontFamily: uiFont(700) },
-                        ]}
-                      >
-                        {isShared ? (isZh ? '均摊 ✓' : 'Shared ✓') : (isZh ? '平摊' : 'Share')}
-                      </Text>
+                      <Icon name="plus" size={11} color={colorTheme.ink2} stroke={2.4} />
+                      {line.assignedTo.length === 0 && (
+                        <Text style={[styles.pillText, { color: colorTheme.ink3 }]}>{isZh ? '谁点了？' : 'Who had it?'}</Text>
+                      )}
                     </Pressable>
                   </View>
                 </View>
@@ -254,17 +202,9 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
           {/* Who else was there label & chips */}
           <Text style={[styles.fieldLabel, { color: colorTheme.ink2 }]}>{isZh ? '同行人员' : 'Who else was there'}</Text>
           <View style={styles.chipWrap}>
-            <View style={[styles.chip, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Icon name="check" size={13} color={theme.accent} stroke={2.4} />
-              <Text style={[styles.chipText, { color: theme.onTint }]}>Alex</Text>
-            </View>
-            <View style={[styles.chip, { backgroundColor: theme.accentTint, borderColor: theme.accentSoft }]}>
-              <Icon name="check" size={13} color={theme.accent} stroke={2.4} />
-              <Text style={[styles.chipText, { color: theme.onTint }]}>Sarah</Text>
-            </View>
             <View style={[styles.chip, styles.addChip, { backgroundColor: colorTheme.surface2, borderColor: colorTheme.line }]}>
               <Icon name="plus" size={13} color={colorTheme.ink2} stroke={2.4} />
-              <Text style={[styles.chipText, { color: colorTheme.ink2 }]}>{isZh ? '添加人员' : 'Add a name'}</Text>
+              <Text style={[styles.chipText, { color: colorTheme.ink2 }]}>{isZh ? '添加或移除人员' : 'Add or remove people'}</Text>
             </View>
           </View>
         </View>
@@ -754,6 +694,10 @@ export function GlossaryVisualGuide({ visualKey }: VisualProps) {
 }
 
 const styles = StyleSheet.create({
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 6 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 24, paddingHorizontal: 8, borderRadius: 999, borderWidth: 1 },
+  addPill: { borderStyle: 'dashed', paddingHorizontal: 7 },
+  pillText: { fontFamily: uiFont(600), fontSize: 11 },
   appContainer: {
     borderRadius: radius.md,
     borderWidth: 1,
@@ -785,26 +729,6 @@ const styles = StyleSheet.create({
   liveBadgeText: {
     fontFamily: uiFont(700),
     fontSize: 9.5,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 6,
-  },
-  tableChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  tableChipSelf: {},
-  tableChipText: {
-    fontFamily: uiFont(600),
-    fontSize: 12,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -838,36 +762,6 @@ const styles = StyleSheet.create({
   receiptItemAmount: {
     fontFamily: numFont(700),
     fontSize: 13,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  itemAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemAvatarYou: {
-    width: 34,
-    borderRadius: 999,
-    paddingHorizontal: 4,
-  },
-  itemAvatarText: {
-    fontFamily: uiFont(600),
-    fontSize: 10,
-  },
-  sharedBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  sharedBtnText: {
-    fontFamily: uiFont(600),
-    fontSize: 11,
   },
   toggle: {
     flexDirection: 'row',

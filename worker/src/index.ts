@@ -1,15 +1,20 @@
 // worker/src/index.ts
 import {
   checkAndReserve,
+  claimIpSlot,
   commitReservation,
   getUsage,
   getUtcKeys,
   hashInstallationId,
+  ipBucketKey,
+  releaseIpSlot,
   rollbackReservation,
   FREE_DAILY_LIMIT,
+  FREE_IP_DAILY_LIMIT,
   FREE_MONTHLY_LIMIT,
   type D1Database,
 } from './quota';
+import { purgeExpired } from './retention';
 import {
   callGeminiVision,
   callGeminiText,
@@ -22,7 +27,7 @@ import {
   type ScanResultData,
 } from './providers';
 import { getActiveGrant, redeemPromoCode } from './grants';
-import { hasRevenueCatPro } from './entitlementAuth';
+import { resolveRevenueCatPro } from './entitlementAuth';
 import { canonicalIdempotencyKey } from './idempotencyKey';
 import { readScanResult, writeScanResult } from './scanResults';
 import {
@@ -41,7 +46,12 @@ export interface Env {
   REVENUECAT_SECRET_KEY?: string;
   REVENUECAT_PROJECT_ID?: string;
   PRO_ENTITLEMENT_ID?: string;
+  /** Local development only. When 'true' and no provider key is set, /scan returns canned data. */
+  ALLOW_MOCK_SCAN?: string;
 }
+
+/** Installation ids are minted by the app (a UUID). Anything else is noise or an attack. */
+const INSTALLATION_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 export interface ScanRequestBody {
   imageBase64?: string;
@@ -97,6 +107,13 @@ async function executeWithTimeout<T>(
   }
 }
 
+async function ipBucketHash(request: Request, salt: string | undefined): Promise<string | null> {
+  // Cloudflare sets this itself; a caller cannot choose it. Absent locally and in tests.
+  const ip = request.headers.get('CF-Connecting-IP');
+  if (!ip) return null;
+  return hashInstallationId(`ip:${ipBucketKey(ip)}`, salt || 'pip_quota_salt_2026');
+}
+
 const CORS_ALLOW_HEADERS =
   'Content-Type, x-installation-id, x-idempotency-key, x-rc-app-user-id, x-client-preprocess';
 
@@ -130,6 +147,16 @@ export default {
       'Access-Control-Allow-Origin': '*',
     };
 
+    // A network slot taken for a scan that has not yet been charged. Declared out here so the
+    // catch below can hand it back if something throws between taking it and committing.
+    let heldIp: { ipHash: string; dayKey: string } | null = null;
+    const releaseHeldIp = async () => {
+      if (!heldIp) return;
+      const { ipHash, dayKey } = heldIp;
+      heldIp = null;
+      await releaseIpSlot(env.DB, ipHash, dayKey);
+    };
+
     try {
       const url = new URL(request.url);
 
@@ -160,17 +187,29 @@ export default {
         });
       }
 
+      if (!INSTALLATION_ID_PATTERN.test(installationId)) {
+        return new Response(JSON.stringify({ error: 'Invalid x-installation-id header' }), {
+          status: 400,
+          headers,
+        });
+      }
+
       const hash = await hashInstallationId(installationId, env.SALT || 'pip_quota_salt_2026');
       const now = Date.now();
       const grant = await getActiveGrant(env.DB, hash, now);
-      const isPro =
-        Boolean(grant) ||
-        (await hasRevenueCatPro({
+      // Only /scan and /allowance care whether the caller is Pro, so only they pay for the
+      // RevenueCat round trip. /redeem and /entitlement never wait on it.
+      let proPromise: Promise<boolean> | null = null;
+      const resolveIsPro = (): Promise<boolean> => {
+        if (grant) return Promise.resolve(true);
+        proPromise ??= resolveRevenueCatPro(env.DB, {
           appUserId: request.headers.get('x-rc-app-user-id'),
           secretKey: env.REVENUECAT_SECRET_KEY,
           projectId: env.REVENUECAT_PROJECT_ID,
           entitlementId: env.PRO_ENTITLEMENT_ID,
-        }));
+        });
+        return proPromise;
+      };
       const { dayKey, monthKey } = getUtcKeys(now);
 
       // POST /redeem
@@ -239,6 +278,7 @@ export default {
 
       // GET /allowance
       if (request.method === 'GET' && url.pathname === '/allowance') {
+        const isPro = await resolveIsPro();
         const usage = isPro
           ? { dayUsed: 0, monthUsed: 0 }
           : await getUsage(env.DB, hash, dayKey, monthKey);
@@ -275,6 +315,7 @@ export default {
       // POST /scan
       if (request.method === 'POST' && url.pathname === '/scan') {
         const requestStartTime = Date.now();
+        const isPro = await resolveIsPro();
 
         let body: ScanRequestBody;
         try {
@@ -312,6 +353,12 @@ export default {
 
           const reservation = await checkAndReserve(env.DB, hash, countKey, isPro, Date.now());
           if (!reservation.ok) {
+            if (reservation.busy) {
+              return new Response(JSON.stringify({ ok: false, error: 'scan_in_progress' }), {
+                status: 409,
+                headers,
+              });
+            }
             return new Response(
               JSON.stringify({
                 ok: false,
@@ -397,6 +444,25 @@ export default {
           return new Response(cachedScan, { status: 200, headers });
         }
 
+        // A fresh install id starts with a fresh quota, so the per-install limit alone does not
+        // stop someone scripting scans. Cap what one network can spend as well. The slot is taken
+        // here, atomically, and handed back on every path that does not end in a charged scan.
+        // Replays of a finished scan were answered from the cache above and never reach this.
+        const ipHash = isPro ? null : await ipBucketHash(request, env.SALT);
+        if (ipHash) {
+          const slot = await claimIpSlot(env.DB, ipHash, dayKey, FREE_IP_DAILY_LIMIT);
+          if (!slot.ok) {
+            // Carrier-grade NAT can put many real users behind one address, so make a trip of
+            // this wire visible: if it fires often for honest traffic, raise the limit.
+            console.log(JSON.stringify({ event: 'ip_cap_hit', limit: FREE_IP_DAILY_LIMIT }));
+            return new Response(JSON.stringify({ ok: false, error: 'ip_daily_limit' }), {
+              status: 403,
+              headers,
+            });
+          }
+          if (slot.held) heldIp = { ipHash, dayKey };
+        }
+
         // 1. Reserve quota
         const reserveStart = Date.now();
         const reservation = await checkAndReserve(
@@ -409,6 +475,14 @@ export default {
         const reserveMs = Date.now() - reserveStart;
 
         if (!reservation.ok) {
+          await releaseHeldIp();
+          if (reservation.busy) {
+            // Not out of scans: other scans for this install are still finishing.
+            return new Response(JSON.stringify({ ok: false, error: 'scan_in_progress' }), {
+              status: 409,
+              headers,
+            });
+          }
           return new Response(
             JSON.stringify({
               ok: false,
@@ -594,6 +668,7 @@ export default {
         // Simulation / local dev fallback when NO provider keys are configured
         if (
           !providerSucceeded &&
+          env.ALLOW_MOCK_SCAN === 'true' &&
           !env.GEMINI_API_KEY &&
           !env.GROQ_API_KEY &&
           !env.OPENROUTER_API_KEY
@@ -644,6 +719,23 @@ export default {
         // If provider cascade failed entirely or no provider produced a usable result:
         if (!providerSucceeded) {
           await rollbackReservation(env.DB, idempotencyKey);
+          await releaseHeldIp();
+          if (providerAttempts === 0) {
+            // Nothing was even tried: the worker has no provider keys. Say so plainly rather
+            // than returning made-up rows, and do not charge the user a scan for it.
+            console.log(JSON.stringify({ event: 'scan_completed', status: 'no_provider_configured' }));
+            return new Response(
+              JSON.stringify({
+                ok: false,
+                error: 'scan_unavailable',
+                scanType: validatedScanType,
+                items: [],
+                receipt: null,
+                snapshot: null,
+              }),
+              { status: 503, headers }
+            );
+          }
           const isUnusable = lastErr?.message?.includes('unusable or empty result');
           console.log(
             JSON.stringify({
@@ -684,6 +776,12 @@ export default {
             dayKey,
             monthKey,
           });
+        }
+        if (reservation.alreadyCommitted) {
+          // Charged on an earlier request; this one cost the network nothing new.
+          await releaseHeldIp();
+        } else {
+          heldIp = null; // charged: the slot stays spent
         }
         const commitMs = Date.now() - commitStart;
 
@@ -741,10 +839,14 @@ export default {
 
       return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers });
     } catch {
+      await releaseHeldIp().catch(() => {});
       return new Response(JSON.stringify({ error: 'Internal error' }), {
         status: 500,
         headers,
       });
     }
+  },
+  async scheduled(_event: unknown, env: Env): Promise<void> {
+    await purgeExpired(env.DB, Date.now());
   },
 };

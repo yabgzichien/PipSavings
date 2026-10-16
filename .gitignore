@@ -129,3 +129,39 @@ tools/generate_shipaton_feature_graphics.py
 tools/fix_brand_logos.py
 tools/promoVideo/
 tools/recapStoryPrototype/
+
+# LinkedIn banner assets (local only, never commit)
+LinkedInBanner/
+
+# Promo codes (secret)
+promo-codes/
+
+# Secrets & credentials
+*.keystore
+*.secret
+secrets/
+credentials*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# Videos, images and PDFs stay local. App assets under assets/ are bundled into the build,
+# so they are the one exception.
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+*.m4v
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.heic
+*.pdf
+!assets/**/*.png
+!assets/**/*.jpg
+!assets/**/*.jpeg
+!assets/**/*.webp
+!assets/**/*.gif

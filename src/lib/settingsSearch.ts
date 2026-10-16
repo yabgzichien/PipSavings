@@ -29,6 +29,7 @@ export type SettingItemKey =
   | 'data_tax'
   | 'data_categories'
   | 'data_currencies'
+  | 'data_friends'
   | 'data_import'
   | 'data_export'
   | 'data_backup'
@@ -509,6 +510,30 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
       '图标',
       '自定义分类',
       '编辑分类',
+    ],
+  },
+  {
+    key: 'data_friends',
+    section: 'data',
+    sectionTitleEn: 'Data',
+    sectionTitleZh: '数据与管理',
+    titleEn: 'Friends',
+    titleZh: '好友',
+    keywords: [
+      'friends',
+      'friend',
+      'people',
+      'person',
+      'contacts',
+      'split',
+      'split bill',
+      'rename',
+      'names',
+      '好友',
+      '朋友',
+      '人员',
+      '分账',
+      '联系人',
     ],
   },
   {

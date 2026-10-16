@@ -177,28 +177,32 @@ it('shows View monthly story for eligible completed months and hides it for inel
   expect(storyButtons(treeTransfer)).toHaveLength(0);
 });
 
-it('opens sparse and full story models with the correct scene count', () => {
+it('opens short and full story models with the correct scene count', () => {
   mockState.transactions = [expense({ date: '2026-08-10' })];
-  const treeSparse = render({ initialMonth: '2026-08' });
-  press(treeSparse, 'View monthly story');
-  const modalSparse = treeSparse.root.findByType(RecapStoryModal);
-  expect(modalSparse.props.visible).toBe(true);
-  expect(modalSparse.props.model.kind).toBe('sparse');
-  expect(modalSparse.props.model.scenes).toHaveLength(3);
+  const treeShort = render({ initialMonth: '2026-08' });
+  press(treeShort, 'View monthly story');
+  const modalShort = treeShort.root.findByType(RecapStoryModal);
+  expect(modalShort.props.visible).toBe(true);
+  expect(modalShort.props.model.kind).toBe('short');
+  expect(modalShort.props.model.scenes.map((scene: any) => scene.id)).toEqual(['ritual', 'finale']);
 
+  // #1 spot, biggest day and versus last month: enough for the full story.
   mockState.transactions = [
-    expense({ date: '2026-08-01' }),
+    expense({ date: '2026-07-10' }),
     expense({ date: '2026-08-01' }),
     expense({ date: '2026-08-02' }),
     expense({ date: '2026-08-03' }),
-    expense({ date: '2026-08-03' }),
+    expense({ date: '2026-08-04' }),
+    expense({ date: '2026-08-05' }),
   ];
   const treeFull = render({ initialMonth: '2026-08' });
   press(treeFull, 'View monthly story');
   const modalFull = treeFull.root.findByType(RecapStoryModal);
   expect(modalFull.props.visible).toBe(true);
   expect(modalFull.props.model.kind).toBe('full');
-  expect(modalFull.props.model.scenes).toHaveLength(5);
+  expect(modalFull.props.model.currency).toBe('MYR');
+  expect(modalFull.props.model.scenes.map((scene: any) => scene.id))
+    .toEqual(['ritual', 'topSpot', 'biggestDay', 'versusLastMonth', 'finale']);
 });
 
 it('initialStoryOpen opens exactly once and calls onInitialStoryHandled', () => {
@@ -221,10 +225,10 @@ it('changing the selected recap month closes the old model and rebuilds the new 
   mockState.transactions = [
     expense({ date: '2026-07-10' }),
     expense({ date: '2026-08-01' }),
-    expense({ date: '2026-08-01' }),
     expense({ date: '2026-08-02' }),
     expense({ date: '2026-08-03' }),
-    expense({ date: '2026-08-03' }),
+    expense({ date: '2026-08-04' }),
+    expense({ date: '2026-08-05' }),
   ];
   const onMonthChange = jest.fn();
   const tree = render({ initialMonth: '2026-08', onMonthChange });
@@ -238,5 +242,5 @@ it('changing the selected recap month closes the old model and rebuilds the new 
 
   press(tree, 'View monthly story');
   expect(tree.root.findByType(RecapStoryModal).props.model.month).toBe('2026-07');
-  expect(tree.root.findByType(RecapStoryModal).props.model.kind).toBe('sparse');
+  expect(tree.root.findByType(RecapStoryModal).props.model.kind).toBe('short');
 });

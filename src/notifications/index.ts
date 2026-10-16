@@ -76,6 +76,17 @@ export async function ensurePermission(): Promise<boolean> {
   return asked.granted;
 }
 
+
+export type PermissionStatus = 'granted' | 'denied' | 'undetermined';
+
+/** Where the OS permission stands, without prompting. Settings uses it to say plainly when
+ *  reminders are switched on in Pip but the phone is not letting them through. */
+export async function getPermissionStatus(): Promise<PermissionStatus> {
+  const current = await Notifications.getPermissionsAsync();
+  if (current.granted) return 'granted';
+  return current.canAskAgain ? 'undetermined' : 'denied';
+}
+
 /**
  * Replace every reminder we have scheduled with the given plan.
  *

@@ -367,6 +367,14 @@ async function init(): Promise<SQLite.SQLiteDatabase> {
     // index already present
   }
 
+  // Migration (2026-10-15, scan times): the clock time printed on a scanned row. Nullable, and
+  // only ever a duplicate hint ("same time, 12:55"), so existing rows need no backfill.
+  try {
+    await db.execAsync('ALTER TABLE transactions ADD COLUMN txn_time TEXT');
+  } catch {
+    // column already present
+  }
+
   // Migration (2026-09-09, trip icons): the trip's chosen landmark key or custom image URI.
   // Nullable, and null is meaningful — it means "derive the icon from the name" rather than
   // "no icon", so every existing trip picks up an auto-matched landmark with no backfill.

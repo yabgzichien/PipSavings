@@ -34,6 +34,9 @@ import {
 
 const withPro = { entitlements: { active: { [PRO_ENTITLEMENT]: { isActive: true } } } } as never;
 const withoutPro = { entitlements: { active: {} } } as never;
+// `as never` is right for passing a partial customer-info object into typed APIs, but a
+// `never` cannot be spread. Spread this instead where a fixture is extended.
+const withoutProInfo = { entitlements: { active: {} } };
 
 describe('resolveSdkKey', () => {
   it('uses the Play public key in release when env is missing or a Test Store key', () => {
@@ -127,7 +130,7 @@ describe('fetchManagementURL', () => {
 
   it('returns the store management URL', async () => {
     (Purchases.getCustomerInfo as jest.Mock).mockResolvedValue({
-      ...withoutPro,
+      ...withoutProInfo,
       managementURL: 'https://play.google.com/store/account/subscriptions',
     });
     expect(await fetchManagementURL()).toBe(
@@ -137,7 +140,7 @@ describe('fetchManagementURL', () => {
 
   it('returns null when the store has no management URL', async () => {
     (Purchases.getCustomerInfo as jest.Mock).mockResolvedValue({
-      ...withoutPro,
+      ...withoutProInfo,
       managementURL: null,
     });
     expect(await fetchManagementURL()).toBeNull();
@@ -160,7 +163,9 @@ describe('restore', () => {
 
 describe('fetchCurrentOffering', () => {
   it('returns the current offering on the first successful lookup', async () => {
-    const getOfferings = jest.fn(async () => ({ current: { identifier: 'default' } }));
+    const getOfferings = jest.fn(async () => ({ current: { identifier: 'default' } })) as unknown as jest.Mock<
+      Promise<{ current: import('react-native-purchases').PurchasesOffering | null }>
+    >;
     const delay = jest.fn(async () => {});
     await expect(fetchCurrentOffering(getOfferings, { delay })).resolves.toEqual({ identifier: 'default' });
     expect(getOfferings).toHaveBeenCalledTimes(1);

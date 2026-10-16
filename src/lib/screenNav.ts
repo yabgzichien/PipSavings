@@ -23,6 +23,7 @@ export type Screen =
   | 'netWorthHistory'
   | 'tax'
   | 'currencySettings'
+  | 'friends'
   | 'backup'
   | 'widgetCustomizer'
   | 'paywall'
@@ -61,6 +62,7 @@ export function backTargetFor(screen: Screen, origins: ScreenOrigins): Screen | 
     case 'advancedImport':
     case 'tax':
     case 'categories':
+    case 'friends':
     case 'backup':
     case 'widgetCustomizer':
       return 'settings';

@@ -68,9 +68,10 @@ async function callGemini(model: string, apiKey: string, parts: GeminiPart[], op
 
   let res: Response;
   try {
-    res = await fetch(`${BASE}/${model || DEFAULT_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    // Header rather than `?key=`: the key must not ride in the URL (history, proxies, logs).
+    res = await fetch(`${BASE}/${model || DEFAULT_MODEL}:generateContent`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
     });
   } catch {

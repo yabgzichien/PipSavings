@@ -1271,7 +1271,7 @@ export function generateAdvancedImportJSON(data: FinancialReportData, extra?: Co
       source: t.source ?? 'manual',
       nativeAmount: t.nativeAmount ?? null,
       fxRate: t.fxRate ?? null,
-      ...(includesTrips ? { tripId: t.tripId ?? null } : {}),
+      ...(includesTrips ? { tripId: t.tripId ?? null, time: t.time ?? null } : {}),
       createdAt: t.createdAt,
       receiptFile: t.receiptUri ? extra?.receiptFileByUri?.get(t.receiptUri) : undefined,
     }));
